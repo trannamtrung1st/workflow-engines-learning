@@ -1,0 +1,9 @@
+services:
+  service-1:
+    image: hello-world:latest
+    networks:
+      - we-learning
+
+networks:
+  we-learning:
+    driver: bridge
