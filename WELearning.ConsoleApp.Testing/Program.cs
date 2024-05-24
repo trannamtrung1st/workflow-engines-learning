@@ -1,2 +1,14 @@
-﻿// See https://aka.ms/new-console-template for more information
-Console.WriteLine("Hello, World!");
+﻿
+using System.Text.Json;
+using WELearning.ConsoleApp.Testing.Processes;
+
+var process = RectangleAreaProcess.Build();
+
+// [TODO] perimeter
+
+var processDesign = JsonSerializer.Serialize(process, new JsonSerializerOptions
+{
+    WriteIndented = true
+});
+
+Console.WriteLine(processDesign);
