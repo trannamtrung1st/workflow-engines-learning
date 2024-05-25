@@ -1,5 +1,5 @@
 using WELearning.Core.FunctionBlocks.Models.Design;
-using WELearning.Core.Shared.Constants;
+using WELearning.Core.FunctionBlocks.Constants;
 
 namespace WELearning.ConsoleApp.Testing.Processes;
 
@@ -11,8 +11,7 @@ public static class RectangleAreaProcess
 
         var bMultiply = PredefinedBlocks.Multiply;
         {
-            var blocks = new List<FunctionBlock>();
-            blocks.Add(bMultiply);
+            var blocks = new List<FunctionBlock> { bMultiply };
             process.Blocks = blocks;
         }
 

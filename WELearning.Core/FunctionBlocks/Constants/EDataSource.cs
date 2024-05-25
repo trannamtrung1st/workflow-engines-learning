@@ -1,4 +1,4 @@
-namespace WELearning.Core.Shared.Constants;
+namespace WELearning.Core.FunctionBlocks.Constants;
 
 public enum EDataSource
 {

@@ -1,4 +1,4 @@
-using WELearning.Core.Shared.Constants;
+using WELearning.Core.Constants;
 
 namespace WELearning.Core.FunctionBlocks.Models.Design;
 
