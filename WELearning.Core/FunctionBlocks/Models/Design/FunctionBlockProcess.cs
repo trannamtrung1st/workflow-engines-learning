@@ -11,7 +11,9 @@ public class FunctionBlockProcess
     public string Id { get; set; }
     public string Name { get; set; }
 
+    public IEnumerable<string> DefaultBlockIds { get; set; }
     public IEnumerable<FunctionBlock> Blocks { get; set; }
+
     public IEnumerable<BlockEventConnection> EventConnections { get; set; }
     public IEnumerable<BlockDataConnection> DataConnections { get; set; }
 }

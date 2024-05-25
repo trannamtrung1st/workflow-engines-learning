@@ -1,8 +1,8 @@
 namespace WELearning.Core.FunctionBlocks.Models.Design;
 
-public class BlockExecutionControl
+public class BlockExecutionControlChart
 {
-    public BlockState InitialState { get; set; }
+    public string InitialState { get; set; }
     public IEnumerable<BlockState> States { get; set; }
     public IEnumerable<BlockStateTransition> StateTransitions { get; set; }
 }

@@ -13,6 +13,7 @@ public static class RectangleAreaProcess
         {
             var blocks = new List<FunctionBlock> { bMultiply };
             process.Blocks = blocks;
+            process.DefaultBlockIds = new[] { bMultiply.Id };
         }
 
         {
@@ -23,8 +24,8 @@ public static class RectangleAreaProcess
 
         {
             var dataConnections = new List<BlockDataConnection>();
-            dataConnections.Add(new(blockId: bMultiply.Id, variableName: "X", source: EDataSource.External));
-            dataConnections.Add(new(blockId: bMultiply.Id, variableName: "Y", source: EDataSource.External));
+            dataConnections.Add(new(blockId: bMultiply.Id, variableName: "X", displayName: "Length", source: EDataSource.External));
+            dataConnections.Add(new(blockId: bMultiply.Id, variableName: "Y", displayName: "Width", source: EDataSource.External));
             process.DataConnections = dataConnections;
         }
 

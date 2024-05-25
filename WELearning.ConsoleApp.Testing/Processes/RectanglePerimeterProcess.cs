@@ -1,5 +1,4 @@
 using WELearning.Core.FunctionBlocks.Models.Design;
-using WELearning.Core.Constants;
 using WELearning.Core.FunctionBlocks.Constants;
 
 namespace WELearning.ConsoleApp.Testing.Processes;
@@ -15,6 +14,7 @@ public static class RectanglePerimeterProcess
         {
             var blocks = new List<FunctionBlock> { bAdd, bMultiply };
             process.Blocks = blocks;
+            process.DefaultBlockIds = new[] { bAdd.Id };
         }
 
         {
@@ -30,16 +30,16 @@ public static class RectanglePerimeterProcess
 
         {
             var dataConnections = new List<BlockDataConnection>();
-            dataConnections.Add(new(blockId: bAdd.Id, variableName: "X", source: EDataSource.External));
-            dataConnections.Add(new(blockId: bAdd.Id, variableName: "Y", source: EDataSource.External));
-            dataConnections.Add(new(blockId: bMultiply.Id, variableName: "X", source: EDataSource.Internal)
+            dataConnections.Add(new(blockId: bAdd.Id, variableName: "X", displayName: "Length", source: EDataSource.External));
+            dataConnections.Add(new(blockId: bAdd.Id, variableName: "Y", displayName: "Width", source: EDataSource.External));
+            dataConnections.Add(new(blockId: bMultiply.Id, variableName: "X", displayName: null, source: EDataSource.Internal)
             {
                 SourceBlockId = bAdd.Id,
                 SourceVariableName = "Result"
             });
-            dataConnections.Add(new(blockId: bMultiply.Id, variableName: "Y", source: EDataSource.Internal)
+            dataConnections.Add(new(blockId: bMultiply.Id, variableName: "Y", displayName: null, source: EDataSource.Internal)
             {
-                ConstantVariable = new(name: "2", dataType: EDataType.Int, constantValue: 2)
+                ConstantValue = 2
             });
             process.DataConnections = dataConnections;
         }

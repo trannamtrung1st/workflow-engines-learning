@@ -23,6 +23,7 @@ static class PredefinedBlocks
         var eRun = new BlockEvent(name: "Run", variableNames: new[] { iX.Name, iY.Name });
         inputEvents.Add(eRun);
         bMultiply.InputEvents = inputEvents;
+        bMultiply.DefaultTriggerEvent = eRun.Name;
 
         var outputEvents = new List<BlockEvent>();
         var eCompleted = new BlockEvent(name: "Completed", variableNames: new[] { oResult.Name });
@@ -30,16 +31,16 @@ static class PredefinedBlocks
         bMultiply.OutputEvents = outputEvents;
 
         var lRun = new Logic(
-            id: "RunCs",
-            name: "Run (C#)",
+            id: "Run",
+            name: "Run",
             content: @$"
             await FB.Var(""{oResult.Name}"").Write({iX.Name} * {iY.Name});
             await FB.Publish(""{eCompleted.Name}"");
             ",
             runtime: new CSharpScriptRuntime(usings: null));
         var lHandleInvalid = new Logic(
-            id: "HandleInvalidCs",
-            name: "Handle invalid (C#)",
+            id: "HandleInvalid",
+            name: "Handle invalid",
             content: @$"
             FB.LogWarning($""Invalid arguments {iX.Name}={{{iX.Name}}}, {iY.Name}={{{iY.Name}}}"");
             await FB.Publish(""{eCompleted.Name}"");
@@ -49,7 +50,7 @@ static class PredefinedBlocks
         bMultiply.Logics = logics;
 
         {
-            var execControl = new BlockExecutionControl();
+            var execControl = new BlockExecutionControlChart();
 
             var sIdle = new BlockState("Idle");
             var sRunning = new BlockState("Running");
@@ -59,17 +60,15 @@ static class PredefinedBlocks
             var transitions = new List<BlockStateTransition>();
             {
                 var tIdle2Invalid = new BlockStateTransition(fromState: sIdle.Name, toState: sInvalid.Name, triggerEventName: eRun.Name);
-                var tIdle2InvalidConditions = new List<Logic>();
-                tIdle2InvalidConditions.Add(new(
-                    id: "InvalidConditionCs",
-                    name: "Invalid condition (C#)",
+                tIdle2Invalid.TriggerCondition = new(
+                    id: "InvalidCondition",
+                    name: "Invalid condition",
                     content: @$"return !FB.Var(""{iX.Name}"").Exists || !FB.Var(""{iY.Name}"").Exists;",
-                    runtime: new CSharpScriptRuntime(usings: null)));
-                tIdle2Invalid.TriggerConditions = tIdle2InvalidConditions;
-                tIdle2Invalid.ActionLogicIds = new[] { lHandleInvalid.Id };
+                    runtime: new CSharpScriptRuntime(usings: null));
+                tIdle2Invalid.ActionLogicId = lHandleInvalid.Id;
 
                 var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eRun.Name);
-                tIdle2Running.ActionLogicIds = new[] { lRun.Id };
+                tIdle2Running.ActionLogicId = lRun.Id;
 
                 transitions.Add(tIdle2Invalid);
                 transitions.Add(tIdle2Running);
@@ -79,8 +78,8 @@ static class PredefinedBlocks
 
             execControl.States = states;
             execControl.StateTransitions = transitions;
-            execControl.InitialState = sIdle;
-            bMultiply.ExecutionControl = execControl;
+            execControl.InitialState = sIdle.Name;
+            bMultiply.ExecutionControlChart = execControl;
         }
 
         return bMultiply;
@@ -103,6 +102,7 @@ static class PredefinedBlocks
         var eRun = new BlockEvent(name: "Run", variableNames: new[] { iX.Name, iY.Name });
         inputEvents.Add(eRun);
         bAdd.InputEvents = inputEvents;
+        bAdd.DefaultTriggerEvent = eRun.Name;
 
         var outputEvents = new List<BlockEvent>();
         var eCompleted = new BlockEvent(name: "Completed", variableNames: new[] { oResult.Name });
@@ -110,16 +110,16 @@ static class PredefinedBlocks
         bAdd.OutputEvents = outputEvents;
 
         var lRun = new Logic(
-            id: "RunCs",
-            name: "Run (C#)",
+            id: "Run",
+            name: "Run",
             content: @$"
             await FB.Var(""{oResult.Name}"").Write({iX.Name} + {iY.Name});
             await FB.Publish(""{eCompleted.Name}"");
             ",
             runtime: new CSharpScriptRuntime(usings: null));
         var lHandleInvalid = new Logic(
-            id: "HandleInvalidCs",
-            name: "Handle invalid (C#)",
+            id: "HandleInvalid",
+            name: "Handle invalid",
             content: @$"
             FB.LogWarning($""Invalid arguments {iX.Name}={{{iX.Name}}}, {iY.Name}={{{iY.Name}}}"");
             await FB.Publish(""{eCompleted.Name}"");
@@ -129,7 +129,7 @@ static class PredefinedBlocks
         bAdd.Logics = logics;
 
         {
-            var execControl = new BlockExecutionControl();
+            var execControl = new BlockExecutionControlChart();
 
             var sIdle = new BlockState("Idle");
             var sRunning = new BlockState("Running");
@@ -139,17 +139,15 @@ static class PredefinedBlocks
             var transitions = new List<BlockStateTransition>();
             {
                 var tIdle2Invalid = new BlockStateTransition(fromState: sIdle.Name, toState: sInvalid.Name, triggerEventName: eRun.Name);
-                var tIdle2InvalidConditions = new List<Logic>();
-                tIdle2InvalidConditions.Add(new(
-                    id: "InvalidConditionCs",
-                    name: "Invalid condition (C#)",
+                tIdle2Invalid.TriggerCondition = new(
+                    id: "InvalidCondition",
+                    name: "Invalid condition",
                     content: @$"return !FB.Var(""{iX.Name}"").Exists || !FB.Var(""{iY.Name}"").Exists;",
-                    runtime: new CSharpScriptRuntime(usings: null)));
-                tIdle2Invalid.TriggerConditions = tIdle2InvalidConditions;
-                tIdle2Invalid.ActionLogicIds = new[] { lHandleInvalid.Id };
+                    runtime: new CSharpScriptRuntime(usings: null));
+                tIdle2Invalid.ActionLogicId = lHandleInvalid.Id;
 
                 var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eRun.Name);
-                tIdle2Running.ActionLogicIds = new[] { lRun.Id };
+                tIdle2Running.ActionLogicId = lRun.Id;
 
                 transitions.Add(tIdle2Invalid);
                 transitions.Add(tIdle2Running);
@@ -159,8 +157,8 @@ static class PredefinedBlocks
 
             execControl.States = states;
             execControl.StateTransitions = transitions;
-            execControl.InitialState = sIdle;
-            bAdd.ExecutionControl = execControl;
+            execControl.InitialState = sIdle.Name;
+            bAdd.ExecutionControlChart = execControl;
         }
 
         return bAdd;
