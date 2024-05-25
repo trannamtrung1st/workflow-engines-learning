@@ -10,7 +10,7 @@ public class BlockExecutionTaskInfo
         {
             Result = task.Result;
             CompletedTime = DateTime.UtcNow;
-        });
+        }, continuationOptions: TaskContinuationOptions.NotOnFaulted);
     }
 
     public string BlockId { get; }

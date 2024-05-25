@@ -1,5 +1,6 @@
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.Constants;
+using WELearning.DynamicCodeExecution.Constants;
 
 static class PredefinedBlocks
 {
@@ -34,18 +35,23 @@ static class PredefinedBlocks
             id: "Run",
             name: "Run",
             content: @$"
-            await FB.Var(""{oResult.Name}"").Write({iX.Name} * {iY.Name});
+            var x = FB.GetDouble(""{iX.Name}"");
+            var y = FB.GetDouble(""{iY.Name}"");
+            var result = x * y;
+            await FB.Set(""{oResult.Name}"", result);
             await FB.Publish(""{eCompleted.Name}"");
             ",
-            runtime: new CSharpScriptRuntime(usings: null));
+            runtime: ERuntime.CSharpScript,
+            imports: null, assemblies: null);
         var lHandleInvalid = new Logic(
             id: "HandleInvalid",
             name: "Handle invalid",
             content: @$"
-            FB.LogWarning($""Invalid arguments {iX.Name}={{{iX.Name}}}, {iY.Name}={{{iY.Name}}}"");
+            FB.LogWarning(""Invalid arguments {iX.Name}, {iY.Name}"");
             await FB.Publish(""{eCompleted.Name}"");
             ",
-            runtime: new CSharpScriptRuntime(usings: null));
+            runtime: ERuntime.CSharpScript,
+            imports: null, assemblies: null);
         var logics = new[] { lRun, lHandleInvalid };
         bMultiply.Logics = logics;
 
@@ -63,8 +69,12 @@ static class PredefinedBlocks
                 tIdle2Invalid.TriggerCondition = new(
                     id: "InvalidCondition",
                     name: "Invalid condition",
-                    content: @$"return !FB.Var(""{iX.Name}"").Exists || !FB.Var(""{iY.Name}"").Exists;",
-                    runtime: new CSharpScriptRuntime(usings: null));
+                    content: @$"
+                        var x = FB.Get(""{iX.Name}""); var y = FB.Get(""{iY.Name}"");
+                        return !x.Exists || !y.Exists || !x.IsNumeric || !y.IsNumeric;
+                    ",
+                    runtime: ERuntime.CSharpScript,
+                    imports: null, assemblies: null);
                 tIdle2Invalid.ActionLogicId = lHandleInvalid.Id;
 
                 var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eRun.Name);
@@ -113,18 +123,23 @@ static class PredefinedBlocks
             id: "Run",
             name: "Run",
             content: @$"
-            await FB.Var(""{oResult.Name}"").Write({iX.Name} + {iY.Name});
+            var x = FB.GetDouble(""{iX.Name}"");
+            var y = FB.GetDouble(""{iY.Name}"");
+            var result = x + y;
+            await FB.Set(""{oResult.Name}"", result);
             await FB.Publish(""{eCompleted.Name}"");
             ",
-            runtime: new CSharpScriptRuntime(usings: null));
+            runtime: ERuntime.CSharpScript,
+            imports: null, assemblies: null);
         var lHandleInvalid = new Logic(
             id: "HandleInvalid",
             name: "Handle invalid",
             content: @$"
-            FB.LogWarning($""Invalid arguments {iX.Name}={{{iX.Name}}}, {iY.Name}={{{iY.Name}}}"");
+            FB.LogWarning(""Invalid arguments {iX.Name}, {iY.Name}"");
             await FB.Publish(""{eCompleted.Name}"");
             ",
-            runtime: new CSharpScriptRuntime(usings: null));
+            runtime: ERuntime.CSharpScript,
+            imports: null, assemblies: null);
         var logics = new[] { lRun, lHandleInvalid };
         bAdd.Logics = logics;
 
@@ -142,8 +157,12 @@ static class PredefinedBlocks
                 tIdle2Invalid.TriggerCondition = new(
                     id: "InvalidCondition",
                     name: "Invalid condition",
-                    content: @$"return !FB.Var(""{iX.Name}"").Exists || !FB.Var(""{iY.Name}"").Exists;",
-                    runtime: new CSharpScriptRuntime(usings: null));
+                    content: @$"
+                        var x = FB.Get(""{iX.Name}""); var y = FB.Get(""{iY.Name}"");
+                        return !x.Exists || !y.Exists || !x.IsNumeric || !y.IsNumeric;
+                    ",
+                    runtime: ERuntime.CSharpScript,
+                    imports: null, assemblies: null);
                 tIdle2Invalid.ActionLogicId = lHandleInvalid.Id;
 
                 var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eRun.Name);

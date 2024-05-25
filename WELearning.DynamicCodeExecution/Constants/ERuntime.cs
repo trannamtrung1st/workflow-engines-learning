@@ -1,4 +1,4 @@
-namespace WELearning.Core.Constants;
+namespace WELearning.DynamicCodeExecution.Constants;
 
 public enum ERuntime
 {

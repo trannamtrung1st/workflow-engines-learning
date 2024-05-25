@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
 
 namespace WELearning.Core.FunctionBlocks.Models.Runtime;
@@ -7,12 +8,14 @@ public class ProcessExecutionControl
 {
     public ProcessExecutionControl()
     {
-        ProcessTasks = new ConcurrentBag<BlockExecutionTaskInfo>();
-        BlockExecutionControlMap = new ConcurrentDictionary<string, BlockExecutionControl>();
+        ProcessTasks = new();
+        ExecutionTasks = new();
+        BlockExecutionMap = new();
     }
 
-    public ConcurrentBag<BlockExecutionTaskInfo> ProcessTasks { get; }
-    public ConcurrentDictionary<string, BlockExecutionControl> BlockExecutionControlMap { get; }
+    public ConcurrentBag<Task> ProcessTasks { get; }
+    public ConcurrentBag<BlockExecutionTaskInfo> ExecutionTasks { get; }
+    public ConcurrentDictionary<string, (BlockExecutionControl Control, IBlockFramework Framework)> BlockExecutionMap { get; }
     public virtual Exception Exception { get; protected internal set; }
     public virtual EProcessExecutionStatus Status { get; protected internal set; }
 }
