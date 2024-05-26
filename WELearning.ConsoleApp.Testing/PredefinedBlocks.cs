@@ -1,13 +1,63 @@
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.Constants;
 using WELearning.DynamicCodeExecution.Constants;
+using System.Reflection;
+using WELearning.Core.FunctionBlocks.Framework;
 
 static class PredefinedBlocks
 {
-    public static readonly FunctionBlock Multiply = CreateBlockMultiply();
+    public static readonly FunctionBlock MultiplyCsScript = CreateBlockMultiplyCsScript();
+    public static readonly FunctionBlock MultiplyCsCompiled = CreateBlockMultiplyCsCompiled();
     public static readonly FunctionBlock Add = CreateBlockAdd();
 
-    private static FunctionBlock CreateBlockMultiply()
+    #region Multiply
+    private static FunctionBlock CreateBlockMultiplyCsScript()
+    {
+        return CreateBlockMultiplyCs(
+            multiplyScriptProvider: s => s,
+            handleInvalidScriptProvider: s => s,
+            invalidConditionScriptProvider: s => s,
+            runtime: ERuntime.CSharpScript,
+            imports: null, assemblies: null
+        );
+    }
+
+    private static FunctionBlock CreateBlockMultiplyCsCompiled()
+    {
+        var mscorlib = typeof(object).GetTypeInfo().Assembly;
+        var assemblies = new List<Assembly> { mscorlib };
+        var dllNames = new string[]
+        {
+            "System.Runtime",
+            // "System.Net.Http",
+            // "System.Threading",
+            // "System.Core",
+            // "System.Linq",
+            // "netstandard",
+        };
+        assemblies.AddRange(dllNames.Select(dll => Assembly.Load(dll)));
+
+        return CreateBlockMultiplyCs(
+            multiplyScriptProvider: s => BaseBlockFrameworkFunction.WrapScript(s),
+            handleInvalidScriptProvider: s => BaseBlockFrameworkFunction.WrapScript(s),
+            invalidConditionScriptProvider: s => BaseBlockFrameworkFunction<bool>.WrapScript(s),
+            runtime: ERuntime.CSharpCompiled,
+            imports: new[]
+            {
+                "System.Threading",
+                "System.Threading.Tasks",
+                "WELearning.Core.FunctionBlocks.Framework"
+            }, assemblies: assemblies
+        );
+    }
+
+    private static FunctionBlock CreateBlockMultiplyCs(
+        Func<string, string> multiplyScriptProvider,
+        Func<string, string> handleInvalidScriptProvider,
+        Func<string, string> invalidConditionScriptProvider,
+        ERuntime runtime,
+        IEnumerable<string> imports,
+        IEnumerable<Assembly> assemblies)
     {
         var bMultiply = new FunctionBlock(id: "Multiply", name: "Multiply X * Y");
 
@@ -34,24 +84,24 @@ static class PredefinedBlocks
         var lRun = new Logic(
             id: "Run",
             name: "Run",
-            content: @$"
+            content: multiplyScriptProvider(@$"
             var x = FB.GetDouble(""{iX.Name}"");
             var y = FB.GetDouble(""{iY.Name}"");
             var result = x * y;
             await FB.Set(""{oResult.Name}"", result);
             await FB.Publish(""{eCompleted.Name}"");
-            ",
-            runtime: ERuntime.CSharpScript,
-            imports: null, assemblies: null);
+            "),
+            runtime: runtime,
+            imports: imports, assemblies: assemblies);
         var lHandleInvalid = new Logic(
             id: "HandleInvalid",
             name: "Handle invalid",
-            content: @$"
+            content: handleInvalidScriptProvider(@$"
             FB.LogWarning(""Invalid arguments {iX.Name}, {iY.Name}"");
             await FB.Publish(""{eCompleted.Name}"");
-            ",
-            runtime: ERuntime.CSharpScript,
-            imports: null, assemblies: null);
+            "),
+            runtime: runtime,
+            imports: imports, assemblies: assemblies);
         var logics = new[] { lRun, lHandleInvalid };
         bMultiply.Logics = logics;
 
@@ -69,12 +119,12 @@ static class PredefinedBlocks
                 tIdle2Invalid.TriggerCondition = new(
                     id: "InvalidCondition",
                     name: "Invalid condition",
-                    content: @$"
+                    content: invalidConditionScriptProvider(@$"
                         var x = FB.Get(""{iX.Name}""); var y = FB.Get(""{iY.Name}"");
                         return !x.Exists || !y.Exists || !x.IsNumeric || !y.IsNumeric;
-                    ",
-                    runtime: ERuntime.CSharpScript,
-                    imports: null, assemblies: null);
+                    "),
+                    runtime: runtime,
+                    imports: imports, assemblies: assemblies);
                 tIdle2Invalid.ActionLogicId = lHandleInvalid.Id;
 
                 var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eRun.Name);
@@ -94,6 +144,7 @@ static class PredefinedBlocks
 
         return bMultiply;
     }
+    #endregion
 
     private static FunctionBlock CreateBlockAdd()
     {

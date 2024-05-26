@@ -5,11 +5,10 @@ namespace WELearning.ConsoleApp.Testing.Processes;
 
 public static class RectangleAreaProcess
 {
-    public static FunctionBlockProcess Build()
+    public static FunctionBlockProcess Build(FunctionBlock bMultiply)
     {
         var process = new FunctionBlockProcess(id: "RectangleArea", name: "Calculate area of rectangle");
 
-        var bMultiply = PredefinedBlocks.Multiply;
         {
             var blocks = new List<FunctionBlock> { bMultiply };
             process.Blocks = blocks;

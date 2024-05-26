@@ -26,7 +26,7 @@ public class CSharpScriptEngine : IRuntimeEngine
 
     public async Task<TReturn> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken = default)
     {
-        var (CacheKey, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, returnType: typeof(TReturn), argType: typeof(TArg), cancellationToken);
+        var (CacheKey, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, cancellationToken);
         var script = _memoryCache.GetOrCreate(CacheKey, (entry) =>
         {
             entry.SetSize(CacheSize);
@@ -41,7 +41,7 @@ public class CSharpScriptEngine : IRuntimeEngine
 
     public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken = default)
     {
-        var (CacheKey, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, returnType: null, argType: typeof(TArg), cancellationToken);
+        var (CacheKey, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, cancellationToken);
         var script = _memoryCache.GetOrCreate(CacheKey, (entry) =>
         {
             entry.SetSize(CacheSize);
@@ -57,13 +57,12 @@ public class CSharpScriptEngine : IRuntimeEngine
     private async Task<(byte[] CacheKey, long CacheSize)> GetScriptCacheEntry(
         string content, IEnumerable<string> imports,
         IEnumerable<Assembly> assemblies,
-        Type returnType, Type argType,
         CancellationToken cancellationToken)
     {
         using var md5 = MD5.Create();
         var importsStr = imports != null ? string.Join(string.Empty, imports) : null;
         var assembliesStr = assemblies != null ? string.Join(string.Empty, assemblies.Select(ass => ass.FullName)) : null;
-        var hashContent = $"{content}_{importsStr}_{assembliesStr}_{returnType?.FullName}_{argType?.FullName}";
+        var hashContent = $"{content}_{importsStr}_{assembliesStr}";
         using var memStream = new MemoryStream(Encoding.UTF8.GetBytes(hashContent));
         var hash = await md5.ComputeHashAsync(memStream, cancellationToken);
         var contentSizeInBytes = hashContent.Length * 2;
