@@ -7,5 +7,5 @@ public interface IBlockBinding
     bool Exists { get; }
     bool Is<T>();
     bool IsNumeric { get; }
-    void Set(object value);
+    Task Set(object value);
 }

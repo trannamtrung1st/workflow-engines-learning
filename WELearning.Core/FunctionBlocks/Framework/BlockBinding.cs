@@ -12,12 +12,12 @@ public class BlockBinding : IBlockBinding
         Name = name;
         if (control.InputSnapshot.TryGetValue(name, out var inputValue))
         {
-            Exists = true;
+            Exists = true; IsInput = true; IsOutput = false;
             Value = inputValue;
         }
         else if (control.OutputSnapshot.TryGetValue(name, out var outputValue))
         {
-            Exists = true;
+            Exists = true; IsInput = false; IsOutput = true;
             Value = outputValue;
         }
     }
@@ -25,6 +25,8 @@ public class BlockBinding : IBlockBinding
     public string Name { get; }
     public virtual object Value { get; protected set; }
     public bool Exists { get; }
+    public bool IsInput { get; }
+    public bool IsOutput { get; }
 
     // Reference: https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/integral-numeric-types
     public bool IsNumeric => Value != null && (
@@ -36,9 +38,13 @@ public class BlockBinding : IBlockBinding
 
     public bool Is<T>() => Value != null && Value is T;
 
-    public virtual void Set(object value)
+    public virtual Task Set(object value)
     {
         Value = value;
-        _control.OutputSnapshot[Name] = value;
+        if (IsInput)
+            _control.InputSnapshot[Name] = value;
+        else if (IsOutput)
+            _control.OutputSnapshot[Name] = value;
+        return Task.CompletedTask;
     }
 }

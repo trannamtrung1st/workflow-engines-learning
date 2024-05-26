@@ -23,8 +23,7 @@ public class BlockFramework : IBlockFramework
     public Task Set(string name, object value)
     {
         var binding = Get(name);
-        binding.Set(value);
-        return Task.CompletedTask;
+        return binding.Set(value);
     }
 
     public IBlockFrameworkInstance CreateInstance()
