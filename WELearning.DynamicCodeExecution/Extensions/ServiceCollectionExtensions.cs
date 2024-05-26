@@ -8,7 +8,8 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddDefaultRuntimeEngines(this IServiceCollection services)
     {
-        return services.AddTransient<IRuntimeEngine, CSharpScriptEngine>()
+        return services
+            .AddTransient<IRuntimeEngine, CSharpScriptEngine>()
             .AddTransient<IRuntimeEngine, CSharpCompiledEngine>();
     }
 

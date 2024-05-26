@@ -22,14 +22,12 @@ public class ProcessRunner<TFramework> : IProcessRunner<TFramework>
         {
             var startingBlockTriggers = request.Triggers
                 ?? request.Process.DefaultBlockIds.Select(bId => new BlockTrigger(blockId: bId, triggerEvent: null));
-            RunBlocks(request.Process, blockTriggers: startingBlockTriggers, processContext, processControl);
-            Task[] runningTasks;
-            do
+            _ = RunAsync(() =>
             {
-                runningTasks = processControl.ProcessTasks.Where(t => !t.IsCompleted).ToArray();
-                if (runningTasks.Length > 0)
-                    await Task.WhenAll(runningTasks);
-            } while (runningTasks.Length > 0);
+                RunBlocks(request.Process, blockTriggers: startingBlockTriggers, processContext, processControl);
+                return Task.CompletedTask;
+            }, processControl);
+            await WaitForCompletion(processControl);
             processControl.Status = EProcessExecutionStatus.Completed;
         }
         catch (Exception ex)
@@ -62,15 +60,16 @@ public class ProcessRunner<TFramework> : IProcessRunner<TFramework>
         {
             var block = process.Blocks.FirstOrDefault(b => b.Id == trigger.BlockId);
             if (block == null) throw new KeyNotFoundException($"Block {trigger.BlockId} not found!");
-            var task = WaitForCompletion(processControl, block.Id).ContinueWith(async (task) =>
+            _ = RunAsync(async () =>
             {
-                var (blockControl, blockFramework) = GetBlockExecution(block, process, processContext, processControl);
+                await WaitForCompletion(processControl, block.Id);
+                var blockControl = GetBlockExecutionControl(block, process, processContext, processControl);
                 var triggerEvent = trigger.TriggerEvent ?? block.DefaultTriggerEvent;
                 await WaitAndPrepareInputs(triggerEvent, block, process, processContext, processControl, blockControl);
                 var runRequest = new RunBlockRequest(block, triggerEvent);
+                var blockFramework = _blockFrameworkFactory.Create(blockControl);
                 await RunBlock(runRequest, process, processContext, processControl, blockControl, blockFramework);
-            }, continuationOptions: TaskContinuationOptions.NotOnFaulted);
-            processControl.ProcessTasks.Add(task);
+            }, processControl);
         }
     }
 
@@ -119,7 +118,7 @@ public class ProcessRunner<TFramework> : IProcessRunner<TFramework>
                         {
                             await WaitForCompletion(processControl, connection.SourceBlockId);
                             var sourceBlock = process.Blocks.FirstOrDefault(b => b.Id == connection.SourceBlockId);
-                            var (sourceBlockControl, _) = GetBlockExecution(sourceBlock, process, processContext, processControl);
+                            var sourceBlockControl = GetBlockExecutionControl(sourceBlock, process, processContext, processControl);
                             var value = sourceBlockControl.OutputSnapshot[connection.SourceVariableName];
                             blockControl.InputSnapshot[connection.VariableName] = value;
                         }
@@ -131,19 +130,17 @@ public class ProcessRunner<TFramework> : IProcessRunner<TFramework>
         }
     }
 
-    protected virtual async Task<BlockExecutionTaskInfo> WaitForCompletion(ProcessExecutionControl<TFramework> control, string blockId)
+    protected virtual Task<BlockExecutionTaskInfo> WaitForCompletion(ProcessExecutionControl<TFramework> processControl, string blockId)
+        => processControl.WaitForCompletion(blockId);
+
+    protected virtual Task WaitForCompletion(ProcessExecutionControl<TFramework> processControl)
     {
-        var blockRunningTask = control.ExecutionTasks
-            .Where(t => t.BlockId == blockId)
-            .OrderByDescending(t => t.StartTime)
-            .FirstOrDefault();
-        if (blockRunningTask != null && blockRunningTask.CompletedTime == null)
-            await blockRunningTask.ExecutionTask;
-        return blockRunningTask;
+        processControl.WaitForCompletion();
+        return Task.CompletedTask;
     }
 
-    protected virtual (BlockExecutionControl Control, TFramework Framework) GetBlockExecution(FunctionBlock block, FunctionBlockProcess process, ProcessExecutionContext processContext, ProcessExecutionControl<TFramework> processControl)
-        => processControl.BlockExecutionMap.GetOrAdd(block.Id, (key) =>
+    protected virtual BlockExecutionControl GetBlockExecutionControl(FunctionBlock block, FunctionBlockProcess process, ProcessExecutionContext processContext, ProcessExecutionControl<TFramework> processControl)
+        => processControl.BlockExecutionControlMap.GetOrAdd(block.Id, (key) =>
         {
             var blockControl = new BlockExecutionControl(blockId: block.Id, initialState: block.ExecutionControlChart.InitialState);
             var outputVariables = block.Outputs.Select(o => o.Name).ToArray();
@@ -157,7 +154,17 @@ public class ProcessRunner<TFramework> : IProcessRunner<TFramework>
                 blockControl.OutputSnapshot[connection.VariableName] = binding.Value;
             }
 
-            var blockFramework = _blockFrameworkFactory.Create(blockControl);
-            return (blockControl, blockFramework);
+            return blockControl;
         });
+
+    private static async Task RunAsync(Func<Task> func, ProcessExecutionControl<TFramework> processControl)
+    {
+        processControl.StartProcess();
+        try
+        {
+            await Task.Yield();
+            await func();
+        }
+        finally { processControl.CompleteProcess(); }
+    }
 }

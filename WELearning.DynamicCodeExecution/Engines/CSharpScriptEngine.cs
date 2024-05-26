@@ -53,7 +53,7 @@ public class CSharpScriptEngine : IRuntimeEngine
         var result = await script.RunAsync(globals: arguments, cancellationToken: cancellationToken);
     }
 
-    private async Task<(byte[] CacheKey, long CacheSize)> GetScriptCacheEntry(
+    private async Task<(string CacheKey, long CacheSize)> GetScriptCacheEntry(
         string content, IEnumerable<string> imports,
         IEnumerable<Assembly> assemblies,
         CancellationToken cancellationToken)
@@ -65,7 +65,7 @@ public class CSharpScriptEngine : IRuntimeEngine
         using var memStream = new MemoryStream(Encoding.UTF8.GetBytes(hashContent));
         var hash = await md5.ComputeHashAsync(memStream, cancellationToken);
         var contentSizeInBytes = hashContent.Length * 2;
-        return (hash, contentSizeInBytes);
+        return (Encoding.UTF8.GetString(hash), contentSizeInBytes);
     }
 
     private ScriptOptions PrepareScriptOptions(IEnumerable<string> imports, IEnumerable<Assembly> assemblies)

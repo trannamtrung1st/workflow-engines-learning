@@ -7,8 +7,7 @@ using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
 using WELearning.DynamicCodeExecution.Extensions;
 
-var serviceCollection = new ServiceCollection();
-serviceCollection
+var serviceCollection = new ServiceCollection()
     .AddDefaultProcessRunner<AppFramework>()
     .AddDefaultBlockRunner<AppFramework>()
     .AddDefaultLogicRunner<AppFramework>()
@@ -23,6 +22,8 @@ var blockFrameworkFactory = serviceProvider.GetService<IBlockFrameworkFactory<Ap
 await RunBlockFactorial(blockRunner, blockFrameworkFactory, block: PredefinedBlocks.FactorialCsScript);
 
 await RunBlockRandomDouble(blockRunner, blockFrameworkFactory, block: PredefinedBlocks.RandomCsScript);
+
+await RunLoopProcess(processRunner, process: LoopProcess.Build());
 
 var rectangleAreaProcess = RectangleAreaProcess.Build(
     bMultiply: PredefinedBlocks.MultiplyCsScript
@@ -73,7 +74,7 @@ static async Task RunRectangleArea(IProcessRunner<AppFramework> processRunner, F
     var processControl = new ProcessExecutionControl<AppFramework>();
     await processRunner.Run(runRequest, processContext, processControl);
 
-    var finalResult = processControl.BlockExecutionMap["Multiply"].Control.OutputSnapshot["Result"];
+    var finalResult = processControl.BlockExecutionControlMap["Multiply"].OutputSnapshot["Result"];
     Console.WriteLine(finalResult);
 }
 
@@ -88,6 +89,19 @@ static async Task RunRectanglePerimeter(IProcessRunner<AppFramework> processRunn
     var processControl = new ProcessExecutionControl<AppFramework>();
     await processRunner.Run(runRequest, processContext, processControl);
 
-    var finalResult = processControl.BlockExecutionMap["Multiply"].Control.OutputSnapshot["Result"];
+    var finalResult = processControl.BlockExecutionControlMap["Multiply"].OutputSnapshot["Result"];
+    Console.WriteLine(finalResult);
+}
+
+static async Task RunLoopProcess(IProcessRunner<AppFramework> processRunner, FunctionBlockProcess process)
+{
+    var bindings = new HashSet<ProcessVariableBinding>();
+    bindings.Add(new(blockId: "LoopController", variableName: "N", value: 1000));
+    var runRequest = new RunProcessRequest(process);
+    var processContext = new ProcessExecutionContext(bindings);
+    var processControl = new ProcessExecutionControl<AppFramework>();
+    await processRunner.Run(runRequest, processContext, processControl);
+
+    var finalResult = processControl.BlockExecutionControlMap["LoopController"].OutputSnapshot["Result"];
     Console.WriteLine(finalResult);
 }
