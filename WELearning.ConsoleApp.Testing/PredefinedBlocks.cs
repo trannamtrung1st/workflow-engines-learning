@@ -6,11 +6,12 @@ using WELearning.Core.FunctionBlocks.Framework;
 
 static class PredefinedBlocks
 {
-    private static readonly Assembly AppFrameworkAssembly = typeof(AppFrameworkInstance).Assembly;
+    private static readonly Assembly AppFrameworkAssembly = typeof(AppFramework).Assembly;
     public static readonly FunctionBlock MultiplyCsScript = CreateBlockMultiplyCsScript();
     public static readonly FunctionBlock MultiplyCsCompiled = CreateBlockMultiplyCsCompiled();
     public static readonly FunctionBlock AddCsScript = CreateBlockAddCsScript();
     public static readonly FunctionBlock RandomCsScript = CreateBlockRandomCsScript();
+    public static readonly FunctionBlock FactorialCsScript = CreateBlockFactorialCsScript();
 
     #region Multiply
     private static FunctionBlock CreateBlockMultiplyCsScript()
@@ -41,9 +42,9 @@ static class PredefinedBlocks
         assemblies.AddRange(dllNames.Select(dll => Assembly.Load(dll)));
 
         return CreateBlockMultiplyCs(
-            multiplyScriptProvider: s => BaseBlockFrameworkFunction<AppFrameworkInstance>.WrapScript(s),
-            handleInvalidScriptProvider: s => BaseBlockFrameworkFunction<AppFrameworkInstance>.WrapScript(s),
-            invalidConditionScriptProvider: s => BaseBlockFrameworkFunction<bool, AppFrameworkInstance>.WrapScript(s),
+            multiplyScriptProvider: s => BaseBlockFrameworkFunction<AppFramework>.WrapScript(s),
+            handleInvalidScriptProvider: s => BaseBlockFrameworkFunction<AppFramework>.WrapScript(s),
+            invalidConditionScriptProvider: s => BaseBlockFrameworkFunction<bool, AppFramework>.WrapScript(s),
             runtime: ERuntime.CSharpCompiled,
             imports: new[]
             {
@@ -296,6 +297,114 @@ static class PredefinedBlocks
         }
 
         return bRandom;
+    }
+
+    private static FunctionBlock CreateBlockFactorialCsScript()
+    {
+        var assemblies = new[] { AppFrameworkAssembly };
+        var bFactorial = new FunctionBlock(id: "Factorial", name: "Factorial n!");
+
+        var iN = new Variable("N", EDataType.Int);
+        bFactorial.Inputs = new[] { iN };
+
+        var oResult = new Variable("Result", EDataType.Numeric);
+        var outputs = new[] { oResult };
+        bFactorial.Outputs = outputs;
+
+        var eRun = new BlockEvent(name: "Run", variableNames: new[] { iN.Name });
+        var inputEvents = new[] { eRun };
+        bFactorial.InputEvents = inputEvents;
+        bFactorial.DefaultTriggerEvent = eRun.Name;
+
+        var eCompleted = new BlockEvent(name: "Completed", variableNames: new[] { oResult.Name });
+        var outputEvents = new[] { eCompleted };
+        bFactorial.OutputEvents = outputEvents;
+
+        var lRun = new Logic(
+            id: "Run",
+            name: "Run",
+            content: @$"
+            // [factor, result]
+            await FB.Set(""State"", new[] {{ 1, 1 }}, isInternal: true);
+            ",
+            runtime: ERuntime.CSharpScript,
+            imports: null, assemblies: assemblies);
+        var lLoop = new Logic(
+            id: "Loop",
+            name: "Loop",
+            content: @$"
+            var state = (int[])FB.Get(""State"", isInternal: true).Value;
+            var factor = state[0] + 1;
+            await FB.Set(""State"", new[] {{ factor, state[1] * factor }}, isInternal: true);
+            ",
+            runtime: ERuntime.CSharpScript,
+            imports: null, assemblies: assemblies);
+        var lOutput = new Logic(
+            id: "Output",
+            name: "Output",
+            content: @$"
+            var state = (int[])FB.Get(""State"", isInternal: true).Value;
+            await FB.Set(""{oResult.Name}"", state[1]);                
+            await FB.Publish(""{eCompleted.Name}"");
+            ",
+            runtime: ERuntime.CSharpScript,
+            imports: null, assemblies: assemblies);
+        var logics = new[] { lRun, lLoop, lOutput };
+        bFactorial.Logics = logics;
+
+        {
+            var execControl = new BlockExecutionControlChart();
+
+            var sIdle = new BlockState("Idle");
+            var sRunning = new BlockState("Running");
+            var sLooping = new BlockState("Looping");
+            var sOutput = new BlockState("Output");
+            var states = new[] { sIdle, sRunning, sLooping, sOutput };
+
+            var transitions = new List<BlockStateTransition>();
+            {
+                var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eRun.Name);
+                tIdle2Running.ActionLogicId = lRun.Id;
+
+                var loopingCondition = new Logic(
+                    id: "LoopingCondition",
+                    name: "Looping condition",
+                    content: @$"
+                        var n = (int)FB.Get(""{iN.Name}"").Value;
+                        var state = (int[])FB.Get(""State"", isInternal: true).Value;
+                        return state[0] < n;
+                    ",
+                    runtime: ERuntime.CSharpScript,
+                    imports: null, assemblies: assemblies
+                );
+                var tRunning2Looping = new BlockStateTransition(fromState: sRunning.Name, toState: sLooping.Name);
+                tRunning2Looping.TriggerCondition = loopingCondition;
+                tRunning2Looping.ActionLogicId = lLoop.Id;
+
+                var tLooping2Looping = new BlockStateTransition(fromState: sLooping.Name, toState: sLooping.Name);
+                tLooping2Looping.TriggerCondition = loopingCondition;
+                tLooping2Looping.ActionLogicId = lLoop.Id;
+
+                var tRunning2Output = new BlockStateTransition(fromState: sRunning.Name, toState: sOutput.Name);
+                tRunning2Output.ActionLogicId = lOutput.Id;
+                var tLooping2Output = new BlockStateTransition(fromState: sLooping.Name, toState: sOutput.Name);
+                tLooping2Output.ActionLogicId = lOutput.Id;
+
+                transitions.Add(tIdle2Running);
+                transitions.Add(tRunning2Looping);
+                transitions.Add(tLooping2Looping);
+                transitions.Add(tRunning2Output);
+                transitions.Add(tLooping2Output);
+                transitions.Add(new(fromState: sOutput.Name, toState: sIdle.Name));
+            }
+
+            execControl.States = states;
+            execControl.StateTransitions = transitions;
+            execControl.InitialState = sIdle.Name;
+            bFactorial.ExecutionControlChart = execControl;
+        }
+
+        return bFactorial;
     }
 
 }

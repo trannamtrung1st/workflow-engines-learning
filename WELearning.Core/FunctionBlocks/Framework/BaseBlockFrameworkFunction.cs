@@ -3,11 +3,11 @@ using WELearning.DynamicCodeExecution.Abstracts;
 
 namespace WELearning.Core.FunctionBlocks.Framework;
 
-public abstract class BaseBlockFrameworkFunction<TFrameworkInstance> : IExecutable<BlockGlobalObject<TFrameworkInstance>>
+public abstract class BaseBlockFrameworkFunction<TFramework> : IExecutable<BlockGlobalObject<TFramework>>
 {
-    protected TFrameworkInstance FB;
+    protected TFramework FB;
 
-    public Task Execute(BlockGlobalObject<TFrameworkInstance> global, CancellationToken cancellationToken = default)
+    public Task Execute(BlockGlobalObject<TFramework> global, CancellationToken cancellationToken = default)
     {
         FB = global.FB;
         return Handle(cancellationToken);
@@ -17,7 +17,7 @@ public abstract class BaseBlockFrameworkFunction<TFrameworkInstance> : IExecutab
 
     public static string WrapScript(string script)
     {
-        var frameworkTypeName = typeof(TFrameworkInstance).FullName;
+        var frameworkTypeName = typeof(TFramework).FullName;
         return @$"
 public class Function : BaseBlockFrameworkFunction<{frameworkTypeName}>
 {{
@@ -29,11 +29,11 @@ public class Function : BaseBlockFrameworkFunction<{frameworkTypeName}>
     }
 }
 
-public abstract class BaseBlockFrameworkFunction<TReturn, TFrameworkInstance> : IExecutable<TReturn, BlockGlobalObject<TFrameworkInstance>>
+public abstract class BaseBlockFrameworkFunction<TReturn, TFramework> : IExecutable<TReturn, BlockGlobalObject<TFramework>>
 {
-    protected TFrameworkInstance FB;
+    protected TFramework FB;
 
-    public Task<TReturn> Execute(BlockGlobalObject<TFrameworkInstance> global, CancellationToken cancellationToken = default)
+    public Task<TReturn> Execute(BlockGlobalObject<TFramework> global, CancellationToken cancellationToken = default)
     {
         FB = global.FB;
         return Handle(cancellationToken);
@@ -44,7 +44,7 @@ public abstract class BaseBlockFrameworkFunction<TReturn, TFrameworkInstance> : 
     public static string WrapScript(string script)
     {
         var returnTypeName = typeof(TReturn).FullName;
-        var frameworkTypeName = typeof(TFrameworkInstance).FullName;
+        var frameworkTypeName = typeof(TFramework).FullName;
         return @$"
 public class Function : BaseBlockFrameworkFunction<{returnTypeName}, {frameworkTypeName}>
 {{

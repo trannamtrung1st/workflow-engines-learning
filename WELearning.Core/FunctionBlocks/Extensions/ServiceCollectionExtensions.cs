@@ -5,25 +5,25 @@ namespace WELearning.Core.FunctionBlocks.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddDefaultProcessRunner<TFrameworkInstance>(this IServiceCollection services)
+    public static IServiceCollection AddDefaultProcessRunner<TFramework>(this IServiceCollection services)
     {
-        return services.AddTransient<IProcessRunner<TFrameworkInstance>, ProcessRunner<TFrameworkInstance>>();
+        return services.AddTransient<IProcessRunner<TFramework>, ProcessRunner<TFramework>>();
     }
 
-    public static IServiceCollection AddDefaultBlockRunner<TFrameworkInstance>(this IServiceCollection services)
-        where TFrameworkInstance : IBlockFrameworkInstance
+    public static IServiceCollection AddDefaultBlockRunner<TFramework>(this IServiceCollection services)
+        where TFramework : IBlockFramework
     {
-        return services.AddTransient<IBlockRunner<TFrameworkInstance>, BlockRunner<TFrameworkInstance>>();
+        return services.AddTransient<IBlockRunner<TFramework>, BlockRunner<TFramework>>();
     }
 
-    public static IServiceCollection AddDefaultLogicRunner<TFrameworkInstance>(this IServiceCollection services)
+    public static IServiceCollection AddDefaultLogicRunner<TFramework>(this IServiceCollection services)
     {
-        return services.AddTransient<ILogicRunner<TFrameworkInstance>, LogicRunner<TFrameworkInstance>>();
+        return services.AddTransient<ILogicRunner<TFramework>, LogicRunner<TFramework>>();
     }
 
-    public static IServiceCollection AddBlockFrameworkFactory<TFrameworkInstance, TBlockFrameworkFactory>(this IServiceCollection services)
-        where TBlockFrameworkFactory : class, IBlockFrameworkFactory<TFrameworkInstance>
+    public static IServiceCollection AddBlockFrameworkFactory<TFramework, TBlockFrameworkFactory>(this IServiceCollection services)
+        where TBlockFrameworkFactory : class, IBlockFrameworkFactory<TFramework>
     {
-        return services.AddTransient<IBlockFrameworkFactory<TFrameworkInstance>, TBlockFrameworkFactory>();
+        return services.AddTransient<IBlockFrameworkFactory<TFramework>, TBlockFrameworkFactory>();
     }
 }

@@ -1,10 +1,11 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
 
 namespace WELearning.Core.FunctionBlocks.Framework;
 
-public abstract class BlockFramework<TFrameworkInstance> : IBlockFramework<TFrameworkInstance>
+public class BlockFramework : IBlockFramework
 {
     protected readonly BlockExecutionControl _control;
     protected readonly ConcurrentDictionary<string, BlockBinding> _blockBindings;
@@ -12,32 +13,31 @@ public abstract class BlockFramework<TFrameworkInstance> : IBlockFramework<TFram
     public BlockFramework(BlockExecutionControl control)
     {
         _control = control;
-        _blockBindings = new ConcurrentDictionary<string, BlockBinding>();
+        _blockBindings = new();
+        _outputEvents = new();
     }
 
-    public IBlockBinding Get(string name)
-        => _blockBindings.GetOrAdd(name, (key) => new BlockBinding(key, control: _control));
+    private readonly HashSet<string> _outputEvents;
+    public IImmutableSet<string> OutputEvents => _outputEvents.ToImmutableHashSet();
 
-    public double GetDouble(string name)
+    public IBlockBinding Get(string name, bool isInternal = false)
+        => _blockBindings.GetOrAdd(name, (key) => new BlockBinding(key, control: _control, isInternal: isInternal));
+
+    public double GetDouble(string name, bool isInternal = false)
     {
-        var binding = Get(name);
+        var binding = Get(name, isInternal);
         return binding.GetDouble();
     }
 
-    public Task Set(string name, object value)
+    public Task Set(string name, object value, bool isInternal = false)
     {
-        var binding = Get(name);
+        var binding = Get(name, isInternal);
         return binding.Set(value);
     }
 
-    public abstract TFrameworkInstance CreateInstance();
-}
-
-public class BlockFramework : BlockFramework<IBlockFrameworkInstance>
-{
-    public BlockFramework(BlockExecutionControl control) : base(control)
+    public Task Publish(string eventName)
     {
+        _outputEvents.Add(eventName);
+        return Task.CompletedTask;
     }
-
-    public override IBlockFrameworkInstance CreateInstance() => new BlockFrameworkInstance<BlockFramework, IBlockFrameworkInstance>(this);
 }

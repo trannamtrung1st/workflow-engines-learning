@@ -5,17 +5,17 @@ using WELearning.Core.FunctionBlocks.Models.Runtime;
 
 namespace WELearning.Core.FunctionBlocks;
 
-public class ProcessRunner<TFrameworkInstance> : IProcessRunner<TFrameworkInstance>
+public class ProcessRunner<TFramework> : IProcessRunner<TFramework>
 {
-    private readonly IBlockRunner<TFrameworkInstance> _blockRunner;
-    private readonly IBlockFrameworkFactory<TFrameworkInstance> _blockFrameworkFactory;
-    public ProcessRunner(IBlockRunner<TFrameworkInstance> blockRunner, IBlockFrameworkFactory<TFrameworkInstance> blockFrameworkFactory)
+    private readonly IBlockRunner<TFramework> _blockRunner;
+    private readonly IBlockFrameworkFactory<TFramework> _blockFrameworkFactory;
+    public ProcessRunner(IBlockRunner<TFramework> blockRunner, IBlockFrameworkFactory<TFramework> blockFrameworkFactory)
     {
         _blockRunner = blockRunner;
         _blockFrameworkFactory = blockFrameworkFactory;
     }
 
-    public virtual async Task Run(RunProcessRequest request, ProcessExecutionContext processContext, ProcessExecutionControl<TFrameworkInstance> processControl)
+    public virtual async Task Run(RunProcessRequest request, ProcessExecutionContext processContext, ProcessExecutionControl<TFramework> processControl)
     {
         processControl.Status = EProcessExecutionStatus.Running;
         try
@@ -56,7 +56,7 @@ public class ProcessRunner<TFrameworkInstance> : IProcessRunner<TFrameworkInstan
         FunctionBlockProcess process,
         IEnumerable<BlockTrigger> blockTriggers,
         ProcessExecutionContext processContext,
-        ProcessExecutionControl<TFrameworkInstance> processControl)
+        ProcessExecutionControl<TFramework> processControl)
     {
         foreach (var trigger in blockTriggers)
         {
@@ -78,9 +78,9 @@ public class ProcessRunner<TFrameworkInstance> : IProcessRunner<TFrameworkInstan
         RunBlockRequest request,
         FunctionBlockProcess process,
         ProcessExecutionContext processContext,
-        ProcessExecutionControl<TFrameworkInstance> processControl,
+        ProcessExecutionControl<TFramework> processControl,
         BlockExecutionControl blockControl,
-        IBlockFramework<TFrameworkInstance> blockFramework)
+        TFramework blockFramework)
     {
         var block = request.Block;
         var startTime = DateTime.UtcNow;
@@ -94,7 +94,7 @@ public class ProcessRunner<TFrameworkInstance> : IProcessRunner<TFrameworkInstan
     protected virtual async Task WaitAndPrepareInputs(
         string triggerEvent, FunctionBlock block, FunctionBlockProcess process,
         ProcessExecutionContext processContext,
-        ProcessExecutionControl<TFrameworkInstance> processControl,
+        ProcessExecutionControl<TFramework> processControl,
         BlockExecutionControl blockControl)
     {
         var inputEvent = block.InputEvents.FirstOrDefault(ev => ev.Name == triggerEvent);
@@ -131,7 +131,7 @@ public class ProcessRunner<TFrameworkInstance> : IProcessRunner<TFrameworkInstan
         }
     }
 
-    protected virtual async Task<BlockExecutionTaskInfo> WaitForCompletion(ProcessExecutionControl<TFrameworkInstance> control, string blockId)
+    protected virtual async Task<BlockExecutionTaskInfo> WaitForCompletion(ProcessExecutionControl<TFramework> control, string blockId)
     {
         var blockRunningTask = control.ExecutionTasks
             .Where(t => t.BlockId == blockId)
@@ -142,7 +142,7 @@ public class ProcessRunner<TFrameworkInstance> : IProcessRunner<TFrameworkInstan
         return blockRunningTask;
     }
 
-    protected virtual (BlockExecutionControl Control, IBlockFramework<TFrameworkInstance> Framework) GetBlockExecution(FunctionBlock block, FunctionBlockProcess process, ProcessExecutionContext processContext, ProcessExecutionControl<TFrameworkInstance> processControl)
+    protected virtual (BlockExecutionControl Control, TFramework Framework) GetBlockExecution(FunctionBlock block, FunctionBlockProcess process, ProcessExecutionContext processContext, ProcessExecutionControl<TFramework> processControl)
         => processControl.BlockExecutionMap.GetOrAdd(block.Id, (key) =>
         {
             var blockControl = new BlockExecutionControl(blockId: block.Id, initialState: block.ExecutionControlChart.InitialState);

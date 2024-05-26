@@ -5,16 +5,16 @@ using WELearning.Core.FunctionBlocks.Models.Runtime;
 
 namespace WELearning.Core.FunctionBlocks;
 
-public class BlockRunner<TFrameworkInstance> : IBlockRunner<TFrameworkInstance> where TFrameworkInstance : IBlockFrameworkInstance
+public class BlockRunner<TFramework> : IBlockRunner<TFramework> where TFramework : IBlockFramework
 {
-    private readonly ILogicRunner<TFrameworkInstance> _logicRunner;
+    private readonly ILogicRunner<TFramework> _logicRunner;
 
-    public BlockRunner(ILogicRunner<TFrameworkInstance> logicRunner)
+    public BlockRunner(ILogicRunner<TFramework> logicRunner)
     {
         _logicRunner = logicRunner;
     }
 
-    public async Task<BlockExecutionResult> Run(RunBlockRequest request, BlockExecutionControl control, IBlockFramework<TFrameworkInstance> blockFramework)
+    public async Task<BlockExecutionResult> Run(RunBlockRequest request, BlockExecutionControl control, TFramework blockFramework)
     {
         control.Status = EBlockExecutionStatus.Running;
         try
@@ -36,12 +36,12 @@ public class BlockRunner<TFrameworkInstance> : IBlockRunner<TFrameworkInstance> 
                     if (actionLogic == null) throw new KeyNotFoundException($"Action logic {transition.ActionLogicId} not found!");
                     await _logicRunner.Run(actionLogic, globalObject);
                 }
-                transitionResults.Add(new(fromState, toState, globalObject.FB.OutputEvents));
+                transitionResults.Add(new(fromState, toState));
                 globalObject = ConstructGlobalObject(blockFramework);
                 transition = await FindTransition(block.ExecutionControlChart, BlockStateTransition.DirectTransitionEvent, control, globalObject);
             } while (transition != null);
             control.Status = EBlockExecutionStatus.Completed;
-            return new BlockExecutionResult(transitionResults);
+            return new BlockExecutionResult(transitionResults, outputEvents: blockFramework.OutputEvents);
         }
         catch (Exception ex)
         {
@@ -55,7 +55,7 @@ public class BlockRunner<TFrameworkInstance> : IBlockRunner<TFrameworkInstance> 
         BlockExecutionControlChart controlChart,
         string triggerEvent,
         BlockExecutionControl control,
-        BlockGlobalObject<TFrameworkInstance> globalObject)
+        BlockGlobalObject<TFramework> globalObject)
     {
         foreach (var transition in controlChart.StateTransitions)
         {
@@ -72,15 +72,12 @@ public class BlockRunner<TFrameworkInstance> : IBlockRunner<TFrameworkInstance> 
         return null;
     }
 
-    protected virtual async Task<bool> ValidCondition(Logic triggerCondition, BlockGlobalObject<TFrameworkInstance> globalObject)
+    protected virtual async Task<bool> ValidCondition(Logic triggerCondition, BlockGlobalObject<TFramework> globalObject)
     {
         var valid = await _logicRunner.Run<bool>(triggerCondition, globalObject: globalObject);
         return valid;
     }
 
-    protected virtual BlockGlobalObject<TFrameworkInstance> ConstructGlobalObject(IBlockFramework<TFrameworkInstance> blockFramework)
-    {
-        var frameworkInstance = blockFramework.CreateInstance();
-        return new(frameworkInstance);
-    }
+    protected virtual BlockGlobalObject<TFramework> ConstructGlobalObject(TFramework blockFramework)
+        => new(blockFramework);
 }

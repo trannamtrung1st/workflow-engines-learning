@@ -9,16 +9,18 @@ using WELearning.DynamicCodeExecution.Extensions;
 
 var serviceCollection = new ServiceCollection();
 serviceCollection
-    .AddDefaultProcessRunner<AppFrameworkInstance>()
-    .AddDefaultBlockRunner<AppFrameworkInstance>()
-    .AddDefaultLogicRunner<AppFrameworkInstance>()
-    .AddBlockFrameworkFactory<AppFrameworkInstance, AppFrameworkFactory>()
+    .AddDefaultProcessRunner<AppFramework>()
+    .AddDefaultBlockRunner<AppFramework>()
+    .AddDefaultLogicRunner<AppFramework>()
+    .AddBlockFrameworkFactory<AppFramework, AppFrameworkFactory>()
     .AddDefaultRuntimeEngineFactory()
     .AddDefaultRuntimeEngines();
 var serviceProvider = serviceCollection.BuildServiceProvider();
-var processRunner = serviceProvider.GetService<IProcessRunner<AppFrameworkInstance>>();
-var blockRunner = serviceProvider.GetService<IBlockRunner<AppFrameworkInstance>>();
-var blockFrameworkFactory = serviceProvider.GetService<IBlockFrameworkFactory<AppFrameworkInstance>>();
+var processRunner = serviceProvider.GetService<IProcessRunner<AppFramework>>();
+var blockRunner = serviceProvider.GetService<IBlockRunner<AppFramework>>();
+var blockFrameworkFactory = serviceProvider.GetService<IBlockFrameworkFactory<AppFramework>>();
+
+await RunBlockFactorial(blockRunner, blockFrameworkFactory, block: PredefinedBlocks.FactorialCsScript);
 
 await RunBlockRandomDouble(blockRunner, blockFrameworkFactory, block: PredefinedBlocks.RandomCsScript);
 
@@ -34,8 +36,8 @@ await RunRectanglePerimeter(processRunner, process: rectanglePerimeterProcess);
 await RunRectanglePerimeter(processRunner, process: rectanglePerimeterProcess);
 
 static async Task RunBlockRandomDouble(
-    IBlockRunner<AppFrameworkInstance> blockRunner,
-    IBlockFrameworkFactory<AppFrameworkInstance> blockFrameworkFactory,
+    IBlockRunner<AppFramework> blockRunner,
+    IBlockFrameworkFactory<AppFramework> blockFrameworkFactory,
     FunctionBlock block)
 {
     var control = new BlockExecutionControl(block.Id, block.ExecutionControlChart.InitialState);
@@ -46,7 +48,21 @@ static async Task RunBlockRandomDouble(
     Console.WriteLine(control.OutputSnapshot["Result"]);
 }
 
-static async Task RunRectangleArea(IProcessRunner<AppFrameworkInstance> processRunner, FunctionBlockProcess process)
+static async Task RunBlockFactorial(
+    IBlockRunner<AppFramework> blockRunner,
+    IBlockFrameworkFactory<AppFramework> blockFrameworkFactory,
+    FunctionBlock block)
+{
+    var control = new BlockExecutionControl(block.Id, block.ExecutionControlChart.InitialState);
+    control.InputSnapshot["N"] = 5;
+    var blockFramework = blockFrameworkFactory.Create(control);
+    var runRequest = new RunBlockRequest(block, triggerEvent: null);
+    var result = await blockRunner.Run(runRequest, control, blockFramework);
+    Console.WriteLine(string.Join(Environment.NewLine, result.OutputEvents));
+    Console.WriteLine(control.OutputSnapshot["Result"]);
+}
+
+static async Task RunRectangleArea(IProcessRunner<AppFramework> processRunner, FunctionBlockProcess process)
 {
     var bindings = new HashSet<ProcessVariableBinding>();
     var arguments = (Length: 5, Width: 2);
@@ -54,14 +70,14 @@ static async Task RunRectangleArea(IProcessRunner<AppFrameworkInstance> processR
     bindings.Add(new(blockId: "Multiply", variableName: "Y", value: arguments.Width));
     var runRequest = new RunProcessRequest(process);
     var processContext = new ProcessExecutionContext(bindings);
-    var processControl = new ProcessExecutionControl<AppFrameworkInstance>();
+    var processControl = new ProcessExecutionControl<AppFramework>();
     await processRunner.Run(runRequest, processContext, processControl);
 
     var finalResult = processControl.BlockExecutionMap["Multiply"].Control.OutputSnapshot["Result"];
     Console.WriteLine(finalResult);
 }
 
-static async Task RunRectanglePerimeter(IProcessRunner<AppFrameworkInstance> processRunner, FunctionBlockProcess process)
+static async Task RunRectanglePerimeter(IProcessRunner<AppFramework> processRunner, FunctionBlockProcess process)
 {
     var bindings = new HashSet<ProcessVariableBinding>();
     var arguments = (Length: 5, Width: 2);
@@ -69,7 +85,7 @@ static async Task RunRectanglePerimeter(IProcessRunner<AppFrameworkInstance> pro
     bindings.Add(new(blockId: "Add", variableName: "Y", value: arguments.Width));
     var runRequest = new RunProcessRequest(process);
     var processContext = new ProcessExecutionContext(bindings);
-    var processControl = new ProcessExecutionControl<AppFrameworkInstance>();
+    var processControl = new ProcessExecutionControl<AppFramework>();
     await processRunner.Run(runRequest, processContext, processControl);
 
     var finalResult = processControl.BlockExecutionMap["Multiply"].Control.OutputSnapshot["Result"];

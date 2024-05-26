@@ -11,12 +11,14 @@ public class BlockExecutionControl
         CurrentState = initialState;
         InputSnapshot = new ConcurrentDictionary<string, object>();
         OutputSnapshot = new ConcurrentDictionary<string, object>();
+        InternalDataSnapshot = new ConcurrentDictionary<string, object>();
     }
 
     public string BlockId { get; set; }
     public virtual string CurrentState { get; protected internal set; }
     public virtual ConcurrentDictionary<string, object> InputSnapshot { get; }
     public virtual ConcurrentDictionary<string, object> OutputSnapshot { get; }
+    public virtual ConcurrentDictionary<string, object> InternalDataSnapshot { get; }
     public virtual Exception Exception { get; protected internal set; }
     public virtual EBlockExecutionStatus Status { get; protected internal set; }
 }

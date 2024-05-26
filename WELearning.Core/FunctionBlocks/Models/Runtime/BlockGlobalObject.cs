@@ -1,11 +1,11 @@
 namespace WELearning.Core.FunctionBlocks.Models.Runtime;
 
-public class BlockGlobalObject<TFrameworkInstance>
+public class BlockGlobalObject<TFramework>
 {
-    public BlockGlobalObject(TFrameworkInstance frameworkInstance)
+    public BlockGlobalObject(TFramework framework)
     {
-        FB = frameworkInstance;
+        FB = framework;
     }
 
-    public TFrameworkInstance FB { get; }
+    public TFramework FB { get; }
 }
