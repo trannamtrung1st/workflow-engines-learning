@@ -3,20 +3,23 @@ using WELearning.Core.FunctionBlocks.Abstracts;
 
 namespace WELearning.Core.FunctionBlocks.Framework;
 
-public class BlockFrameworkInstance : IBlockFrameworkInstance
+public class BlockFrameworkInstance<TFramework, TFrameworkInstance> : IBlockFrameworkInstance
+    where TFramework : BlockFramework<TFrameworkInstance>
 {
-    private readonly BlockFramework _blockFramework;
+    protected readonly TFramework _blockFramework;
 
-    public BlockFrameworkInstance(BlockFramework blockFramework)
+    public BlockFrameworkInstance(TFramework blockFramework)
     {
         _blockFramework = blockFramework;
         _outputEvents = new HashSet<string>();
     }
 
     private readonly HashSet<string> _outputEvents;
-    public ImmutableHashSet<string> OutputEvents => _outputEvents.ToImmutableHashSet();
+    public IImmutableSet<string> OutputEvents => _outputEvents.ToImmutableHashSet();
 
     public IBlockBinding Get(string name) => _blockFramework.Get(name);
+
+    public double GetDouble(string name) => _blockFramework.GetDouble(name);
 
     public Task Set(string name, object value) => _blockFramework.Set(name, value);
 
@@ -24,13 +27,5 @@ public class BlockFrameworkInstance : IBlockFrameworkInstance
     {
         _outputEvents.Add(eventName);
         return Task.CompletedTask;
-    }
-
-    public double GetDouble(string name)
-    {
-        var binding = Get(name);
-        var value = binding.Value?.ToString();
-        if (value == null) throw new ArgumentNullException(name);
-        return double.Parse(value);
     }
 }

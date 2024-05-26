@@ -8,5 +8,5 @@ public interface IBlockFrameworkInstance
     double GetDouble(string name);
     Task Set(string name, object value);
     Task Publish(string eventName);
-    ImmutableHashSet<string> OutputEvents { get; }
+    IImmutableSet<string> OutputEvents { get; }
 }

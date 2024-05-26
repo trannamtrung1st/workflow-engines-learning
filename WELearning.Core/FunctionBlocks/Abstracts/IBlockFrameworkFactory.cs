@@ -2,7 +2,7 @@ using WELearning.Core.FunctionBlocks.Models.Runtime;
 
 namespace WELearning.Core.FunctionBlocks.Abstracts;
 
-public interface IBlockFrameworkFactory
+public interface IBlockFrameworkFactory<TFrameworkInstance>
 {
-    IBlockFramework Create(BlockExecutionControl control);
+    IBlockFramework<TFrameworkInstance> Create(BlockExecutionControl control);
 }

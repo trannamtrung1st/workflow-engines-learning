@@ -4,7 +4,7 @@ namespace WELearning.Core.FunctionBlocks.Models.Runtime;
 
 public class BlockTransitionResult
 {
-    public BlockTransitionResult(string fromState, string toState, ImmutableHashSet<string> outputEvents)
+    public BlockTransitionResult(string fromState, string toState, IImmutableSet<string> outputEvents)
     {
         FromState = fromState;
         ToState = toState;
@@ -13,5 +13,5 @@ public class BlockTransitionResult
 
     public string FromState { get; }
     public string ToState { get; }
-    public ImmutableHashSet<string> OutputEvents { get; }
+    public IImmutableSet<string> OutputEvents { get; }
 }

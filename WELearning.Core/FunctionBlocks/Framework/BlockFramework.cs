@@ -4,10 +4,10 @@ using WELearning.Core.FunctionBlocks.Models.Runtime;
 
 namespace WELearning.Core.FunctionBlocks.Framework;
 
-public class BlockFramework : IBlockFramework
+public abstract class BlockFramework<TFrameworkInstance> : IBlockFramework<TFrameworkInstance>
 {
-    private readonly BlockExecutionControl _control;
-    private readonly ConcurrentDictionary<string, BlockBinding> _blockBindings;
+    protected readonly BlockExecutionControl _control;
+    protected readonly ConcurrentDictionary<string, BlockBinding> _blockBindings;
 
     public BlockFramework(BlockExecutionControl control)
     {
@@ -16,8 +16,12 @@ public class BlockFramework : IBlockFramework
     }
 
     public IBlockBinding Get(string name)
+        => _blockBindings.GetOrAdd(name, (key) => new BlockBinding(key, control: _control));
+
+    public double GetDouble(string name)
     {
-        return _blockBindings.GetOrAdd(name, (key) => new BlockBinding(key, control: _control));
+        var binding = Get(name);
+        return binding.GetDouble();
     }
 
     public Task Set(string name, object value)
@@ -26,8 +30,14 @@ public class BlockFramework : IBlockFramework
         return binding.Set(value);
     }
 
-    public IBlockFrameworkInstance CreateInstance()
+    public abstract TFrameworkInstance CreateInstance();
+}
+
+public class BlockFramework : BlockFramework<IBlockFrameworkInstance>
+{
+    public BlockFramework(BlockExecutionControl control) : base(control)
     {
-        return new BlockFrameworkInstance(blockFramework: this);
     }
+
+    public override IBlockFrameworkInstance CreateInstance() => new BlockFrameworkInstance<BlockFramework, IBlockFrameworkInstance>(this);
 }

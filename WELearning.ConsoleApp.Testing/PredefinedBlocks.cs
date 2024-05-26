@@ -6,26 +6,29 @@ using WELearning.Core.FunctionBlocks.Framework;
 
 static class PredefinedBlocks
 {
+    private static readonly Assembly AppFrameworkAssembly = typeof(AppFrameworkInstance).Assembly;
     public static readonly FunctionBlock MultiplyCsScript = CreateBlockMultiplyCsScript();
     public static readonly FunctionBlock MultiplyCsCompiled = CreateBlockMultiplyCsCompiled();
-    public static readonly FunctionBlock Add = CreateBlockAdd();
+    public static readonly FunctionBlock AddCsScript = CreateBlockAddCsScript();
+    public static readonly FunctionBlock RandomCsScript = CreateBlockRandomCsScript();
 
     #region Multiply
     private static FunctionBlock CreateBlockMultiplyCsScript()
     {
+        var assemblies = new[] { AppFrameworkAssembly };
         return CreateBlockMultiplyCs(
             multiplyScriptProvider: s => s,
             handleInvalidScriptProvider: s => s,
             invalidConditionScriptProvider: s => s,
             runtime: ERuntime.CSharpScript,
-            imports: null, assemblies: null
+            imports: null, assemblies: assemblies
         );
     }
 
     private static FunctionBlock CreateBlockMultiplyCsCompiled()
     {
         var mscorlib = typeof(object).GetTypeInfo().Assembly;
-        var assemblies = new List<Assembly> { mscorlib };
+        var assemblies = new List<Assembly> { mscorlib, AppFrameworkAssembly };
         var dllNames = new string[]
         {
             "System.Runtime",
@@ -38,15 +41,15 @@ static class PredefinedBlocks
         assemblies.AddRange(dllNames.Select(dll => Assembly.Load(dll)));
 
         return CreateBlockMultiplyCs(
-            multiplyScriptProvider: s => BaseBlockFrameworkFunction.WrapScript(s),
-            handleInvalidScriptProvider: s => BaseBlockFrameworkFunction.WrapScript(s),
-            invalidConditionScriptProvider: s => BaseBlockFrameworkFunction<bool>.WrapScript(s),
+            multiplyScriptProvider: s => BaseBlockFrameworkFunction<AppFrameworkInstance>.WrapScript(s),
+            handleInvalidScriptProvider: s => BaseBlockFrameworkFunction<AppFrameworkInstance>.WrapScript(s),
+            invalidConditionScriptProvider: s => BaseBlockFrameworkFunction<bool, AppFrameworkInstance>.WrapScript(s),
             runtime: ERuntime.CSharpCompiled,
             imports: new[]
             {
                 "System.Threading",
                 "System.Threading.Tasks",
-                "WELearning.Core.FunctionBlocks.Framework"
+                "WELearning.Core.FunctionBlocks.Framework",
             }, assemblies: assemblies
         );
     }
@@ -146,8 +149,9 @@ static class PredefinedBlocks
     }
     #endregion
 
-    private static FunctionBlock CreateBlockAdd()
+    private static FunctionBlock CreateBlockAddCsScript()
     {
+        var assemblies = new[] { AppFrameworkAssembly };
         var bAdd = new FunctionBlock(id: "Add", name: "Add X + Y");
 
         var iX = new Variable("X", EDataType.Numeric);
@@ -181,7 +185,7 @@ static class PredefinedBlocks
             await FB.Publish(""{eCompleted.Name}"");
             ",
             runtime: ERuntime.CSharpScript,
-            imports: null, assemblies: null);
+            imports: null, assemblies: assemblies);
         var lHandleInvalid = new Logic(
             id: "HandleInvalid",
             name: "Handle invalid",
@@ -190,7 +194,7 @@ static class PredefinedBlocks
             await FB.Publish(""{eCompleted.Name}"");
             ",
             runtime: ERuntime.CSharpScript,
-            imports: null, assemblies: null);
+            imports: null, assemblies: assemblies);
         var logics = new[] { lRun, lHandleInvalid };
         bAdd.Logics = logics;
 
@@ -213,7 +217,7 @@ static class PredefinedBlocks
                         return !x.Exists || !y.Exists || !x.IsNumeric || !y.IsNumeric;
                     ",
                     runtime: ERuntime.CSharpScript,
-                    imports: null, assemblies: null);
+                    imports: null, assemblies: assemblies);
                 tIdle2Invalid.ActionLogicId = lHandleInvalid.Id;
 
                 var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eRun.Name);
@@ -232,6 +236,66 @@ static class PredefinedBlocks
         }
 
         return bAdd;
+    }
+
+    private static FunctionBlock CreateBlockRandomCsScript()
+    {
+        var assemblies = new[] { AppFrameworkAssembly };
+        var bRandom = new FunctionBlock(id: "RandomDouble", name: "Random double");
+
+        bRandom.Inputs = Array.Empty<Variable>();
+
+        var oResult = new Variable("Result", EDataType.Numeric);
+        var outputs = new[] { oResult };
+        bRandom.Outputs = outputs;
+
+        var inputEvents = new List<BlockEvent>();
+        var eRun = new BlockEvent(name: "Run", variableNames: Array.Empty<string>());
+        inputEvents.Add(eRun);
+        bRandom.InputEvents = inputEvents;
+        bRandom.DefaultTriggerEvent = eRun.Name;
+
+        var outputEvents = new List<BlockEvent>();
+        var eCompleted = new BlockEvent(name: "Completed", variableNames: new[] { oResult.Name });
+        outputEvents.Add(eCompleted);
+        bRandom.OutputEvents = outputEvents;
+
+        var lRun = new Logic(
+            id: "Run",
+            name: "Run",
+            content: @$"
+            var result = FB.NextRandomDouble();
+            await FB.Set(""{oResult.Name}"", result);
+            await FB.Publish(""{eCompleted.Name}"");
+            ",
+            runtime: ERuntime.CSharpScript,
+            imports: null, assemblies: assemblies);
+        var logics = new[] { lRun };
+        bRandom.Logics = logics;
+
+        {
+            var execControl = new BlockExecutionControlChart();
+
+            var sIdle = new BlockState("Idle");
+            var sRunning = new BlockState("Running");
+            var states = new[] { sIdle, sRunning };
+
+            var transitions = new List<BlockStateTransition>();
+            {
+                var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eRun.Name);
+                tIdle2Running.ActionLogicId = lRun.Id;
+
+                transitions.Add(tIdle2Running);
+                transitions.Add(new(fromState: sRunning.Name, toState: sIdle.Name));
+            }
+
+            execControl.States = states;
+            execControl.StateTransitions = transitions;
+            execControl.InitialState = sIdle.Name;
+            bRandom.ExecutionControlChart = execControl;
+        }
+
+        return bRandom;
     }
 
 }

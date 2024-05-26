@@ -51,7 +51,6 @@ public class CSharpScriptEngine : IRuntimeEngine
             return script;
         });
         var result = await script.RunAsync(globals: arguments, cancellationToken: cancellationToken);
-        if (result.Exception != null) throw result.Exception;
     }
 
     private async Task<(byte[] CacheKey, long CacheSize)> GetScriptCacheEntry(

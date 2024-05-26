@@ -1,6 +1,6 @@
 namespace WELearning.Core.FunctionBlocks.Abstracts;
 
-public interface IBlockFramework
+public interface IBlockFramework<TFrameworkInstance>
 {
-    IBlockFrameworkInstance CreateInstance();
+    TFrameworkInstance CreateInstance();
 }

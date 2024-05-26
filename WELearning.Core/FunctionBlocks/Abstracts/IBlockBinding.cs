@@ -8,4 +8,5 @@ public interface IBlockBinding
     bool Is<T>();
     bool IsNumeric { get; }
     Task Set(object value);
+    double GetDouble();
 }

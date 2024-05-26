@@ -5,16 +5,16 @@ using WELearning.Core.FunctionBlocks.Models.Runtime;
 
 namespace WELearning.Core.FunctionBlocks;
 
-public class BlockRunner : IBlockRunner
+public class BlockRunner<TFrameworkInstance> : IBlockRunner<TFrameworkInstance> where TFrameworkInstance : IBlockFrameworkInstance
 {
-    private readonly ILogicRunner _logicRunner;
+    private readonly ILogicRunner<TFrameworkInstance> _logicRunner;
 
-    public BlockRunner(ILogicRunner logicRunner)
+    public BlockRunner(ILogicRunner<TFrameworkInstance> logicRunner)
     {
         _logicRunner = logicRunner;
     }
 
-    public async Task<BlockExecutionResult> Run(RunBlockRequest request, BlockExecutionControl control, IBlockFramework blockFramework)
+    public async Task<BlockExecutionResult> Run(RunBlockRequest request, BlockExecutionControl control, IBlockFramework<TFrameworkInstance> blockFramework)
     {
         control.Status = EBlockExecutionStatus.Running;
         try
@@ -55,7 +55,7 @@ public class BlockRunner : IBlockRunner
         BlockExecutionControlChart controlChart,
         string triggerEvent,
         BlockExecutionControl control,
-        BlockGlobalObject globalObject)
+        BlockGlobalObject<TFrameworkInstance> globalObject)
     {
         foreach (var transition in controlChart.StateTransitions)
         {
@@ -72,15 +72,15 @@ public class BlockRunner : IBlockRunner
         return null;
     }
 
-    protected virtual async Task<bool> ValidCondition(Logic triggerCondition, BlockGlobalObject globalObject)
+    protected virtual async Task<bool> ValidCondition(Logic triggerCondition, BlockGlobalObject<TFrameworkInstance> globalObject)
     {
         var valid = await _logicRunner.Run<bool>(triggerCondition, globalObject: globalObject);
         return valid;
     }
 
-    protected virtual BlockGlobalObject ConstructGlobalObject(IBlockFramework blockFramework)
+    protected virtual BlockGlobalObject<TFrameworkInstance> ConstructGlobalObject(IBlockFramework<TFrameworkInstance> blockFramework)
     {
         var frameworkInstance = blockFramework.CreateInstance();
-        return new BlockGlobalObject(frameworkInstance);
+        return new(frameworkInstance);
     }
 }

@@ -4,7 +4,7 @@ using WELearning.Core.FunctionBlocks.Constants;
 
 namespace WELearning.Core.FunctionBlocks.Models.Runtime;
 
-public class ProcessExecutionControl
+public class ProcessExecutionControl<TFrameworkInstance>
 {
     public ProcessExecutionControl()
     {
@@ -15,7 +15,7 @@ public class ProcessExecutionControl
 
     public ConcurrentBag<Task> ProcessTasks { get; }
     public ConcurrentBag<BlockExecutionTaskInfo> ExecutionTasks { get; }
-    public ConcurrentDictionary<string, (BlockExecutionControl Control, IBlockFramework Framework)> BlockExecutionMap { get; }
+    public ConcurrentDictionary<string, (BlockExecutionControl Control, IBlockFramework<TFrameworkInstance> Framework)> BlockExecutionMap { get; }
     public virtual Exception Exception { get; protected internal set; }
     public virtual EProcessExecutionStatus Status { get; protected internal set; }
 }
