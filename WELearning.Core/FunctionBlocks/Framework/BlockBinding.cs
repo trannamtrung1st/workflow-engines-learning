@@ -6,8 +6,8 @@ namespace WELearning.Core.FunctionBlocks.Framework;
 public class BlockBinding : IBlockBinding
 {
     private readonly ValueObject _valueObject;
-    private readonly BlockExecutionControl _control;
-    public BlockBinding(string name, BlockExecutionControl control, bool isInternal)
+    private readonly IBlockExecutionControl _control;
+    public BlockBinding(string name, IBlockExecutionControl control, bool isInternal)
     {
         _control = control;
         Name = name;

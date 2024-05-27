@@ -1,6 +1,7 @@
 ﻿
 using Microsoft.Extensions.DependencyInjection;
 using WELearning.ConsoleApp.Testing.Processes;
+using WELearning.Core.FunctionBlocks;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Extensions;
 using WELearning.Core.FunctionBlocks.Models.Design;
@@ -15,7 +16,7 @@ var serviceCollection = new ServiceCollection()
     .AddDefaultRuntimeEngineFactory()
     .AddDefaultRuntimeEngines();
 var serviceProvider = serviceCollection.BuildServiceProvider();
-var processRunner = serviceProvider.GetService<IProcessRunner<AppFramework>>();
+var processRunner = serviceProvider.GetService<IProcessRunner>();
 var blockRunner = serviceProvider.GetService<IBlockRunner<AppFramework>>();
 var blockFrameworkFactory = serviceProvider.GetService<IBlockFrameworkFactory<AppFramework>>();
 
@@ -41,7 +42,7 @@ static async Task RunBlockRandomDouble(
     IBlockFrameworkFactory<AppFramework> blockFrameworkFactory,
     FunctionBlock block)
 {
-    var control = new BlockExecutionControl(block.Id, block.ExecutionControlChart.InitialState);
+    var control = new BlockExecutionControl(block);
     var blockFramework = blockFrameworkFactory.Create(control);
     var runRequest = new RunBlockRequest(block, triggerEvent: null);
     var result = await blockRunner.Run(runRequest, control, blockFramework);
@@ -54,7 +55,7 @@ static async Task RunBlockFactorial(
     IBlockFrameworkFactory<AppFramework> blockFrameworkFactory,
     FunctionBlock block)
 {
-    var control = new BlockExecutionControl(block.Id, block.ExecutionControlChart.InitialState);
+    var control = new BlockExecutionControl(block);
     control.GetInput("N").Value = 5;
     var blockFramework = blockFrameworkFactory.Create(control);
     var runRequest = new RunBlockRequest(block, triggerEvent: null);
@@ -63,7 +64,7 @@ static async Task RunBlockFactorial(
     Console.WriteLine(control.GetOutput("Result"));
 }
 
-static async Task RunRectangleArea(IProcessRunner<AppFramework> processRunner, FunctionBlockProcess process)
+static async Task RunRectangleArea(IProcessRunner processRunner, FunctionBlockProcess process)
 {
     var bindings = new HashSet<ProcessVariableBinding>();
     var arguments = (Length: 5, Width: 2);
@@ -71,14 +72,14 @@ static async Task RunRectangleArea(IProcessRunner<AppFramework> processRunner, F
     bindings.Add(new(blockId: "Multiply", variableName: "Y", value: arguments.Width));
     var runRequest = new RunProcessRequest(process);
     var processContext = new ProcessExecutionContext(bindings);
-    var processControl = new ProcessExecutionControl<AppFramework>();
+    var processControl = new ProcessExecutionControl(process, processContext);
     await processRunner.Run(runRequest, processContext, processControl);
 
-    var finalResult = processControl.BlockExecutionControlMap["Multiply"].GetOutput("Result");
+    var finalResult = processControl.GetBlockControl("Multiply").GetOutput("Result");
     Console.WriteLine(finalResult);
 }
 
-static async Task RunRectanglePerimeter(IProcessRunner<AppFramework> processRunner, FunctionBlockProcess process)
+static async Task RunRectanglePerimeter(IProcessRunner processRunner, FunctionBlockProcess process)
 {
     var bindings = new HashSet<ProcessVariableBinding>();
     var arguments = (Length: 5, Width: 2);
@@ -86,22 +87,22 @@ static async Task RunRectanglePerimeter(IProcessRunner<AppFramework> processRunn
     bindings.Add(new(blockId: "Add", variableName: "Y", value: arguments.Width));
     var runRequest = new RunProcessRequest(process);
     var processContext = new ProcessExecutionContext(bindings);
-    var processControl = new ProcessExecutionControl<AppFramework>();
+    var processControl = new ProcessExecutionControl(process, processContext);
     await processRunner.Run(runRequest, processContext, processControl);
 
-    var finalResult = processControl.BlockExecutionControlMap["Multiply"].GetOutput("Result");
+    var finalResult = processControl.GetBlockControl("Multiply").GetOutput("Result");
     Console.WriteLine(finalResult);
 }
 
-static async Task RunLoopProcess(IProcessRunner<AppFramework> processRunner, FunctionBlockProcess process)
+static async Task RunLoopProcess(IProcessRunner processRunner, FunctionBlockProcess process)
 {
     var bindings = new HashSet<ProcessVariableBinding>();
     bindings.Add(new(blockId: "LoopController", variableName: "N", value: 1000));
     var runRequest = new RunProcessRequest(process);
     var processContext = new ProcessExecutionContext(bindings);
-    var processControl = new ProcessExecutionControl<AppFramework>();
+    var processControl = new ProcessExecutionControl(process, processContext);
     await processRunner.Run(runRequest, processContext, processControl);
 
-    var finalResult = processControl.BlockExecutionControlMap["LoopController"].GetOutput("Result");
+    var finalResult = processControl.GetBlockControl("LoopController").GetOutput("Result");
     Console.WriteLine(finalResult);
 }

@@ -2,7 +2,7 @@ using WELearning.Core.FunctionBlocks.Models.Runtime;
 
 namespace WELearning.Core.FunctionBlocks.Abstracts;
 
-public interface IProcessRunner<TFramework>
+public interface IProcessRunner
 {
-    Task Run(RunProcessRequest request, ProcessExecutionContext processContext, ProcessExecutionControl<TFramework> processControl);
+    Task Run(RunProcessRequest request, ProcessExecutionContext processContext, IProcessExecutionControl processControl);
 }

@@ -1,10 +1,9 @@
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Framework;
-using WELearning.Core.FunctionBlocks.Models.Runtime;
 
 public class AppFramework : BlockFramework
 {
-    public AppFramework(BlockExecutionControl control) : base(control)
+    public AppFramework(IBlockExecutionControl control) : base(control)
     {
     }
 
@@ -13,5 +12,5 @@ public class AppFramework : BlockFramework
 
 public class AppFrameworkFactory : IBlockFrameworkFactory<AppFramework>
 {
-    public AppFramework Create(BlockExecutionControl control) => new(control);
+    public AppFramework Create(IBlockExecutionControl control) => new(control);
 }

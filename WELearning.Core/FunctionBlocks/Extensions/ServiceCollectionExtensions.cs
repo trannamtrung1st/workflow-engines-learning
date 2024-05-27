@@ -7,7 +7,7 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddDefaultProcessRunner<TFramework>(this IServiceCollection services)
     {
-        return services.AddTransient<IProcessRunner<TFramework>, ProcessRunner<TFramework>>();
+        return services.AddTransient<IProcessRunner, ProcessRunner<TFramework>>();
     }
 
     public static IServiceCollection AddDefaultBlockRunner<TFramework>(this IServiceCollection services)

@@ -4,5 +4,5 @@ namespace WELearning.Core.FunctionBlocks.Abstracts;
 
 public interface IBlockRunner<TFramework>
 {
-    Task<BlockExecutionResult> Run(RunBlockRequest request, BlockExecutionControl control, TFramework blockFramework);
+    Task<BlockExecutionResult> Run(RunBlockRequest request, IBlockExecutionControl control, TFramework blockFramework);
 }

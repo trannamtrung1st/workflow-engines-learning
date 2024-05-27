@@ -1,16 +1,15 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using WELearning.Core.FunctionBlocks.Abstracts;
-using WELearning.Core.FunctionBlocks.Models.Runtime;
 
 namespace WELearning.Core.FunctionBlocks.Framework;
 
 public class BlockFramework : IBlockFramework
 {
-    protected readonly BlockExecutionControl _control;
+    protected readonly IBlockExecutionControl _control;
     protected readonly ConcurrentDictionary<string, BlockBinding> _blockBindings;
 
-    public BlockFramework(BlockExecutionControl control)
+    public BlockFramework(IBlockExecutionControl control)
     {
         _control = control;
         _blockBindings = new();
