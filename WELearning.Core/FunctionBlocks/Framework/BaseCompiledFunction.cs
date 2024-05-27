@@ -3,7 +3,7 @@ using WELearning.DynamicCodeExecution.Abstracts;
 
 namespace WELearning.Core.FunctionBlocks.Framework;
 
-public abstract class BaseBlockFrameworkFunction<TFramework> : IExecutable<BlockGlobalObject<TFramework>>
+public abstract class BaseCompiledFunction<TFramework> : IExecutable<BlockGlobalObject<TFramework>>
 {
     protected TFramework FB;
 
@@ -19,7 +19,7 @@ public abstract class BaseBlockFrameworkFunction<TFramework> : IExecutable<Block
     {
         var frameworkTypeName = typeof(TFramework).FullName;
         return @$"
-public class Function : BaseBlockFrameworkFunction<{frameworkTypeName}>
+public class Function : BaseCompiledFunction<{frameworkTypeName}>
 {{
     public override async Task Handle(CancellationToken cancellationToken)
     {{
@@ -29,7 +29,7 @@ public class Function : BaseBlockFrameworkFunction<{frameworkTypeName}>
     }
 }
 
-public abstract class BaseBlockFrameworkFunction<TReturn, TFramework> : IExecutable<TReturn, BlockGlobalObject<TFramework>>
+public abstract class BaseCompiledFunction<TReturn, TFramework> : IExecutable<TReturn, BlockGlobalObject<TFramework>>
 {
     protected TFramework FB;
 
@@ -46,7 +46,7 @@ public abstract class BaseBlockFrameworkFunction<TReturn, TFramework> : IExecuta
         var returnTypeName = typeof(TReturn).FullName;
         var frameworkTypeName = typeof(TFramework).FullName;
         return @$"
-public class Function : BaseBlockFrameworkFunction<{returnTypeName}, {frameworkTypeName}>
+public class Function : BaseCompiledFunction<{returnTypeName}, {frameworkTypeName}>
 {{
     public override async Task<{returnTypeName}> Handle(CancellationToken cancellationToken)
     {{

@@ -14,7 +14,9 @@ var serviceCollection = new ServiceCollection()
     .AddDefaultLogicRunner<AppFramework>()
     .AddBlockFrameworkFactory<AppFramework, AppFrameworkFactory>()
     .AddDefaultRuntimeEngineFactory()
-    .AddDefaultRuntimeEngines();
+    .AddCSharpCompiledEngine()
+    .AddCSharpScriptEngine()
+    .AddV8JavascriptEngine(options => options.LibraryFolderPath = "/Users/trungtran/MyPlace/Personal/Learning/workflow-engines-learning/local/libs");
 var serviceProvider = serviceCollection.BuildServiceProvider();
 var processRunner = serviceProvider.GetService<IProcessRunner>();
 var blockRunner = serviceProvider.GetService<IBlockRunner<AppFramework>>();
@@ -29,11 +31,13 @@ var rectangleAreaProcess = RectangleAreaProcess.Build(
 );
 await RunRectangleArea(processRunner, process: rectangleAreaProcess);
 
-var rectanglePerimeterProcess = RectanglePerimeterProcess.Build(
+await RunRectanglePerimeter(processRunner, process: RectanglePerimeterProcess.Build(
     bAdd: PredefinedBlocks.AddCsScript, bMultiply: PredefinedBlocks.MultiplyCsCompiled
-);
-await RunRectanglePerimeter(processRunner, process: rectanglePerimeterProcess);
-await RunRectanglePerimeter(processRunner, process: rectanglePerimeterProcess);
+));
+
+await RunRectanglePerimeter(processRunner, process: RectanglePerimeterProcess.Build(
+    bAdd: PredefinedBlocks.AddJs, bMultiply: PredefinedBlocks.MultiplyCsCompiled
+));
 
 await RunLoopProcess(processRunner, process: LoopProcess.Build());
 
@@ -106,3 +110,5 @@ static async Task RunLoopProcess(IProcessRunner processRunner, FunctionBlockProc
     var finalResult = processControl.GetBlockControl("LoopController").GetOutput("Result");
     Console.WriteLine(finalResult);
 }
+
+// [TODO] add dependency wait

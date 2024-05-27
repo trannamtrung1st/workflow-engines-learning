@@ -9,7 +9,7 @@ using WELearning.DynamicCodeExecution.Constants;
 
 namespace WELearning.DynamicCodeExecution.Engines;
 
-public class CSharpScriptEngine : IRuntimeEngine
+public class CSharpScriptEngine : IRuntimeEngine, IDisposable
 {
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
     private readonly MemoryCache _memoryCache;
@@ -71,8 +71,13 @@ public class CSharpScriptEngine : IRuntimeEngine
     private ScriptOptions PrepareScriptOptions(IEnumerable<string> imports, IEnumerable<Assembly> assemblies)
     {
         var options = ScriptOptions.Default;
-        if (imports != null) options = options.WithImports(imports);
-        if (assemblies != null) options = options.WithReferences(assemblies);
+        if (imports?.Any() == true) options = options.WithImports(imports);
+        if (assemblies?.Any() == true) options = options.WithReferences(assemblies);
         return options;
+    }
+
+    public void Dispose()
+    {
+        _memoryCache.Dispose();
     }
 }

@@ -9,6 +9,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WELearning.Core", "WELearni
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WELearning.DynamicCodeExecution", "WELearning.DynamicCodeExecution\WELearning.DynamicCodeExecution.csproj", "{4D71FFB8-F3D7-4225-B16F-C421A756EBDD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WELearning.DynamicCodeExecution.Engines.CSharpCompiled", "WELearning.DynamicCodeExecution.Engines.CSharpCompiled\WELearning.DynamicCodeExecution.Engines.CSharpCompiled.csproj", "{0B2C8730-D90D-48C6-A5E4-979B3E31D01F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WELearning.DynamicCodeExecution.Engines.CSharpScript", "WELearning.DynamicCodeExecution.Engines.CSharpScript\WELearning.DynamicCodeExecution.Engines.CSharpScript.csproj", "{72FD8A52-9932-4FE8-9728-695C88E1E4EF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WELearning.DynamicCodeExecution.Engines.V8Javascript", "WELearning.DynamicCodeExecution.Engines.V8Javascript\WELearning.DynamicCodeExecution.Engines.V8Javascript.csproj", "{4A42FA0F-408A-4AF2-BD00-964A2D0BD733}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +33,18 @@ Global
 		{4D71FFB8-F3D7-4225-B16F-C421A756EBDD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4D71FFB8-F3D7-4225-B16F-C421A756EBDD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4D71FFB8-F3D7-4225-B16F-C421A756EBDD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0B2C8730-D90D-48C6-A5E4-979B3E31D01F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0B2C8730-D90D-48C6-A5E4-979B3E31D01F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0B2C8730-D90D-48C6-A5E4-979B3E31D01F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0B2C8730-D90D-48C6-A5E4-979B3E31D01F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{72FD8A52-9932-4FE8-9728-695C88E1E4EF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{72FD8A52-9932-4FE8-9728-695C88E1E4EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{72FD8A52-9932-4FE8-9728-695C88E1E4EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{72FD8A52-9932-4FE8-9728-695C88E1E4EF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4A42FA0F-408A-4AF2-BD00-964A2D0BD733}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4A42FA0F-408A-4AF2-BD00-964A2D0BD733}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4A42FA0F-408A-4AF2-BD00-964A2D0BD733}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4A42FA0F-408A-4AF2-BD00-964A2D0BD733}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

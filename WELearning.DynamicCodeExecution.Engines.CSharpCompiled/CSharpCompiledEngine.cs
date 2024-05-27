@@ -9,7 +9,7 @@ using WELearning.DynamicCodeExecution.Constants;
 
 namespace WELearning.DynamicCodeExecution.Engines;
 
-public class CSharpCompiledEngine : IRuntimeEngine
+public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
 {
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
     private readonly MemoryCache _memoryCache;
@@ -27,7 +27,7 @@ public class CSharpCompiledEngine : IRuntimeEngine
     public async Task<TReturn> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken = default)
     {
         var assembly = await LoadOrCompile(content, imports, assemblies, cancellationToken);
-        var execType = assembly.GetTypes().FirstOrDefault(t => t.IsClass && typeof(IExecutable<TReturn, TArg>).IsAssignableFrom(t));
+        var execType = assembly.ExportedTypes.FirstOrDefault(t => t.IsClass && typeof(IExecutable<TReturn, TArg>).IsAssignableFrom(t));
         var instance = (IExecutable<TReturn, TArg>)Activator.CreateInstance(execType);
         return await instance.Execute(arguments, cancellationToken);
     }
@@ -35,7 +35,7 @@ public class CSharpCompiledEngine : IRuntimeEngine
     public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken = default)
     {
         var assembly = await LoadOrCompile(content, imports, assemblies, cancellationToken);
-        var execType = assembly.GetTypes().FirstOrDefault(t => t.IsClass && typeof(IExecutable<TArg>).IsAssignableFrom(t));
+        var execType = assembly.ExportedTypes.FirstOrDefault(t => t.IsClass && typeof(IExecutable<TArg>).IsAssignableFrom(t));
         var instance = (IExecutable<TArg>)Activator.CreateInstance(execType);
         await instance.Execute(arguments, cancellationToken);
     }
@@ -95,11 +95,17 @@ public class CSharpCompiledEngine : IRuntimeEngine
 
     private Assembly EmitToMemory(CSharpCompilation compilation, CancellationToken cancellationToken)
     {
+        // [TODO] add file emit
         using var peStream = new MemoryStream();
         using var pdbStream = new MemoryStream();
         var emitResult = compilation.Emit(peStream, pdbStream, cancellationToken: cancellationToken);
         if (emitResult.Success)
             return Assembly.Load(peStream.ToArray(), pdbStream.ToArray());
         throw new Exception(string.Join("\n", emitResult.Diagnostics.ToList().Select(x => x.ToString())));
+    }
+
+    public void Dispose()
+    {
+        _memoryCache.Dispose();
     }
 }

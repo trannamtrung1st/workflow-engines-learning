@@ -3,6 +3,7 @@ using WELearning.Core.Constants;
 using WELearning.DynamicCodeExecution.Constants;
 using System.Reflection;
 using WELearning.Core.FunctionBlocks.Framework;
+using WELearning.Core.Helpers;
 
 static class PredefinedBlocks
 {
@@ -10,6 +11,7 @@ static class PredefinedBlocks
     public static readonly FunctionBlock MultiplyCsScript = CreateBlockMultiplyCsScript();
     public static readonly FunctionBlock MultiplyCsCompiled = CreateBlockMultiplyCsCompiled();
     public static readonly FunctionBlock AddCsScript = CreateBlockAddCsScript();
+    public static readonly FunctionBlock AddJs = CreateBlockAddJs();
     public static readonly FunctionBlock RandomCsScript = CreateBlockRandomCsScript();
     public static readonly FunctionBlock FactorialCsScript = CreateBlockFactorialCsScript();
 
@@ -18,10 +20,10 @@ static class PredefinedBlocks
     {
         var assemblies = new[] { AppFrameworkAssembly };
         return CreateBlockMultiplyCs(
+            runtime: ERuntime.CSharpScript,
             multiplyScriptProvider: s => s,
             handleInvalidScriptProvider: s => s,
             invalidConditionScriptProvider: s => s,
-            runtime: ERuntime.CSharpScript,
             imports: null, assemblies: assemblies
         );
     }
@@ -42,10 +44,10 @@ static class PredefinedBlocks
         assemblies.AddRange(dllNames.Select(dll => Assembly.Load(dll)));
 
         return CreateBlockMultiplyCs(
-            multiplyScriptProvider: s => BaseBlockFrameworkFunction<AppFramework>.WrapScript(s),
-            handleInvalidScriptProvider: s => BaseBlockFrameworkFunction<AppFramework>.WrapScript(s),
-            invalidConditionScriptProvider: s => BaseBlockFrameworkFunction<bool, AppFramework>.WrapScript(s),
             runtime: ERuntime.CSharpCompiled,
+            multiplyScriptProvider: s => BaseCompiledFunction<AppFramework>.WrapScript(s),
+            handleInvalidScriptProvider: s => BaseCompiledFunction<AppFramework>.WrapScript(s),
+            invalidConditionScriptProvider: s => BaseCompiledFunction<bool, AppFramework>.WrapScript(s),
             imports: new[]
             {
                 "System.Threading",
@@ -56,10 +58,10 @@ static class PredefinedBlocks
     }
 
     private static FunctionBlock CreateBlockMultiplyCs(
+        ERuntime runtime,
         Func<string, string> multiplyScriptProvider,
         Func<string, string> handleInvalidScriptProvider,
         Func<string, string> invalidConditionScriptProvider,
-        ERuntime runtime,
         IEnumerable<string> imports,
         IEnumerable<Assembly> assemblies)
     {
@@ -152,6 +154,51 @@ static class PredefinedBlocks
 
     private static FunctionBlock CreateBlockAddCsScript()
     {
+        return CreateBlockAddBase(
+            runtime: ERuntime.CSharpScript,
+            addContent: @$"
+            var x = FB.GetDouble(""X"");
+            var y = FB.GetDouble(""Y"");
+            var result = x + y;
+            await FB.Set(""Result"", result);
+            await FB.Publish(""Completed"");
+            ",
+            handleInvalidContent: @$"
+            FB.LogWarning(""Invalid arguments X, Y"");
+            await FB.Publish(""Completed"");
+            ",
+            invalidConditionContent: @$"
+            var x = FB.Get(""X""); var y = FB.Get(""Y"");
+            return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
+            "
+        );
+    }
+
+    private static FunctionBlock CreateBlockAddJs()
+    {
+        return CreateBlockAddBase(
+            runtime: ERuntime.Javascript,
+            addContent: JavascriptHelper.WrapTopLevelAsyncCall(@$"
+            var x = FB.GetDouble(""X"");
+            var y = FB.GetDouble(""Y"");
+            var result = x + y;
+            await FB.Set(""Result"", result);
+            await FB.Publish(""Completed"");
+            "),
+            handleInvalidContent: JavascriptHelper.WrapTopLevelAsyncCall(@$"
+            FB.LogWarning(""Invalid arguments X, Y"");
+            await FB.Publish(""Completed"");
+            "),
+            invalidConditionContent: @$"
+            var x = FB.Get(""X""); var y = FB.Get(""Y"");
+            !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
+            "
+        );
+    }
+
+    private static FunctionBlock CreateBlockAddBase(ERuntime runtime,
+        string addContent, string handleInvalidContent, string invalidConditionContent)
+    {
         var assemblies = new[] { AppFrameworkAssembly };
         var bAdd = new FunctionBlock(id: "Add", name: "Add X + Y");
 
@@ -178,23 +225,14 @@ static class PredefinedBlocks
         var lRun = new Logic(
             id: "Run",
             name: "Run",
-            content: @$"
-            var x = FB.GetDouble(""{iX.Name}"");
-            var y = FB.GetDouble(""{iY.Name}"");
-            var result = x + y;
-            await FB.Set(""{oResult.Name}"", result);
-            await FB.Publish(""{eCompleted.Name}"");
-            ",
-            runtime: ERuntime.CSharpScript,
+            content: addContent,
+            runtime: runtime,
             imports: null, assemblies: assemblies);
         var lHandleInvalid = new Logic(
             id: "HandleInvalid",
             name: "Handle invalid",
-            content: @$"
-            FB.LogWarning(""Invalid arguments {iX.Name}, {iY.Name}"");
-            await FB.Publish(""{eCompleted.Name}"");
-            ",
-            runtime: ERuntime.CSharpScript,
+            content: handleInvalidContent,
+            runtime: runtime,
             imports: null, assemblies: assemblies);
         var logics = new[] { lRun, lHandleInvalid };
         bAdd.Logics = logics;
@@ -213,11 +251,8 @@ static class PredefinedBlocks
                 tIdle2Invalid.TriggerCondition = new(
                     id: "InvalidCondition",
                     name: "Invalid condition",
-                    content: @$"
-                        var x = FB.Get(""{iX.Name}""); var y = FB.Get(""{iY.Name}"");
-                        return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
-                    ",
-                    runtime: ERuntime.CSharpScript,
+                    content: invalidConditionContent,
+                    runtime: runtime,
                     imports: null, assemblies: assemblies);
                 tIdle2Invalid.ActionLogicId = lHandleInvalid.Id;
 
