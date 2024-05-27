@@ -6,6 +6,7 @@ using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.Extensions.Caching.Memory;
 using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Constants;
+using WELearning.DynamicCodeExecution.Helpers;
 
 namespace WELearning.DynamicCodeExecution.Engines;
 
@@ -24,8 +25,9 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.CSharpScript;
 
-    public async Task<TReturn> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken = default)
+    public async Task<TReturn> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken = default)
     {
+        assemblies = ReflectionHelper.CombineAssemblies(assemblies, types);
         var (CacheKey, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, cancellationToken);
         var script = _memoryCache.GetOrCreate(CacheKey, (entry) =>
         {
@@ -39,8 +41,9 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
         return result.ReturnValue;
     }
 
-    public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken = default)
+    public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken = default)
     {
+        assemblies = ReflectionHelper.CombineAssemblies(assemblies, types);
         var (CacheKey, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, cancellationToken);
         var script = _memoryCache.GetOrCreate(CacheKey, (entry) =>
         {

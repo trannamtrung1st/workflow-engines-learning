@@ -6,6 +6,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.Extensions.Caching.Memory;
 using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Constants;
+using WELearning.DynamicCodeExecution.Helpers;
 
 namespace WELearning.DynamicCodeExecution.Engines;
 
@@ -24,16 +25,18 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.CSharpCompiled;
 
-    public async Task<TReturn> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken = default)
+    public async Task<TReturn> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken = default)
     {
+        assemblies = ReflectionHelper.CombineAssemblies(assemblies, types);
         var assembly = await LoadOrCompile(content, imports, assemblies, cancellationToken);
         var execType = assembly.ExportedTypes.FirstOrDefault(t => t.IsClass && typeof(IExecutable<TReturn, TArg>).IsAssignableFrom(t));
         var instance = (IExecutable<TReturn, TArg>)Activator.CreateInstance(execType);
         return await instance.Execute(arguments, cancellationToken);
     }
 
-    public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken = default)
+    public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken = default)
     {
+        assemblies = ReflectionHelper.CombineAssemblies(assemblies, types);
         var assembly = await LoadOrCompile(content, imports, assemblies, cancellationToken);
         var execType = assembly.ExportedTypes.FirstOrDefault(t => t.IsClass && typeof(IExecutable<TArg>).IsAssignableFrom(t));
         var instance = (IExecutable<TArg>)Activator.CreateInstance(execType);

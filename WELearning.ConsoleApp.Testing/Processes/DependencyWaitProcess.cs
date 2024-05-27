@@ -93,7 +93,7 @@ public static class DependencyWaitProcess
             await FB.Publish(""{eCompleted.Name}"")
             ",
             runtime: ERuntime.CSharpScript,
-            imports: new[] { "System.Threading.Tasks" }, assemblies: assemblies);
+            imports: new[] { "System.Threading.Tasks" }, assemblies: assemblies, types: null);
         var logics = new[] { lRun };
         bDelay.Logics = logics;
 

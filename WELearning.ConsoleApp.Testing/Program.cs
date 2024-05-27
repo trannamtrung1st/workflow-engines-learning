@@ -6,6 +6,9 @@ using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Extensions;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
+using WELearning.Core.Helpers;
+using WELearning.DynamicCodeExecution.Abstracts;
+using WELearning.DynamicCodeExecution.Constants;
 using WELearning.DynamicCodeExecution.Extensions;
 
 var serviceCollection = new ServiceCollection()
@@ -17,120 +20,165 @@ var serviceCollection = new ServiceCollection()
     .AddCSharpCompiledEngine()
     .AddCSharpScriptEngine()
     .AddV8JavascriptEngine(options => options.LibraryFolderPath = "/Users/trungtran/MyPlace/Personal/Learning/workflow-engines-learning/local/libs");
-var serviceProvider = serviceCollection.BuildServiceProvider();
-var processRunner = serviceProvider.GetService<IProcessRunner>();
-var blockRunner = serviceProvider.GetService<IBlockRunner<AppFramework>>();
-var blockFrameworkFactory = serviceProvider.GetService<IBlockFrameworkFactory<AppFramework>>();
+using var rootServiceProvider = serviceCollection.BuildServiceProvider();
+using var scope = rootServiceProvider.CreateScope();
+var serviceProvider = scope.ServiceProvider;
 
-await RunBlockRandomDouble(blockRunner, blockFrameworkFactory, block: PredefinedBlocks.RandomCsScript);
+await TestEngines.Run(serviceProvider);
 
-await RunBlockFactorial(blockRunner, blockFrameworkFactory, block: PredefinedBlocks.FactorialCsScript);
+await TestFunctionBlocks.Run(serviceProvider);
 
-var rectangleAreaProcess = RectangleAreaProcess.Build(
-    bMultiply: new(PredefinedBlocks.MultiplyCsScript)
-);
-await RunRectangleArea(processRunner, process: rectangleAreaProcess);
-
-await RunRectanglePerimeter(processRunner, process: RectanglePerimeterProcess.Build(
-    bAdd: new(PredefinedBlocks.AddCsScript), bMultiply: new(PredefinedBlocks.MultiplyCsCompiled)
-));
-
-await RunRectanglePerimeter(processRunner, process: RectanglePerimeterProcess.Build(
-    bAdd: new(PredefinedBlocks.AddJs), bMultiply: new(PredefinedBlocks.MultiplyCsCompiled)
-));
-
-await RunLoopProcess(processRunner, process: LoopProcess.Build());
-
-await RunDependencyWait(processRunner, process: DependencyWaitProcess.Build());
-
-static async Task RunBlockRandomDouble(
-    IBlockRunner<AppFramework> blockRunner,
-    IBlockFrameworkFactory<AppFramework> blockFrameworkFactory,
-    FunctionBlock block)
+static class TestEngines
 {
-    var blockInstance = new FunctionBlockInstance(block);
-    var control = new BlockExecutionControl(blockInstance);
-    var blockFramework = blockFrameworkFactory.Create(control);
-    var runRequest = new RunBlockRequest(blockInstance, triggerEvent: null);
-    var result = await blockRunner.Run(runRequest, control, blockFramework);
-    Console.WriteLine(string.Join(Environment.NewLine, result.OutputEvents));
-    Console.WriteLine(control.GetOutput("Result"));
+    public static async Task Run(IServiceProvider serviceProvider)
+    {
+        var runtimeEngineFactory = serviceProvider.GetService<IRuntimeEngineFactory>();
+        await TestV8Lib(runtimeEngineFactory);
+    }
+
+    public static async Task TestV8Lib(IRuntimeEngineFactory engineFactory)
+    {
+        var runtimeEngine = engineFactory.CreateEngine(runtime: ERuntime.Javascript);
+        await runtimeEngine.Execute(JavascriptHelper.WrapTopLevelAsyncCall(@$"
+        const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay));
+        await sleep(5000);
+        
+        const axiosResponse = await axios.get('https://cat-fact.herokuapp.com/facts');
+        console.log(axiosResponse); 
+        
+        const fetchResponse = await fetch('https://cat-fact.herokuapp.com/facts');
+        const fetchJson = await fetchResponse.json();
+        console.log(fetchJson); 
+    "),
+        arguments: default(object),
+        imports: new[]
+        {
+        "import 'axios.min.js'",
+        "import { fetch } from 'fetch.min.js'"
+        },
+        types: null,
+        assemblies: null);
+    }
 }
 
-static async Task RunBlockFactorial(
-    IBlockRunner<AppFramework> blockRunner,
-    IBlockFrameworkFactory<AppFramework> blockFrameworkFactory,
-    FunctionBlock block)
+static class TestFunctionBlocks
 {
-    var blockInstance = new FunctionBlockInstance(block);
-    var control = new BlockExecutionControl(blockInstance);
-    control.GetInput("N").Value = 5;
-    var blockFramework = blockFrameworkFactory.Create(control);
-    var runRequest = new RunBlockRequest(blockInstance, triggerEvent: null);
-    var result = await blockRunner.Run(runRequest, control, blockFramework);
-    Console.WriteLine(string.Join(Environment.NewLine, result.OutputEvents));
-    Console.WriteLine(control.GetOutput("Result"));
-}
+    public static async Task Run(IServiceProvider serviceProvider)
+    {
+        var processRunner = serviceProvider.GetService<IProcessRunner>();
+        var blockRunner = serviceProvider.GetService<IBlockRunner<AppFramework>>();
+        var blockFrameworkFactory = serviceProvider.GetService<IBlockFrameworkFactory<AppFramework>>();
 
-static async Task RunRectangleArea(IProcessRunner processRunner, FunctionBlockProcess process)
-{
-    var bindings = new HashSet<ProcessVariableBinding>();
-    var arguments = (Length: 5, Width: 2);
-    bindings.Add(new(blockId: "Multiply", variableName: "X", value: arguments.Length));
-    bindings.Add(new(blockId: "Multiply", variableName: "Y", value: arguments.Width));
-    var runRequest = new RunProcessRequest(process);
-    var processContext = new ProcessExecutionContext(bindings);
-    var processControl = new ProcessExecutionControl(process, processContext);
-    await processRunner.Run(runRequest, processContext, processControl);
+        await RunBlockRandomDouble(blockRunner, blockFrameworkFactory, block: PredefinedBlocks.RandomCsScript);
 
-    var finalResult = processControl.GetBlockControl("Multiply").GetOutput("Result");
-    Console.WriteLine(finalResult);
-}
+        await RunBlockFactorial(blockRunner, blockFrameworkFactory, block: PredefinedBlocks.FactorialCsScript);
 
-static async Task RunRectanglePerimeter(IProcessRunner processRunner, FunctionBlockProcess process)
-{
-    var bindings = new HashSet<ProcessVariableBinding>();
-    var arguments = (Length: 5, Width: 2);
-    bindings.Add(new(blockId: "Add", variableName: "X", value: arguments.Length));
-    bindings.Add(new(blockId: "Add", variableName: "Y", value: arguments.Width));
-    var runRequest = new RunProcessRequest(process);
-    var processContext = new ProcessExecutionContext(bindings);
-    var processControl = new ProcessExecutionControl(process, processContext);
-    await processRunner.Run(runRequest, processContext, processControl);
+        var rectangleAreaProcess = RectangleAreaProcess.Build(
+            bMultiply: new(PredefinedBlocks.MultiplyCsScript)
+        );
+        await RunRectangleArea(processRunner, process: rectangleAreaProcess);
 
-    var finalResult = processControl.GetBlockControl("Multiply").GetOutput("Result");
-    Console.WriteLine(finalResult);
-}
+        await RunRectanglePerimeter(processRunner, process: RectanglePerimeterProcess.Build(
+            bAdd: new(PredefinedBlocks.AddCsScript), bMultiply: new(PredefinedBlocks.MultiplyCsCompiled)
+        ));
 
-static async Task RunLoopProcess(IProcessRunner processRunner, FunctionBlockProcess process)
-{
-    var bindings = new HashSet<ProcessVariableBinding>();
-    bindings.Add(new(blockId: "LoopController", variableName: "N", value: 1000));
-    var runRequest = new RunProcessRequest(process);
-    var processContext = new ProcessExecutionContext(bindings);
-    var processControl = new ProcessExecutionControl(process, processContext);
-    await processRunner.Run(runRequest, processContext, processControl);
+        await RunRectanglePerimeter(processRunner, process: RectanglePerimeterProcess.Build(
+            bAdd: new(PredefinedBlocks.AddJs), bMultiply: new(PredefinedBlocks.MultiplyCsCompiled)
+        ));
 
-    var finalResult = processControl.GetBlockControl("LoopController").GetOutput("Result");
-    Console.WriteLine(finalResult);
-}
+        await RunLoopProcess(processRunner, process: LoopProcess.Build());
 
-static async Task RunDependencyWait(IProcessRunner processRunner, FunctionBlockProcess process)
-{
-    var bindings = new HashSet<ProcessVariableBinding>();
-    bindings.Add(new(blockId: "Delay", variableName: "Ms", value: 3000));
-    bindings.Add(new(blockId: "Add1", variableName: "X", value: 1));
-    bindings.Add(new(blockId: "Add1", variableName: "Y", value: 2));
-    bindings.Add(new(blockId: "Add2", variableName: "X", value: 3));
-    bindings.Add(new(blockId: "Add2", variableName: "Y", value: 4));
-    var runRequest = new RunProcessRequest(process);
-    var processContext = new ProcessExecutionContext(bindings);
-    var processControl = new ProcessExecutionControl(process, processContext);
-    await processRunner.Run(runRequest, processContext, processControl);
+        await RunDependencyWait(processRunner, process: DependencyWaitProcess.Build());
+    }
 
-    var finalResult = processControl.GetBlockControl("Add3").GetOutput("Result");
-    Console.WriteLine(finalResult);
+    public static async Task RunBlockRandomDouble(
+        IBlockRunner<AppFramework> blockRunner,
+        IBlockFrameworkFactory<AppFramework> blockFrameworkFactory,
+        FunctionBlock block)
+    {
+        var blockInstance = new FunctionBlockInstance(block);
+        var control = new BlockExecutionControl(blockInstance);
+        var blockFramework = blockFrameworkFactory.Create(control);
+        var runRequest = new RunBlockRequest(blockInstance, triggerEvent: null);
+        var result = await blockRunner.Run(runRequest, control, blockFramework);
+        Console.WriteLine(string.Join(Environment.NewLine, result.OutputEvents));
+        Console.WriteLine(control.GetOutput("Result"));
+    }
+
+    public static async Task RunBlockFactorial(
+        IBlockRunner<AppFramework> blockRunner,
+        IBlockFrameworkFactory<AppFramework> blockFrameworkFactory,
+        FunctionBlock block)
+    {
+        var blockInstance = new FunctionBlockInstance(block);
+        var control = new BlockExecutionControl(blockInstance);
+        control.GetInput("N").Value = 5;
+        var blockFramework = blockFrameworkFactory.Create(control);
+        var runRequest = new RunBlockRequest(blockInstance, triggerEvent: null);
+        var result = await blockRunner.Run(runRequest, control, blockFramework);
+        Console.WriteLine(string.Join(Environment.NewLine, result.OutputEvents));
+        Console.WriteLine(control.GetOutput("Result"));
+    }
+
+    public static async Task RunRectangleArea(IProcessRunner processRunner, FunctionBlockProcess process)
+    {
+        var bindings = new HashSet<ProcessVariableBinding>();
+        var arguments = (Length: 5, Width: 2);
+        bindings.Add(new(blockId: "Multiply", variableName: "X", value: arguments.Length));
+        bindings.Add(new(blockId: "Multiply", variableName: "Y", value: arguments.Width));
+        var runRequest = new RunProcessRequest(process);
+        var processContext = new ProcessExecutionContext(bindings);
+        var processControl = new ProcessExecutionControl(process, processContext);
+        await processRunner.Run(runRequest, processContext, processControl);
+
+        var finalResult = processControl.GetBlockControl("Multiply").GetOutput("Result");
+        Console.WriteLine(finalResult);
+    }
+
+    public static async Task RunRectanglePerimeter(IProcessRunner processRunner, FunctionBlockProcess process)
+    {
+        var bindings = new HashSet<ProcessVariableBinding>();
+        var arguments = (Length: 5, Width: 2);
+        bindings.Add(new(blockId: "Add", variableName: "X", value: arguments.Length));
+        bindings.Add(new(blockId: "Add", variableName: "Y", value: arguments.Width));
+        var runRequest = new RunProcessRequest(process);
+        var processContext = new ProcessExecutionContext(bindings);
+        var processControl = new ProcessExecutionControl(process, processContext);
+        await processRunner.Run(runRequest, processContext, processControl);
+
+        var finalResult = processControl.GetBlockControl("Multiply").GetOutput("Result");
+        Console.WriteLine(finalResult);
+    }
+
+    public static async Task RunLoopProcess(IProcessRunner processRunner, FunctionBlockProcess process)
+    {
+        var bindings = new HashSet<ProcessVariableBinding>();
+        bindings.Add(new(blockId: "LoopController", variableName: "N", value: 1000));
+        var runRequest = new RunProcessRequest(process);
+        var processContext = new ProcessExecutionContext(bindings);
+        var processControl = new ProcessExecutionControl(process, processContext);
+        await processRunner.Run(runRequest, processContext, processControl);
+
+        var finalResult = processControl.GetBlockControl("LoopController").GetOutput("Result");
+        Console.WriteLine(finalResult);
+    }
+
+    public static async Task RunDependencyWait(IProcessRunner processRunner, FunctionBlockProcess process)
+    {
+        var bindings = new HashSet<ProcessVariableBinding>();
+        bindings.Add(new(blockId: "Delay", variableName: "Ms", value: 3000));
+        bindings.Add(new(blockId: "Add1", variableName: "X", value: 1));
+        bindings.Add(new(blockId: "Add1", variableName: "Y", value: 2));
+        bindings.Add(new(blockId: "Add2", variableName: "X", value: 3));
+        bindings.Add(new(blockId: "Add2", variableName: "Y", value: 4));
+        var runRequest = new RunProcessRequest(process);
+        var processContext = new ProcessExecutionContext(bindings);
+        var processControl = new ProcessExecutionControl(process, processContext);
+        await processRunner.Run(runRequest, processContext, processControl);
+
+        var finalResult = processControl.GetBlockControl("Add3").GetOutput("Result");
+        Console.WriteLine(finalResult);
+    }
 }
 
 // [TODO] add performance test
-// [TODO] add xhr, fetch, axios lib loading

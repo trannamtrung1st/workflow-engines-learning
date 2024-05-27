@@ -98,7 +98,7 @@ static class PredefinedBlocks
             await FB.Publish(""{eCompleted.Name}"");
             "),
             runtime: runtime,
-            imports: imports, assemblies: assemblies);
+            imports: imports, assemblies: assemblies, types: null);
         var lHandleInvalid = new Logic(
             id: "HandleInvalid",
             name: "Handle invalid",
@@ -107,7 +107,7 @@ static class PredefinedBlocks
             await FB.Publish(""{eCompleted.Name}"");
             "),
             runtime: runtime,
-            imports: imports, assemblies: assemblies);
+            imports: imports, assemblies: assemblies, types: null);
         var logics = new[] { lRun, lHandleInvalid };
         bMultiply.Logics = logics;
 
@@ -130,7 +130,7 @@ static class PredefinedBlocks
                         return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
                     "),
                     runtime: runtime,
-                    imports: imports, assemblies: assemblies);
+                    imports: imports, assemblies: assemblies, types: null);
                 tIdle2Invalid.ActionLogicId = lHandleInvalid.Id;
 
                 var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eRun.Name);
@@ -229,13 +229,13 @@ static class PredefinedBlocks
             name: "Run",
             content: addContent,
             runtime: runtime,
-            imports: null, assemblies: assemblies);
+            imports: null, assemblies: assemblies, types: null);
         var lHandleInvalid = new Logic(
             id: "HandleInvalid",
             name: "Handle invalid",
             content: handleInvalidContent,
             runtime: runtime,
-            imports: null, assemblies: assemblies);
+            imports: null, assemblies: assemblies, types: null);
         var logics = new[] { lRun, lHandleInvalid };
         bAdd.Logics = logics;
 
@@ -255,7 +255,7 @@ static class PredefinedBlocks
                     name: "Invalid condition",
                     content: invalidConditionContent,
                     runtime: runtime,
-                    imports: null, assemblies: assemblies);
+                    imports: null, assemblies: assemblies, types: null);
                 tIdle2Invalid.ActionLogicId = lHandleInvalid.Id;
 
                 var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eRun.Name);
@@ -307,7 +307,7 @@ static class PredefinedBlocks
             await FB.Publish(""{eCompleted.Name}"");
             ",
             runtime: ERuntime.CSharpScript,
-            imports: null, assemblies: assemblies);
+            imports: null, assemblies: assemblies, types: null);
         var logics = new[] { lRun };
         bRandom.Logics = logics;
 
@@ -365,7 +365,7 @@ static class PredefinedBlocks
             await FB.Set(""State"", new[] {{ 1, 1 }}, isInternal: true);
             ",
             runtime: ERuntime.CSharpScript,
-            imports: null, assemblies: assemblies);
+            imports: null, assemblies: assemblies, types: null);
         var lLoop = new Logic(
             id: "Loop",
             name: "Loop",
@@ -375,7 +375,7 @@ static class PredefinedBlocks
             await FB.Set(""State"", new[] {{ factor, state[1] * factor }}, isInternal: true);
             ",
             runtime: ERuntime.CSharpScript,
-            imports: null, assemblies: assemblies);
+            imports: null, assemblies: assemblies, types: null);
         var lOutput = new Logic(
             id: "Output",
             name: "Output",
@@ -385,7 +385,7 @@ static class PredefinedBlocks
             await FB.Publish(""{eCompleted.Name}"");
             ",
             runtime: ERuntime.CSharpScript,
-            imports: null, assemblies: assemblies);
+            imports: null, assemblies: assemblies, types: null);
         var logics = new[] { lRun, lLoop, lOutput };
         bFactorial.Logics = logics;
 
@@ -412,7 +412,7 @@ static class PredefinedBlocks
                         return state[0] < n;
                     ",
                     runtime: ERuntime.CSharpScript,
-                    imports: null, assemblies: assemblies
+                    imports: null, assemblies: assemblies, types: null
                 );
                 var tRunning2Looping = new BlockStateTransition(fromState: sRunning.Name, toState: sLooping.Name);
                 tRunning2Looping.TriggerCondition = loopingCondition;

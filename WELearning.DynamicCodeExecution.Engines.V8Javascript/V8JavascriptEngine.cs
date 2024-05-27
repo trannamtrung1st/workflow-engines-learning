@@ -2,12 +2,14 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.ClearScript;
+using Microsoft.ClearScript.JavaScript;
 using Microsoft.ClearScript.V8;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Constants;
 using WELearning.DynamicCodeExecution.Engines.V8Javascript.Models;
+using WELearning.DynamicCodeExecution.Helpers;
 
 namespace WELearning.DynamicCodeExecution.Engines;
 
@@ -31,26 +33,29 @@ public class V8JavascriptEngine : IRuntimeEngine, IDisposable
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.Javascript;
 
-    public async Task<TReturn> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken = default)
+    public async Task<TReturn> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken = default)
     {
-        using V8ScriptEngine engine = PrepareV8Engine(assemblies);
-        AddGlobalObject(engine, arguments);
+        var combinedTypes = ReflectionHelper.CombineTypes(assemblies, types);
+        using V8ScriptEngine engine = PrepareV8Engine(combinedTypes);
+        TryAddGlobalObject(engine, arguments);
         var script = await GetScript(content, imports, assemblies, cancellationToken);
         var result = (TReturn)engine.Evaluate(script);
         return result;
     }
 
-    public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken = default)
+    public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken = default)
     {
-        using V8ScriptEngine engine = PrepareV8Engine(assemblies);
-        AddGlobalObject(engine, arguments);
+        var combinedTypes = ReflectionHelper.CombineTypes(assemblies, types);
+        using V8ScriptEngine engine = PrepareV8Engine(combinedTypes);
+        TryAddGlobalObject(engine, arguments);
         var script = await GetScript(content, imports, assemblies, cancellationToken);
         var result = engine.Evaluate(script);
         if (result is Task task) await task;
     }
 
-    private void AddGlobalObject<TArg>(V8ScriptEngine engine, TArg arguments)
+    private static void TryAddGlobalObject<TArg>(V8ScriptEngine engine, TArg arguments)
     {
+        if (arguments == null) return;
         var type = arguments.GetType();
         var properties = type.GetProperties(BindingFlags.Instance | BindingFlags.Public);
         foreach (var property in properties)
@@ -67,7 +72,10 @@ public class V8JavascriptEngine : IRuntimeEngine, IDisposable
         {
             content = AddImports(content, imports);
             entry.SetSize(CacheSize);
-            var v8Script = _v8Runtime.Compile(documentName: CacheKey, code: content);
+            var v8Script = _v8Runtime.Compile(documentInfo: new DocumentInfo(name: CacheKey)
+            {
+                Category = ModuleCategory.Standard
+            }, code: content);
             return v8Script;
         });
         return script;
@@ -88,15 +96,16 @@ public class V8JavascriptEngine : IRuntimeEngine, IDisposable
         return (Encoding.UTF8.GetString(hash), contentSizeInBytes);
     }
 
-    private V8ScriptEngine PrepareV8Engine(IEnumerable<Assembly> assemblies)
+    private V8ScriptEngine PrepareV8Engine(Type[] types)
     {
         var engine = _v8Runtime.CreateScriptEngine(flags:
             V8ScriptEngineFlags.EnableTaskPromiseConversion |
             V8ScriptEngineFlags.EnableDateTimeConversion |
             V8ScriptEngineFlags.EnableValueTaskPromiseConversion
         );
-        if (assemblies?.Any() == true)
-            engine.AddHostTypes(assemblies.SelectMany(ass => ass.ExportedTypes).ToArray());
+        engine.DocumentSettings = _v8Runtime.DocumentSettings;
+        if (types?.Any() == true)
+            engine.AddHostTypes(types);
         return engine;
     }
 

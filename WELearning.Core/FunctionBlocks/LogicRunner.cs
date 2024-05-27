@@ -24,7 +24,7 @@ public class LogicRunner<TFramework> : ILogicRunner<TFramework>
             content: logic.Content,
             arguments: globalObject,
             imports: logic.Imports,
-            assemblies: logic.Assemblies != null ? logic.Assemblies.Concat(DefaultAssemblies) : DefaultAssemblies,
+            assemblies: logic.Assemblies != null ? logic.Assemblies.Concat(DefaultAssemblies) : DefaultAssemblies, types: logic.Types,
             cancellationToken: cancellationToken
         );
         return result;
@@ -37,7 +37,7 @@ public class LogicRunner<TFramework> : ILogicRunner<TFramework>
             content: logic.Content,
             arguments: globalObject,
             imports: logic.Imports,
-            assemblies: logic.Assemblies != null ? logic.Assemblies.Concat(DefaultAssemblies) : DefaultAssemblies,
+            assemblies: logic.Assemblies != null ? logic.Assemblies.Concat(DefaultAssemblies) : DefaultAssemblies, types: logic.Types,
             cancellationToken: cancellationToken
         );
     }

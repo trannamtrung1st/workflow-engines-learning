@@ -95,7 +95,7 @@ public static class LoopProcess
                 await FB.Publish(""{eCompleted.Name}"");
             ",
             runtime: ERuntime.CSharpScript,
-            imports: null, assemblies: assemblies);
+            imports: null, assemblies: assemblies, types: null);
         var lLoop = new Logic(
             id: "Loop",
             name: "Loop",
@@ -109,7 +109,7 @@ public static class LoopProcess
                 await FB.Publish(""{eCompleted.Name}"");
             ",
             runtime: ERuntime.CSharpScript,
-            imports: null, assemblies: assemblies);
+            imports: null, assemblies: assemblies, types: null);
         var logics = new[] { lRun, lLoop };
         bLoopController.Logics = logics;
 
@@ -140,7 +140,7 @@ public static class LoopProcess
                             return n > 0;
                         ",
                         runtime: ERuntime.CSharpScript,
-                        imports: null, assemblies: assemblies
+                        imports: null, assemblies: assemblies, types: null
                     )
                 });
                 transitions.Add(new(fromState: sRunning.Name, toState: sIdle.Name)
@@ -153,7 +153,7 @@ public static class LoopProcess
                             return n <= 0;
                         ",
                         runtime: ERuntime.CSharpScript,
-                        imports: null, assemblies: assemblies
+                        imports: null, assemblies: assemblies, types: null
                     )
                 });
                 transitions.Add(tLooping2Looping);
@@ -168,7 +168,7 @@ public static class LoopProcess
                             return result >= n;
                         ",
                         runtime: ERuntime.CSharpScript,
-                        imports: null, assemblies: assemblies
+                        imports: null, assemblies: assemblies, types: null
                     )
                 });
             }
