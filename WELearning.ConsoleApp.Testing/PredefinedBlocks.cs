@@ -125,7 +125,7 @@ static class PredefinedBlocks
                     name: "Invalid condition",
                     content: invalidConditionScriptProvider(@$"
                         var x = FB.Get(""{iX.Name}""); var y = FB.Get(""{iY.Name}"");
-                        return !x.Exists || !y.Exists || !x.IsNumeric || !y.IsNumeric;
+                        return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
                     "),
                     runtime: runtime,
                     imports: imports, assemblies: assemblies);
@@ -215,7 +215,7 @@ static class PredefinedBlocks
                     name: "Invalid condition",
                     content: @$"
                         var x = FB.Get(""{iX.Name}""); var y = FB.Get(""{iY.Name}"");
-                        return !x.Exists || !y.Exists || !x.IsNumeric || !y.IsNumeric;
+                        return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
                     ",
                     runtime: ERuntime.CSharpScript,
                     imports: null, assemblies: assemblies);

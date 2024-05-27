@@ -108,7 +108,7 @@ public class ProcessRunner<TFramework> : IProcessRunner<TFramework>
                     {
                         var binding = processContext.Bindings.FirstOrDefault(b => b.BlockId == block.Id && b.VariableName == connection.VariableName);
                         if (binding == null) throw new KeyNotFoundException($"Binding for {connection.VariableName} not found!");
-                        blockControl.InputSnapshot[connection.VariableName] = binding.Value;
+                        blockControl.GetInput(connection.VariableName).Value = binding.Value;
                         break;
                     }
 
@@ -119,11 +119,12 @@ public class ProcessRunner<TFramework> : IProcessRunner<TFramework>
                             await WaitForCompletion(processControl, connection.SourceBlockId);
                             var sourceBlock = process.Blocks.FirstOrDefault(b => b.Id == connection.SourceBlockId);
                             var sourceBlockControl = GetBlockExecutionControl(sourceBlock, process, processContext, processControl);
-                            var value = sourceBlockControl.OutputSnapshot[connection.SourceVariableName];
-                            blockControl.InputSnapshot[connection.VariableName] = value;
+                            var outputValue = sourceBlockControl.GetOutput(connection.SourceVariableName);
+                            outputValue.ValueSet.Wait();
+                            blockControl.GetInput(connection.VariableName).Value = outputValue.Value;
                         }
                         else
-                            blockControl.InputSnapshot[connection.VariableName] = connection.ConstantValue;
+                            blockControl.GetInput(connection.VariableName).Value = connection.ConstantValue;
                         break;
                     }
             }
@@ -151,7 +152,7 @@ public class ProcessRunner<TFramework> : IProcessRunner<TFramework>
             {
                 var binding = processContext.Bindings.FirstOrDefault(b => b.BlockId == block.Id && b.VariableName == connection.VariableName);
                 if (binding == null) throw new KeyNotFoundException($"Binding for {connection.VariableName} not found!");
-                blockControl.OutputSnapshot[connection.VariableName] = binding.Value;
+                blockControl.GetOutput(connection.VariableName).Value = binding.Value;
             }
 
             return blockControl;

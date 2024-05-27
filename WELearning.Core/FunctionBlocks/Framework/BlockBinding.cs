@@ -5,6 +5,7 @@ namespace WELearning.Core.FunctionBlocks.Framework;
 
 public class BlockBinding : IBlockBinding
 {
+    private readonly ValueObject _valueObject;
     private readonly BlockExecutionControl _control;
     public BlockBinding(string name, BlockExecutionControl control, bool isInternal)
     {
@@ -13,31 +14,23 @@ public class BlockBinding : IBlockBinding
         if (isInternal)
         {
             IsInput = false; IsOutput = false; IsInternal = true;
-            if (control.InternalDataSnapshot.TryGetValue(name, out var internalValue))
-            {
-                Exists = true;
-                Value = internalValue;
-            }
+            var valueObject = control.GetInternalData(name);
+            _valueObject = valueObject;
         }
-        else if (control.InputSnapshot.TryGetValue(name, out var inputValue))
+        else if ((_valueObject = control.GetInput(name)).ValueSet.IsSet)
         {
-            Exists = true; IsInput = true; IsOutput = false; IsInternal = false;
-            Value = inputValue;
-        }
-        else if (control.OutputSnapshot.TryGetValue(name, out var outputValue))
-        {
-            Exists = true; IsInput = false; IsOutput = true; IsInternal = false;
-            Value = outputValue;
+            IsInput = true; IsOutput = false; IsInternal = false;
         }
         else
         {
-            Exists = false; IsInput = false; IsOutput = true; IsInternal = false;
+            _valueObject = control.GetOutput(name);
+            IsInput = false; IsOutput = true; IsInternal = false;
         }
     }
 
     public virtual string Name { get; protected set; }
-    public virtual object Value { get; protected set; }
-    public virtual bool Exists { get; protected set; }
+    public virtual object Value => _valueObject.Value;
+    public virtual bool ValueSet => _valueObject.ValueSet.IsSet;
     public virtual bool IsInput { get; protected set; }
     public virtual bool IsOutput { get; protected set; }
     public virtual bool IsInternal { get; protected set; }
@@ -61,11 +54,9 @@ public class BlockBinding : IBlockBinding
 
     public virtual Task Set(object value)
     {
-        Value = value;
-        Exists = true;
-        if (IsInternal) _control.InternalDataSnapshot[Name] = value;
-        else if (IsInput) _control.InputSnapshot[Name] = value;
-        else _control.OutputSnapshot[Name] = value;
+        if (IsInternal) _control.GetInternalData(Name).Value = value;
+        else if (IsInput) _control.GetInput(Name).Value = value;
+        else _control.GetOutput(Name).Value = value;
         return Task.CompletedTask;
     }
 }

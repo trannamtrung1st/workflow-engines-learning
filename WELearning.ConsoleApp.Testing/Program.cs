@@ -19,11 +19,9 @@ var processRunner = serviceProvider.GetService<IProcessRunner<AppFramework>>();
 var blockRunner = serviceProvider.GetService<IBlockRunner<AppFramework>>();
 var blockFrameworkFactory = serviceProvider.GetService<IBlockFrameworkFactory<AppFramework>>();
 
-await RunBlockFactorial(blockRunner, blockFrameworkFactory, block: PredefinedBlocks.FactorialCsScript);
-
 await RunBlockRandomDouble(blockRunner, blockFrameworkFactory, block: PredefinedBlocks.RandomCsScript);
 
-await RunLoopProcess(processRunner, process: LoopProcess.Build());
+await RunBlockFactorial(blockRunner, blockFrameworkFactory, block: PredefinedBlocks.FactorialCsScript);
 
 var rectangleAreaProcess = RectangleAreaProcess.Build(
     bMultiply: PredefinedBlocks.MultiplyCsScript
@@ -36,6 +34,8 @@ var rectanglePerimeterProcess = RectanglePerimeterProcess.Build(
 await RunRectanglePerimeter(processRunner, process: rectanglePerimeterProcess);
 await RunRectanglePerimeter(processRunner, process: rectanglePerimeterProcess);
 
+await RunLoopProcess(processRunner, process: LoopProcess.Build());
+
 static async Task RunBlockRandomDouble(
     IBlockRunner<AppFramework> blockRunner,
     IBlockFrameworkFactory<AppFramework> blockFrameworkFactory,
@@ -46,7 +46,7 @@ static async Task RunBlockRandomDouble(
     var runRequest = new RunBlockRequest(block, triggerEvent: null);
     var result = await blockRunner.Run(runRequest, control, blockFramework);
     Console.WriteLine(string.Join(Environment.NewLine, result.OutputEvents));
-    Console.WriteLine(control.OutputSnapshot["Result"]);
+    Console.WriteLine(control.GetOutput("Result"));
 }
 
 static async Task RunBlockFactorial(
@@ -55,12 +55,12 @@ static async Task RunBlockFactorial(
     FunctionBlock block)
 {
     var control = new BlockExecutionControl(block.Id, block.ExecutionControlChart.InitialState);
-    control.InputSnapshot["N"] = 5;
+    control.GetInput("N").Value = 5;
     var blockFramework = blockFrameworkFactory.Create(control);
     var runRequest = new RunBlockRequest(block, triggerEvent: null);
     var result = await blockRunner.Run(runRequest, control, blockFramework);
     Console.WriteLine(string.Join(Environment.NewLine, result.OutputEvents));
-    Console.WriteLine(control.OutputSnapshot["Result"]);
+    Console.WriteLine(control.GetOutput("Result"));
 }
 
 static async Task RunRectangleArea(IProcessRunner<AppFramework> processRunner, FunctionBlockProcess process)
@@ -74,7 +74,7 @@ static async Task RunRectangleArea(IProcessRunner<AppFramework> processRunner, F
     var processControl = new ProcessExecutionControl<AppFramework>();
     await processRunner.Run(runRequest, processContext, processControl);
 
-    var finalResult = processControl.BlockExecutionControlMap["Multiply"].OutputSnapshot["Result"];
+    var finalResult = processControl.BlockExecutionControlMap["Multiply"].GetOutput("Result");
     Console.WriteLine(finalResult);
 }
 
@@ -89,7 +89,7 @@ static async Task RunRectanglePerimeter(IProcessRunner<AppFramework> processRunn
     var processControl = new ProcessExecutionControl<AppFramework>();
     await processRunner.Run(runRequest, processContext, processControl);
 
-    var finalResult = processControl.BlockExecutionControlMap["Multiply"].OutputSnapshot["Result"];
+    var finalResult = processControl.BlockExecutionControlMap["Multiply"].GetOutput("Result");
     Console.WriteLine(finalResult);
 }
 
@@ -102,6 +102,6 @@ static async Task RunLoopProcess(IProcessRunner<AppFramework> processRunner, Fun
     var processControl = new ProcessExecutionControl<AppFramework>();
     await processRunner.Run(runRequest, processContext, processControl);
 
-    var finalResult = processControl.BlockExecutionControlMap["LoopController"].OutputSnapshot["Result"];
+    var finalResult = processControl.BlockExecutionControlMap["LoopController"].GetOutput("Result");
     Console.WriteLine(finalResult);
 }
