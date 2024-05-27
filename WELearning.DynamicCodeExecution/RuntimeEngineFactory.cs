@@ -11,6 +11,8 @@ public class RuntimeEngineFactory : IRuntimeEngineFactory
         _engines = engines;
     }
 
+    public IEnumerable<ERuntime> SupportedRuntimes => new[] { ERuntime.CSharpCompiled, ERuntime.CSharpScript, ERuntime.Javascript };
+
     public IRuntimeEngine CreateEngine(ERuntime runtime)
     {
         var engine = _engines.FirstOrDefault(e => e.CanRun(runtime));

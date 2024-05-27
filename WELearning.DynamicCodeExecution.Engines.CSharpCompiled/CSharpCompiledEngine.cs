@@ -85,11 +85,14 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
             catch
             {
                 var syntaxTree = SyntaxFactory.ParseSyntaxTree(content);
-                var preloadAssemblies = assemblies.Select(dll => MetadataReference.CreateFromFile(dll.Location) as MetadataReference);
                 var compilation = CSharpCompilation.Create(AssemblyName)
                     .WithOptions(new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-                    .WithReferences(preloadAssemblies)
                     .AddSyntaxTrees(syntaxTree);
+                if (assemblies?.Any() == true)
+                {
+                    var preloadAssemblies = assemblies.Select(dll => MetadataReference.CreateFromFile(dll.Location) as MetadataReference);
+                    compilation = compilation.WithReferences(preloadAssemblies);
+                }
                 return EmitToMemory(compilation, cancellationToken);
             }
         });

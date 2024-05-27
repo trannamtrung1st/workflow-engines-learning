@@ -17,28 +17,69 @@ public class LogicRunner<TFramework> : ILogicRunner<TFramework>
         _engineFactory = engineFactory;
     }
 
-    public async Task<TReturn> Run<TReturn>(Logic logic, BlockGlobalObject<TFramework> globalObject, CancellationToken cancellationToken)
+    public async Task<TReturn> Run<TReturn>(Logic logic, BlockGlobalObject<TFramework> globalObject, Guid optimizationScopeId, CancellationToken cancellationToken)
     {
         var engine = _engineFactory.CreateEngine(runtime: logic.Runtime);
-        var result = await engine.Execute<TReturn, BlockGlobalObject<TFramework>>(
-            content: logic.Content,
-            arguments: globalObject,
-            imports: logic.Imports,
-            assemblies: logic.Assemblies != null ? logic.Assemblies.Concat(DefaultAssemblies) : DefaultAssemblies, types: logic.Types,
-            cancellationToken: cancellationToken
-        );
-        return result;
+        var optEngine = engine as IOptimizableRuntimeEngine;
+        if (optEngine != null)
+        {
+            var result = await optEngine.Execute<TReturn, BlockGlobalObject<TFramework>>(
+                content: logic.Content,
+                arguments: globalObject,
+                imports: logic.Imports,
+                assemblies: logic.Assemblies != null ? logic.Assemblies.Concat(DefaultAssemblies) : DefaultAssemblies, types: logic.Types,
+                optimizationScopeId: optimizationScopeId,
+                cancellationToken: cancellationToken
+            );
+            return result;
+        }
+        else
+        {
+            var result = await engine.Execute<TReturn, BlockGlobalObject<TFramework>>(
+                content: logic.Content,
+                arguments: globalObject,
+                imports: logic.Imports,
+                assemblies: logic.Assemblies != null ? logic.Assemblies.Concat(DefaultAssemblies) : DefaultAssemblies, types: logic.Types,
+                cancellationToken: cancellationToken
+            );
+            return result;
+        }
     }
 
-    public async Task Run(Logic logic, BlockGlobalObject<TFramework> globalObject, CancellationToken cancellationToken)
+    public async Task Run(Logic logic, BlockGlobalObject<TFramework> globalObject, Guid optimizationScopeId, CancellationToken cancellationToken)
     {
         var engine = _engineFactory.CreateEngine(runtime: logic.Runtime);
-        await engine.Execute(
-            content: logic.Content,
-            arguments: globalObject,
-            imports: logic.Imports,
-            assemblies: logic.Assemblies != null ? logic.Assemblies.Concat(DefaultAssemblies) : DefaultAssemblies, types: logic.Types,
-            cancellationToken: cancellationToken
-        );
+        var optEngine = engine as IOptimizableRuntimeEngine;
+        if (optEngine != null)
+        {
+            await optEngine.Execute(
+                content: logic.Content,
+                arguments: globalObject,
+                imports: logic.Imports,
+                assemblies: logic.Assemblies != null ? logic.Assemblies.Concat(DefaultAssemblies) : DefaultAssemblies, types: logic.Types,
+                optimizationScopeId: optimizationScopeId,
+                cancellationToken: cancellationToken
+            );
+        }
+        else
+        {
+            await engine.Execute(
+                content: logic.Content,
+                arguments: globalObject,
+                imports: logic.Imports,
+                assemblies: logic.Assemblies != null ? logic.Assemblies.Concat(DefaultAssemblies) : DefaultAssemblies, types: logic.Types,
+                cancellationToken: cancellationToken
+            );
+        }
+    }
+
+    public async Task CompleteOptimizationScope(Guid id)
+    {
+        foreach (var runtime in _engineFactory.SupportedRuntimes)
+        {
+            var engine = _engineFactory.CreateEngine(runtime: runtime) as IOptimizableRuntimeEngine;
+            if (engine != null)
+                await engine.CompleteOptimizationScope(id);
+        }
     }
 }

@@ -5,6 +5,7 @@ namespace WELearning.Core.FunctionBlocks.Abstracts;
 
 public interface ILogicRunner<TFramework>
 {
-    Task<TReturn> Run<TReturn>(Logic logic, BlockGlobalObject<TFramework> globalObject, CancellationToken cancellationToken);
-    Task Run(Logic logic, BlockGlobalObject<TFramework> globalObject, CancellationToken cancellationToken);
+    Task<TReturn> Run<TReturn>(Logic logic, BlockGlobalObject<TFramework> globalObject, Guid optimizationScopeId, CancellationToken cancellationToken);
+    Task Run(Logic logic, BlockGlobalObject<TFramework> globalObject, Guid optimizationScopeId, CancellationToken cancellationToken);
+    Task CompleteOptimizationScope(Guid id);
 }

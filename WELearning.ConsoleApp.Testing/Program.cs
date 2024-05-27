@@ -1,4 +1,6 @@
 ﻿
+using System.Diagnostics;
+using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using WELearning.ConsoleApp.Testing.Processes;
 using WELearning.Core.FunctionBlocks;
@@ -24,18 +26,95 @@ using var rootServiceProvider = serviceCollection.BuildServiceProvider();
 using var scope = rootServiceProvider.CreateScope();
 var serviceProvider = scope.ServiceProvider;
 
-// await TestEngines.Run(serviceProvider,
-//     timeoutTokenProvider: () => new CancellationTokenSource(TimeSpan.FromSeconds(10)).Token);
+await TestEngines.Run(serviceProvider,
+    timeoutTokenProvider: () => new CancellationTokenSource(TimeSpan.FromSeconds(100)).Token);
 
 await TestFunctionBlocks.Run(serviceProvider,
-    timeoutTokenProvider: () => new CancellationTokenSource(TimeSpan.FromSeconds(10)).Token);
+    timeoutTokenProvider: () => new CancellationTokenSource(TimeSpan.FromSeconds(100)).Token);
 
 static class TestEngines
 {
     public static async Task Run(IServiceProvider serviceProvider, Func<CancellationToken> timeoutTokenProvider)
     {
         var runtimeEngineFactory = serviceProvider.GetService<IRuntimeEngineFactory>();
-        await TestV8Lib(runtimeEngineFactory, cancellationToken: timeoutTokenProvider());
+        var csCompiledEngine = runtimeEngineFactory.CreateEngine(ERuntime.CSharpCompiled);
+        var csScriptEngine = runtimeEngineFactory.CreateEngine(ERuntime.CSharpScript);
+        var v8JavascriptEngine = runtimeEngineFactory.CreateEngine(ERuntime.Javascript) as IOptimizableRuntimeEngine;
+        var compiledAssemblies = new[]
+        {
+            typeof(object).Assembly,
+            Assembly.Load("System.Runtime"),
+            typeof(LoopTestArgs).Assembly,
+            typeof(IExecutable<>).Assembly
+        };
+        var imports = new[]
+        {
+            "System.Threading",
+            "System.Threading.Tasks",
+            typeof(IExecutable<>).Namespace
+        };
+        const int FirstLoop = 1;
+        // const int SecondLoop = 10_000;
+        const int SecondLoop = 1_000_000;
+
+        var sw = Stopwatch.StartNew();
+        await LoopCSharpCompiled(FirstLoop, csCompiledEngine, imports: imports, assemblies: compiledAssemblies, cancellationToken: timeoutTokenProvider());
+        Console.WriteLine("C# compiled (1st): {0}", sw.ElapsedMilliseconds);
+        await LoopCSharpCompiled(SecondLoop, csCompiledEngine, imports: imports, assemblies: compiledAssemblies, cancellationToken: timeoutTokenProvider());
+        Console.WriteLine("C# compiled ({0}): {1}", SecondLoop, sw.ElapsedMilliseconds);
+
+        sw.Restart();
+        await LoopCSharpScript(FirstLoop, csScriptEngine, cancellationToken: timeoutTokenProvider());
+        Console.WriteLine("C# script (1st): {0}", sw.ElapsedMilliseconds);
+        await LoopCSharpScript(SecondLoop, csScriptEngine, cancellationToken: timeoutTokenProvider());
+        Console.WriteLine("C# script ({0}): {1}", SecondLoop, sw.ElapsedMilliseconds);
+
+        sw.Restart();
+        await LoopV8Javascript(FirstLoop, v8JavascriptEngine, cancellationToken: timeoutTokenProvider());
+        Console.WriteLine("V8 Javascript (1st): {0}", sw.ElapsedMilliseconds);
+        await LoopV8Javascript(SecondLoop, v8JavascriptEngine, cancellationToken: timeoutTokenProvider());
+        Console.WriteLine("V8 Javascript ({0}): {1}", SecondLoop, sw.ElapsedMilliseconds);
+
+        // await TestV8Lib(runtimeEngineFactory, cancellationToken: timeoutTokenProvider());
+    }
+
+    public static async Task LoopCSharpCompiled(int n, IRuntimeEngine runtimeEngine, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken)
+    {
+        for (var i = 0; i < n; i++)
+        {
+            await runtimeEngine.Execute<int, LoopTestArgs>(
+                content: @$"
+                public class Function : IExecutable<int, LoopTestArgs> 
+                {{
+                    public Task<int> Execute(LoopTestArgs arguments, CancellationToken cancellationToken) 
+                    {{
+                        return Task.FromResult(arguments.X * 5);    
+                    }}
+                }}", arguments: new LoopTestArgs { X = i },
+                imports: imports, assemblies: assemblies, types: null, cancellationToken);
+        }
+    }
+
+    public static async Task LoopCSharpScript(int n, IRuntimeEngine runtimeEngine, CancellationToken cancellationToken)
+    {
+        for (var i = 0; i < n; i++)
+        {
+            await runtimeEngine.Execute(
+                content: @$"X * 5", arguments: new LoopTestArgs { X = i },
+                imports: null, assemblies: null, types: null, cancellationToken);
+        }
+    }
+
+    public static async Task LoopV8Javascript(int n, IOptimizableRuntimeEngine runtimeEngine, CancellationToken cancellationToken)
+    {
+        Guid optimizationScopeId = Guid.NewGuid();
+        for (var i = 0; i < n; i++)
+        {
+            await runtimeEngine.Execute(
+                content: @$"A.X * 5", arguments: new LoopTestArgs { X = i },
+                imports: null, assemblies: null, types: null,
+                optimizationScopeId, cancellationToken);
+        }
     }
 
     public static async Task TestV8Lib(IRuntimeEngineFactory engineFactory, CancellationToken cancellationToken)
@@ -104,7 +183,7 @@ static class TestFunctionBlocks
         var control = new BlockExecutionControl(blockInstance);
         var blockFramework = blockFrameworkFactory.Create(control);
         var runRequest = new RunBlockRequest(blockInstance, triggerEvent: null);
-        var result = await blockRunner.Run(runRequest, control, blockFramework, cancellationToken);
+        var result = await blockRunner.Run(runRequest, control, blockFramework, optimizationScopeId: default, cancellationToken);
         Console.WriteLine(string.Join(Environment.NewLine, result.OutputEvents));
         Console.WriteLine(control.GetOutput("Result"));
     }
@@ -120,7 +199,7 @@ static class TestFunctionBlocks
         control.GetInput("N").Value = 5;
         var blockFramework = blockFrameworkFactory.Create(control);
         var runRequest = new RunBlockRequest(blockInstance, triggerEvent: null);
-        var result = await blockRunner.Run(runRequest, control, blockFramework, cancellationToken);
+        var result = await blockRunner.Run(runRequest, control, blockFramework, optimizationScopeId: default, cancellationToken);
         Console.WriteLine(string.Join(Environment.NewLine, result.OutputEvents));
         Console.WriteLine(control.GetOutput("Result"));
     }
@@ -188,4 +267,9 @@ static class TestFunctionBlocks
         var finalResult = processControl.GetBlockControl("Add3").GetOutput("Result");
         Console.WriteLine(finalResult);
     }
+}
+
+public class LoopTestArgs
+{
+    public int X { get; set; }
 }

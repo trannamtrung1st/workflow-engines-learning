@@ -12,17 +12,22 @@ public class BlockRunner<TFramework> : IBlockRunner<TFramework> where TFramework
         _logicRunner = logicRunner;
     }
 
-    public async Task<BlockExecutionResult> Run(RunBlockRequest request, IBlockExecutionControl control, TFramework blockFramework, CancellationToken cancellationToken)
+    public async Task<BlockExecutionResult> Run(RunBlockRequest request, IBlockExecutionControl control, TFramework blockFramework, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         var block = request.Block;
+        optimizationScopeId ??= Guid.NewGuid();
         var globalObject = new BlockGlobalObject<TFramework>(blockFramework);
-        var blockExecutionResult = await control.Execute(
-            triggerEvent: request.TriggerEvent,
-            EvaluateCondition: (condition, cancellationToken) => _logicRunner.Run<bool>(condition, globalObject: globalObject, cancellationToken),
-            RunAction: (actionLogic, cancellationToken) => _logicRunner.Run(actionLogic, globalObject, cancellationToken),
-            GetOutputEvents: () => blockFramework.OutputEvents,
-            cancellationToken: cancellationToken
-        );
-        return blockExecutionResult;
+        try
+        {
+            var blockExecutionResult = await control.Execute(
+                triggerEvent: request.TriggerEvent,
+                EvaluateCondition: (condition, cancellationToken) => _logicRunner.Run<bool>(condition, globalObject: globalObject, optimizationScopeId.Value, cancellationToken),
+                RunAction: (actionLogic, cancellationToken) => _logicRunner.Run(actionLogic, globalObject, optimizationScopeId.Value, cancellationToken),
+                GetOutputEvents: () => blockFramework.OutputEvents,
+                cancellationToken: cancellationToken
+            );
+            return blockExecutionResult;
+        }
+        finally { await _logicRunner.CompleteOptimizationScope(optimizationScopeId.Value); }
     }
 }

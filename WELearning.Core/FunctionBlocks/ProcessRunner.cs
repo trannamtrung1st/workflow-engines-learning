@@ -15,10 +15,10 @@ public class ProcessRunner<TFramework> : IProcessRunner
 
     public virtual async Task Run(RunProcessRequest request, ProcessExecutionContext processContext, IProcessExecutionControl processControl, CancellationToken cancellationToken)
     {
-        await processControl.Run(request, (runBlockRequest, blockControl, cancellationToken) =>
+        await processControl.Run(request, RunBlock: (runBlockRequest, blockControl, cancellationToken) =>
         {
             var blockFramework = _blockFrameworkFactory.Create(blockControl);
-            return _blockRunner.Run(runBlockRequest, blockControl, blockFramework, cancellationToken);
+            return _blockRunner.Run(runBlockRequest, blockControl, blockFramework, optimizationScopeId: default, cancellationToken);
         }, cancellationToken);
     }
 }

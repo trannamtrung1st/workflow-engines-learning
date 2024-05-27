@@ -73,7 +73,9 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
 
     private ScriptOptions PrepareScriptOptions(IEnumerable<string> imports, IEnumerable<Assembly> assemblies)
     {
-        var options = ScriptOptions.Default;
+        var options = ScriptOptions.Default
+            .WithEmitDebugInformation(false)
+            .WithOptimizationLevel(Microsoft.CodeAnalysis.OptimizationLevel.Release);
         if (imports?.Any() == true) options = options.WithImports(imports);
         if (assemblies?.Any() == true) options = options.WithReferences(assemblies);
         return options;
