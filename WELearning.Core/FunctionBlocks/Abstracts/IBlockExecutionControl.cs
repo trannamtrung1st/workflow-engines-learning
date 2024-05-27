@@ -10,11 +10,13 @@ public interface IBlockExecutionControl
     string CurrentState { get; }
     Exception Exception { get; }
     EBlockExecutionStatus Status { get; }
-    ValueObject GetInput(string key);
-    ValueObject GetOutput(string key);
-    ValueObject GetInternalData(string key);
+    VariableBinding GetInput(string key);
+    VariableBinding GetOutput(string key);
+    VariableBinding GetInternalData(string key);
     Task<BlockExecutionResult> Execute(string triggerEvent,
-        Func<Logic, Task<bool>> EvaluateCondition,
-        Func<Logic, Task> RunAction,
-        Func<IEnumerable<string>> GetOutputEvents);
+        Func<Logic, CancellationToken, Task<bool>> EvaluateCondition,
+        Func<Logic, CancellationToken, Task> RunAction,
+        Func<IEnumerable<string>> GetOutputEvents,
+        CancellationToken cancellationToken);
+    void WaitForCompletion(CancellationToken cancellationToken);
 }

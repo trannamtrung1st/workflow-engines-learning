@@ -33,7 +33,7 @@ public class V8JavascriptEngine : IRuntimeEngine, IDisposable
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.Javascript;
 
-    public async Task<TReturn> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken = default)
+    public async Task<TReturn> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
     {
         var combinedTypes = ReflectionHelper.CombineTypes(assemblies, types);
         using V8ScriptEngine engine = PrepareV8Engine(combinedTypes);
@@ -43,7 +43,7 @@ public class V8JavascriptEngine : IRuntimeEngine, IDisposable
         return result;
     }
 
-    public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken = default)
+    public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
     {
         var combinedTypes = ReflectionHelper.CombineTypes(assemblies, types);
         using V8ScriptEngine engine = PrepareV8Engine(combinedTypes);
@@ -65,7 +65,7 @@ public class V8JavascriptEngine : IRuntimeEngine, IDisposable
                 target: property.GetValue(arguments));
     }
 
-    private async Task<V8Script> GetScript(string content, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken = default)
+    private async Task<V8Script> GetScript(string content, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken)
     {
         var (CacheKey, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, cancellationToken);
         var script = _memoryCache.GetOrCreate(CacheKey, (entry) =>

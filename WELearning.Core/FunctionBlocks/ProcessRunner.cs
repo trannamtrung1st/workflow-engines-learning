@@ -13,12 +13,12 @@ public class ProcessRunner<TFramework> : IProcessRunner
         _blockFrameworkFactory = blockFrameworkFactory;
     }
 
-    public virtual async Task Run(RunProcessRequest request, ProcessExecutionContext processContext, IProcessExecutionControl processControl)
+    public virtual async Task Run(RunProcessRequest request, ProcessExecutionContext processContext, IProcessExecutionControl processControl, CancellationToken cancellationToken)
     {
-        await processControl.Run(request, (runBlockRequest, blockControl) =>
+        await processControl.Run(request, (runBlockRequest, blockControl, cancellationToken) =>
         {
             var blockFramework = _blockFrameworkFactory.Create(blockControl);
-            return _blockRunner.Run(runBlockRequest, blockControl, blockFramework);
-        });
+            return _blockRunner.Run(runBlockRequest, blockControl, blockFramework, cancellationToken);
+        }, cancellationToken);
     }
 }

@@ -7,7 +7,7 @@ public abstract class BaseCompiledFunction<TFramework> : IExecutable<BlockGlobal
 {
     protected TFramework FB;
 
-    public Task Execute(BlockGlobalObject<TFramework> global, CancellationToken cancellationToken = default)
+    public Task Execute(BlockGlobalObject<TFramework> global, CancellationToken cancellationToken)
     {
         FB = global.FB;
         return Handle(cancellationToken);
@@ -33,7 +33,7 @@ public abstract class BaseCompiledFunction<TReturn, TFramework> : IExecutable<TR
 {
     protected TFramework FB;
 
-    public Task<TReturn> Execute(BlockGlobalObject<TFramework> global, CancellationToken cancellationToken = default)
+    public Task<TReturn> Execute(BlockGlobalObject<TFramework> global, CancellationToken cancellationToken)
     {
         FB = global.FB;
         return Handle(cancellationToken);

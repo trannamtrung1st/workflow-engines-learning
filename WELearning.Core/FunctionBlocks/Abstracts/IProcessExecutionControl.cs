@@ -11,9 +11,8 @@ public interface IProcessExecutionControl
     IEnumerable<BlockExecutionTaskInfo> ExecutionTasks { get; }
     Exception Exception { get; }
     EProcessExecutionStatus Status { get; }
-    void WaitForCompletion();
-    Task<BlockExecutionTaskInfo> WaitForCompletion(string blockId);
+    void WaitForCompletion(CancellationToken cancellationToken);
     IBlockExecutionControl GetBlockControl(string blockId);
     IBlockExecutionControl GetOrInitBlockControl(FunctionBlockInstance block);
-    Task Run(RunProcessRequest request, Func<RunBlockRequest, IBlockExecutionControl, Task<BlockExecutionResult>> RunBlock);
+    Task Run(RunProcessRequest request, Func<RunBlockRequest, IBlockExecutionControl, CancellationToken, Task<BlockExecutionResult>> RunBlock, CancellationToken cancellationToken);
 }

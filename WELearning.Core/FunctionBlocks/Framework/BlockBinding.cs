@@ -5,7 +5,7 @@ namespace WELearning.Core.FunctionBlocks.Framework;
 
 public class BlockBinding : IBlockBinding
 {
-    private readonly ValueObject _valueObject;
+    private readonly VariableBinding _variableBinding;
     private readonly IBlockExecutionControl _control;
     public BlockBinding(string name, IBlockExecutionControl control, bool isInternal)
     {
@@ -14,23 +14,23 @@ public class BlockBinding : IBlockBinding
         if (isInternal)
         {
             IsInput = false; IsOutput = false; IsInternal = true;
-            var valueObject = control.GetInternalData(name);
-            _valueObject = valueObject;
+            var variableBinding = control.GetInternalData(name);
+            _variableBinding = variableBinding;
         }
-        else if ((_valueObject = control.GetInput(name)).ValueSet.IsSet)
+        else if ((_variableBinding = control.GetInput(name)).ValueSet)
         {
             IsInput = true; IsOutput = false; IsInternal = false;
         }
         else
         {
-            _valueObject = control.GetOutput(name);
+            _variableBinding = control.GetOutput(name);
             IsInput = false; IsOutput = true; IsInternal = false;
         }
     }
 
     public virtual string Name { get; protected set; }
-    public virtual object Value => _valueObject.Value;
-    public virtual bool ValueSet => _valueObject.ValueSet.IsSet;
+    public virtual object Value => _variableBinding.Value;
+    public virtual bool ValueSet => _variableBinding.ValueSet;
     public virtual bool IsInput { get; protected set; }
     public virtual bool IsOutput { get; protected set; }
     public virtual bool IsInternal { get; protected set; }

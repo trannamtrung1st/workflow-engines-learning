@@ -12,15 +12,16 @@ public class BlockRunner<TFramework> : IBlockRunner<TFramework> where TFramework
         _logicRunner = logicRunner;
     }
 
-    public async Task<BlockExecutionResult> Run(RunBlockRequest request, IBlockExecutionControl control, TFramework blockFramework)
+    public async Task<BlockExecutionResult> Run(RunBlockRequest request, IBlockExecutionControl control, TFramework blockFramework, CancellationToken cancellationToken)
     {
         var block = request.Block;
         var globalObject = new BlockGlobalObject<TFramework>(blockFramework);
         var blockExecutionResult = await control.Execute(
             triggerEvent: request.TriggerEvent,
-            EvaluateCondition: (condition) => _logicRunner.Run<bool>(condition, globalObject: globalObject),
-            RunAction: (actionLogic) => _logicRunner.Run(actionLogic, globalObject),
-            GetOutputEvents: () => blockFramework.OutputEvents
+            EvaluateCondition: (condition, cancellationToken) => _logicRunner.Run<bool>(condition, globalObject: globalObject, cancellationToken),
+            RunAction: (actionLogic, cancellationToken) => _logicRunner.Run(actionLogic, globalObject, cancellationToken),
+            GetOutputEvents: () => blockFramework.OutputEvents,
+            cancellationToken: cancellationToken
         );
         return blockExecutionResult;
     }

@@ -9,7 +9,7 @@ namespace WELearning.Core.FunctionBlocks;
 public class ProcessExecutionControl : IProcessExecutionControl
 {
     private readonly ProcessExecutionContext _context;
-    private readonly ManualResetEventSlim _processIdleWait;
+    private readonly ManualResetEventSlim _completeWait;
     private ConcurrentDictionary<string, BlockExecutionControl> _blockExecutionControlMap;
     private readonly ConcurrentBag<BlockExecutionTaskInfo> _executionTasks;
 
@@ -18,7 +18,7 @@ public class ProcessExecutionControl : IProcessExecutionControl
         _context = context;
         _blockRunningProcessCount = 0;
         _blockExecutionControlMap = new();
-        _processIdleWait = new ManualResetEventSlim();
+        _completeWait = new(initialState: true);
         _executionTasks = new();
         Process = process;
     }
@@ -32,36 +32,25 @@ public class ProcessExecutionControl : IProcessExecutionControl
 
     protected virtual void StartProcess()
     {
-        lock (_processIdleWait)
+        lock (_completeWait)
         {
             _blockRunningProcessCount++;
-            _processIdleWait.Reset();
+            _completeWait.Reset();
         }
     }
 
     protected virtual void CompleteProcess()
     {
-        lock (_processIdleWait)
+        lock (_completeWait)
         {
             if (_blockRunningProcessCount == 0) return;
             _blockRunningProcessCount--;
             if (_blockRunningProcessCount == 0)
-                _processIdleWait.Set();
+                _completeWait.Set();
         }
     }
 
-    public virtual void WaitForCompletion() => _processIdleWait.Wait();
-
-    public virtual async Task<BlockExecutionTaskInfo> WaitForCompletion(string blockId)
-    {
-        var blockRunningTask = _executionTasks
-            .Where(t => t.BlockId == blockId)
-            .OrderByDescending(t => t.StartTime)
-            .FirstOrDefault();
-        if (blockRunningTask != null && blockRunningTask.CompletedTime == null)
-            await blockRunningTask.ExecutionTask;
-        return blockRunningTask;
-    }
+    public virtual void WaitForCompletion(CancellationToken cancellationToken) => _completeWait.Wait(cancellationToken);
 
     public virtual IBlockExecutionControl GetBlockControl(string blockId)
         => _blockExecutionControlMap[blockId];
@@ -76,39 +65,40 @@ public class ProcessExecutionControl : IProcessExecutionControl
 
             foreach (var connection in blockExternalOutputs)
             {
-                var binding = _context.Bindings.FirstOrDefault(b => b.BlockId == block.Id && b.VariableName == connection.VariableName);
+                var binding = _context.Bindings.FirstOrDefault(b => b.BlockId == block.Id && b.Binding.VariableName == connection.VariableName);
                 if (binding == null) throw new KeyNotFoundException($"Binding for {connection.VariableName} not found!");
-                blockControl.GetOutput(connection.VariableName).Value = binding.Value;
+                blockControl.GetOutput(connection.VariableName).Value = binding.Binding.Value;
             }
 
             return blockControl;
         });
 
-    protected async Task RunTaskAsync(Func<Task> func)
+    protected async Task RunTaskAsync(Func<CancellationToken, Task> func, CancellationToken cancellationToken)
     {
         StartProcess();
         try
         {
             await Task.Yield();
-            await func();
+            await func(cancellationToken);
         }
         finally { CompleteProcess(); }
     }
 
     public virtual async Task Run(RunProcessRequest request,
-        Func<RunBlockRequest, IBlockExecutionControl, Task<BlockExecutionResult>> RunBlock)
+        Func<RunBlockRequest, IBlockExecutionControl, CancellationToken, Task<BlockExecutionResult>> RunBlock,
+        CancellationToken cancellationToken)
     {
         Status = EProcessExecutionStatus.Running;
         try
         {
             var startingBlockTriggers = request.Triggers
                 ?? request.Process.DefaultBlockIds.Select(bId => new BlockTrigger(blockId: bId, triggerEvent: null));
-            await RunTaskAsync(() =>
+            await RunTaskAsync((cancellationToken) =>
             {
-                TriggerBlocks(blockTriggers: startingBlockTriggers, RunBlock);
+                TriggerBlocks(blockTriggers: startingBlockTriggers, RunBlock, cancellationToken);
                 return Task.CompletedTask;
-            });
-            WaitForCompletion();
+            }, cancellationToken);
+            WaitForCompletion(cancellationToken);
             Status = EProcessExecutionStatus.Completed;
         }
         catch (Exception ex)
@@ -121,39 +111,41 @@ public class ProcessExecutionControl : IProcessExecutionControl
 
     protected virtual void TriggerBlocks(
         IEnumerable<BlockTrigger> blockTriggers,
-        Func<RunBlockRequest, IBlockExecutionControl, Task<BlockExecutionResult>> RunBlock)
+        Func<RunBlockRequest, IBlockExecutionControl, CancellationToken, Task<BlockExecutionResult>> RunBlock,
+        CancellationToken cancellationToken)
     {
         foreach (var trigger in blockTriggers)
         {
             var block = Process.Blocks.FirstOrDefault(b => b.Id == trigger.BlockId);
             if (block == null) throw new KeyNotFoundException($"Block {trigger.BlockId} not found!");
-            _ = RunTaskAsync(async () =>
+            _ = RunTaskAsync(async (cancellationToken) =>
             {
-                await WaitForCompletion(block.Id);
                 var blockControl = GetOrInitBlockControl(block);
+                blockControl.WaitForCompletion(cancellationToken);
                 var triggerEvent = trigger.TriggerEvent ?? block.Definition.DefaultTriggerEvent;
-                await WaitAndPrepareInputs(triggerEvent, blockControl);
+                WaitAndPrepareBindings(triggerEvent, blockControl, cancellationToken);
                 var runRequest = new RunBlockRequest(block, triggerEvent);
-                await ProcessBlock(runRequest, blockControl, RunBlock);
-            });
+                await ProcessBlock(runRequest, blockControl, RunBlock, cancellationToken);
+            }, cancellationToken);
         }
     }
 
     protected virtual async Task ProcessBlock(
         RunBlockRequest request,
         IBlockExecutionControl blockControl,
-        Func<RunBlockRequest, IBlockExecutionControl, Task<BlockExecutionResult>> RunBlock)
+        Func<RunBlockRequest, IBlockExecutionControl, CancellationToken, Task<BlockExecutionResult>> RunBlock,
+        CancellationToken cancellationToken)
     {
         var block = request.Block;
         var startTime = DateTime.UtcNow;
-        var executionTask = RunBlock(request, blockControl);
+        var executionTask = RunBlock(request, blockControl, cancellationToken);
         _executionTasks.Add(new(blockId: block.Id, startTime, executionTask));
         var blockResult = await executionTask;
         var nextBlockTriggers = Process.FindNextBlocks(block.Id, outputEvents: blockResult.OutputEvents);
-        TriggerBlocks(nextBlockTriggers, RunBlock);
+        TriggerBlocks(nextBlockTriggers, RunBlock, cancellationToken);
     }
 
-    protected virtual async Task WaitAndPrepareInputs(string triggerEvent, IBlockExecutionControl blockControl)
+    protected virtual void WaitAndPrepareBindings(string triggerEvent, IBlockExecutionControl blockControl, CancellationToken cancellationToken)
     {
         var block = blockControl.Block;
         var inputEvent = block.Definition.InputEvents.FirstOrDefault(ev => ev.Name == triggerEvent);
@@ -166,9 +158,9 @@ public class ProcessExecutionControl : IProcessExecutionControl
             {
                 case EDataSource.External:
                     {
-                        var binding = _context.Bindings.FirstOrDefault(b => b.BlockId == block.Id && b.VariableName == connection.VariableName);
+                        var binding = _context.Bindings.FirstOrDefault(b => b.BlockId == block.Id && b.Binding.VariableName == connection.VariableName);
                         if (binding == null) throw new KeyNotFoundException($"Binding for {connection.VariableName} not found!");
-                        blockControl.GetInput(connection.VariableName).Value = binding.Value;
+                        blockControl.GetInput(connection.VariableName).Value = binding.Binding.Value;
                         break;
                     }
 
@@ -176,11 +168,11 @@ public class ProcessExecutionControl : IProcessExecutionControl
                     {
                         if (connection.SourceBlockId != null && connection.SourceVariableName != null)
                         {
-                            await WaitForCompletion(connection.SourceBlockId);
                             var sourceBlock = Process.Blocks.FirstOrDefault(b => b.Id == connection.SourceBlockId);
                             var sourceBlockControl = GetOrInitBlockControl(sourceBlock);
+                            sourceBlockControl.WaitForCompletion(cancellationToken);
                             var outputValue = sourceBlockControl.GetOutput(connection.SourceVariableName);
-                            outputValue.ValueSet.Wait();
+                            outputValue.WaitValueSet(cancellationToken);
                             blockControl.GetInput(connection.VariableName).Value = outputValue.Value;
                         }
                         else

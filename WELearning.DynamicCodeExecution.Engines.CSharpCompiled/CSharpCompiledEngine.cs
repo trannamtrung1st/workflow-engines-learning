@@ -25,7 +25,7 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.CSharpCompiled;
 
-    public async Task<TReturn> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken = default)
+    public async Task<TReturn> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
     {
         assemblies = ReflectionHelper.CombineAssemblies(assemblies, types);
         var assembly = await LoadOrCompile(content, imports, assemblies, cancellationToken);
@@ -34,7 +34,7 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
         return await instance.Execute(arguments, cancellationToken);
     }
 
-    public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken = default)
+    public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
     {
         assemblies = ReflectionHelper.CombineAssemblies(assemblies, types);
         var assembly = await LoadOrCompile(content, imports, assemblies, cancellationToken);
