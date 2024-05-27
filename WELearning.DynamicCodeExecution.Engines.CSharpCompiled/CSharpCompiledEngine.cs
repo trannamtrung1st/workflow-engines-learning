@@ -13,6 +13,7 @@ namespace WELearning.DynamicCodeExecution.Engines;
 public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
 {
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
+    private static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(30);
     private readonly MemoryCache _memoryCache;
     public CSharpCompiledEngine()
     {
@@ -76,6 +77,7 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
         var assembly = _memoryCache.GetOrCreate(AssemblyName, (entry) =>
         {
             entry.SetSize(CacheSize);
+            entry.SetSlidingExpiration(DefaultSlidingExpiration);
             content = AddImports(content, imports);
             try
             {

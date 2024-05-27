@@ -18,6 +18,7 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
 {
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
     private const long DefaultMaxEngineCacheCount = 1_000;
+    private static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(30);
     private readonly MemoryCache _scriptCache;
     private readonly ManualResetEventSlim _engineCacheWait;
     private readonly ConcurrentDictionary<Guid, V8ScriptEngine> _engineCache;
@@ -61,6 +62,7 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         var (script, cachedOptScopeId, cacheBytes) = _scriptCache.GetOrCreate(CacheKey, (entry) =>
         {
             entry.SetSize(CacheSize);
+            entry.SetSlidingExpiration(DefaultSlidingExpiration);
             var script = engine.Compile(documentInfo, code: content, cacheKind: V8CacheKind.Code, out var cacheBytes);
             firstCompiled = true;
             return (script, optimizationScopeId, cacheBytes);

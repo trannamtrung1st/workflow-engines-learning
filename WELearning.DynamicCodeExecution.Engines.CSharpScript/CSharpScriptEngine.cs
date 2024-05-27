@@ -13,6 +13,7 @@ namespace WELearning.DynamicCodeExecution.Engines;
 public class CSharpScriptEngine : IRuntimeEngine, IDisposable
 {
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
+    private static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(30);
     private readonly MemoryCache _memoryCache;
     public CSharpScriptEngine()
     {
@@ -31,7 +32,7 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
         var (CacheKey, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, cancellationToken);
         var script = _memoryCache.GetOrCreate(CacheKey, (entry) =>
         {
-            entry.SetSize(CacheSize);
+            ConfigureCacheEntry(entry, CacheSize);
             var scriptOptions = PrepareScriptOptions(imports, assemblies);
             var script = CSharpScript.Create<TReturn>(content, scriptOptions, globalsType: typeof(TArg));
             script.Compile(cancellationToken);
@@ -47,7 +48,7 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
         var (CacheKey, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, cancellationToken);
         var script = _memoryCache.GetOrCreate(CacheKey, (entry) =>
         {
-            entry.SetSize(CacheSize);
+            ConfigureCacheEntry(entry, CacheSize);
             var scriptOptions = PrepareScriptOptions(imports, assemblies);
             var script = CSharpScript.Create(content, scriptOptions, globalsType: typeof(TArg));
             script.Compile(cancellationToken);
@@ -79,6 +80,12 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
         if (imports?.Any() == true) options = options.WithImports(imports);
         if (assemblies?.Any() == true) options = options.WithReferences(assemblies);
         return options;
+    }
+
+    private static void ConfigureCacheEntry(ICacheEntry cacheEntry, long cacheSize)
+    {
+        cacheEntry.SetSize(cacheSize);
+        cacheEntry.SetSlidingExpiration(DefaultSlidingExpiration);
     }
 
     public void Dispose()
