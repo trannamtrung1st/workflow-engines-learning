@@ -170,7 +170,8 @@ static class PredefinedBlocks
             invalidConditionContent: @$"
             var x = FB.Get(""X""); var y = FB.Get(""Y"");
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
-            "
+            ",
+            assemblies: new[] { AppFrameworkAssembly }
         );
     }
 
@@ -192,14 +193,15 @@ static class PredefinedBlocks
             invalidConditionContent: @$"
             var x = FB.Get(""X""); var y = FB.Get(""Y"");
             !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
-            "
+            ",
+            assemblies: null
         );
     }
 
     private static FunctionBlock CreateBlockAddBase(ERuntime runtime,
-        string addContent, string handleInvalidContent, string invalidConditionContent)
+        string addContent, string handleInvalidContent, string invalidConditionContent,
+        IEnumerable<Assembly> assemblies)
     {
-        var assemblies = new[] { AppFrameworkAssembly };
         var bAdd = new FunctionBlock(id: "Add", name: "Add X + Y");
 
         var iX = new Variable("X", EDataType.Numeric);
