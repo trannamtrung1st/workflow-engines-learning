@@ -11,11 +11,11 @@ public static class LoopProcess
     {
         var process = new FunctionBlockProcess(id: "Loop", name: "Sample loop process");
 
-        var bAdd = PredefinedBlocks.AddCsScript;
-        var bLoopController = CreateLoopControllerBlock();
+        var bAdd = new FunctionBlockInstance(PredefinedBlocks.AddCsScript);
+        var bLoopController = new FunctionBlockInstance(definition: CreateLoopControllerBlock());
 
         {
-            var blocks = new List<FunctionBlock> { bAdd, bLoopController };
+            var blocks = new List<FunctionBlockInstance> { bAdd, bLoopController };
             process.Blocks = blocks;
             process.DefaultBlockIds = new[] { bLoopController.Id };
         }

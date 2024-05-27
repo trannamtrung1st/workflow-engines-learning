@@ -11,16 +11,16 @@ public class BlockExecutionControl : IBlockExecutionControl
     private readonly ConcurrentDictionary<string, ValueObject> _inputSnapshot;
     private readonly ConcurrentDictionary<string, ValueObject> _outputSnapshot;
     private readonly ConcurrentDictionary<string, ValueObject> _internalDataSnapshot;
-    public BlockExecutionControl(FunctionBlock block)
+    public BlockExecutionControl(FunctionBlockInstance block)
     {
         _inputSnapshot = new();
         _outputSnapshot = new();
         _internalDataSnapshot = new();
         Block = block;
-        CurrentState = block.ExecutionControlChart.InitialState;
+        CurrentState = block.Definition.ExecutionControlChart.InitialState;
     }
 
-    public FunctionBlock Block { get; }
+    public FunctionBlockInstance Block { get; }
     public virtual string CurrentState { get; protected set; }
     public virtual Exception Exception { get; protected set; }
     public virtual EBlockExecutionStatus Status { get; protected set; }
@@ -35,7 +35,7 @@ public class BlockExecutionControl : IBlockExecutionControl
         string triggerEvent,
         Func<Logic, Task<bool>> EvaluateCondition)
     {
-        foreach (var transition in Block.ExecutionControlChart.StateTransitions)
+        foreach (var transition in Block.Definition.ExecutionControlChart.StateTransitions)
         {
             if (transition.FromState == CurrentState
                 && transition.TriggerEventName == triggerEvent
@@ -58,7 +58,7 @@ public class BlockExecutionControl : IBlockExecutionControl
         Status = EBlockExecutionStatus.Running;
         try
         {
-            triggerEvent = triggerEvent ?? Block.DefaultTriggerEvent;
+            triggerEvent = triggerEvent ?? Block.Definition.DefaultTriggerEvent;
             var transitionResults = new List<BlockTransitionResult>();
             var transition = await FindTransition(triggerEvent, EvaluateCondition);
             if (transition == null) throw new KeyNotFoundException($"Transition for event {triggerEvent} not found!");
@@ -69,7 +69,7 @@ public class BlockExecutionControl : IBlockExecutionControl
                 CurrentState = transition.ToState;
                 if (transition.ActionLogicId != null)
                 {
-                    var actionLogic = Block.Logics.FirstOrDefault(l => l.Id == transition.ActionLogicId);
+                    var actionLogic = Block.Definition.Logics.FirstOrDefault(l => l.Id == transition.ActionLogicId);
                     if (actionLogic == null) throw new KeyNotFoundException($"Action logic {transition.ActionLogicId} not found!");
                     await RunAction(actionLogic);
                 }

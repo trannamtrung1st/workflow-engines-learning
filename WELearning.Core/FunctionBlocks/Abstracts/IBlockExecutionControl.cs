@@ -6,7 +6,7 @@ namespace WELearning.Core.FunctionBlocks.Abstracts;
 
 public interface IBlockExecutionControl
 {
-    FunctionBlock Block { get; }
+    FunctionBlockInstance Block { get; }
     string CurrentState { get; }
     Exception Exception { get; }
     EBlockExecutionStatus Status { get; }

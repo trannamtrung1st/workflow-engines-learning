@@ -27,28 +27,31 @@ await RunBlockRandomDouble(blockRunner, blockFrameworkFactory, block: Predefined
 await RunBlockFactorial(blockRunner, blockFrameworkFactory, block: PredefinedBlocks.FactorialCsScript);
 
 var rectangleAreaProcess = RectangleAreaProcess.Build(
-    bMultiply: PredefinedBlocks.MultiplyCsScript
+    bMultiply: new(PredefinedBlocks.MultiplyCsScript)
 );
 await RunRectangleArea(processRunner, process: rectangleAreaProcess);
 
 await RunRectanglePerimeter(processRunner, process: RectanglePerimeterProcess.Build(
-    bAdd: PredefinedBlocks.AddCsScript, bMultiply: PredefinedBlocks.MultiplyCsCompiled
+    bAdd: new(PredefinedBlocks.AddCsScript), bMultiply: new(PredefinedBlocks.MultiplyCsCompiled)
 ));
 
 await RunRectanglePerimeter(processRunner, process: RectanglePerimeterProcess.Build(
-    bAdd: PredefinedBlocks.AddJs, bMultiply: PredefinedBlocks.MultiplyCsCompiled
+    bAdd: new(PredefinedBlocks.AddJs), bMultiply: new(PredefinedBlocks.MultiplyCsCompiled)
 ));
 
 await RunLoopProcess(processRunner, process: LoopProcess.Build());
+
+await RunDependencyWait(processRunner, process: DependencyWaitProcess.Build());
 
 static async Task RunBlockRandomDouble(
     IBlockRunner<AppFramework> blockRunner,
     IBlockFrameworkFactory<AppFramework> blockFrameworkFactory,
     FunctionBlock block)
 {
-    var control = new BlockExecutionControl(block);
+    var blockInstance = new FunctionBlockInstance(block);
+    var control = new BlockExecutionControl(blockInstance);
     var blockFramework = blockFrameworkFactory.Create(control);
-    var runRequest = new RunBlockRequest(block, triggerEvent: null);
+    var runRequest = new RunBlockRequest(blockInstance, triggerEvent: null);
     var result = await blockRunner.Run(runRequest, control, blockFramework);
     Console.WriteLine(string.Join(Environment.NewLine, result.OutputEvents));
     Console.WriteLine(control.GetOutput("Result"));
@@ -59,10 +62,11 @@ static async Task RunBlockFactorial(
     IBlockFrameworkFactory<AppFramework> blockFrameworkFactory,
     FunctionBlock block)
 {
-    var control = new BlockExecutionControl(block);
+    var blockInstance = new FunctionBlockInstance(block);
+    var control = new BlockExecutionControl(blockInstance);
     control.GetInput("N").Value = 5;
     var blockFramework = blockFrameworkFactory.Create(control);
-    var runRequest = new RunBlockRequest(block, triggerEvent: null);
+    var runRequest = new RunBlockRequest(blockInstance, triggerEvent: null);
     var result = await blockRunner.Run(runRequest, control, blockFramework);
     Console.WriteLine(string.Join(Environment.NewLine, result.OutputEvents));
     Console.WriteLine(control.GetOutput("Result"));
@@ -111,4 +115,22 @@ static async Task RunLoopProcess(IProcessRunner processRunner, FunctionBlockProc
     Console.WriteLine(finalResult);
 }
 
-// [TODO] add dependency wait
+static async Task RunDependencyWait(IProcessRunner processRunner, FunctionBlockProcess process)
+{
+    var bindings = new HashSet<ProcessVariableBinding>();
+    bindings.Add(new(blockId: "Delay", variableName: "Ms", value: 3000));
+    bindings.Add(new(blockId: "Add1", variableName: "X", value: 1));
+    bindings.Add(new(blockId: "Add1", variableName: "Y", value: 2));
+    bindings.Add(new(blockId: "Add2", variableName: "X", value: 3));
+    bindings.Add(new(blockId: "Add2", variableName: "Y", value: 4));
+    var runRequest = new RunProcessRequest(process);
+    var processContext = new ProcessExecutionContext(bindings);
+    var processControl = new ProcessExecutionControl(process, processContext);
+    await processRunner.Run(runRequest, processContext, processControl);
+
+    var finalResult = processControl.GetBlockControl("Add3").GetOutput("Result");
+    Console.WriteLine(finalResult);
+}
+
+// [TODO] add performance test
+// [TODO] add xhr, fetch, axios lib loading

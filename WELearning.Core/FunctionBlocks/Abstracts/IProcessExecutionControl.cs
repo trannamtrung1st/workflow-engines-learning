@@ -14,6 +14,6 @@ public interface IProcessExecutionControl
     void WaitForCompletion();
     Task<BlockExecutionTaskInfo> WaitForCompletion(string blockId);
     IBlockExecutionControl GetBlockControl(string blockId);
-    IBlockExecutionControl GetOrInitBlockControl(FunctionBlock block);
+    IBlockExecutionControl GetOrInitBlockControl(FunctionBlockInstance block);
     Task Run(RunProcessRequest request, Func<RunBlockRequest, IBlockExecutionControl, Task<BlockExecutionResult>> RunBlock);
 }

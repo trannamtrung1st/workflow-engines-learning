@@ -66,11 +66,11 @@ public class ProcessExecutionControl : IProcessExecutionControl
     public virtual IBlockExecutionControl GetBlockControl(string blockId)
         => _blockExecutionControlMap[blockId];
 
-    public virtual IBlockExecutionControl GetOrInitBlockControl(FunctionBlock block)
+    public virtual IBlockExecutionControl GetOrInitBlockControl(FunctionBlockInstance block)
         => _blockExecutionControlMap.GetOrAdd(block.Id, (key) =>
         {
             var blockControl = new BlockExecutionControl(block);
-            var outputVariables = block.Outputs.Select(o => o.Name).ToArray();
+            var outputVariables = block.Definition.Outputs.Select(o => o.Name).ToArray();
             var blockExternalOutputs = Process.DataConnections
                 .Where(c => c.BlockId == block.Id && c.Source == EDataSource.External && outputVariables.Contains(c.VariableName));
 
@@ -131,7 +131,7 @@ public class ProcessExecutionControl : IProcessExecutionControl
             {
                 await WaitForCompletion(block.Id);
                 var blockControl = GetOrInitBlockControl(block);
-                var triggerEvent = trigger.TriggerEvent ?? block.DefaultTriggerEvent;
+                var triggerEvent = trigger.TriggerEvent ?? block.Definition.DefaultTriggerEvent;
                 await WaitAndPrepareInputs(triggerEvent, blockControl);
                 var runRequest = new RunBlockRequest(block, triggerEvent);
                 await ProcessBlock(runRequest, blockControl, RunBlock);
@@ -156,7 +156,7 @@ public class ProcessExecutionControl : IProcessExecutionControl
     protected virtual async Task WaitAndPrepareInputs(string triggerEvent, IBlockExecutionControl blockControl)
     {
         var block = blockControl.Block;
-        var inputEvent = block.InputEvents.FirstOrDefault(ev => ev.Name == triggerEvent);
+        var inputEvent = block.Definition.InputEvents.FirstOrDefault(ev => ev.Name == triggerEvent);
         if (inputEvent == null) throw new KeyNotFoundException($"Trigger event {triggerEvent} not found!");
         var eventDataConnections = Process.DataConnections
             .Where(c => c.BlockId == block.Id && inputEvent.VariableNames.Contains(c.VariableName));

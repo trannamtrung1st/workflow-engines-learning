@@ -5,12 +5,12 @@ namespace WELearning.ConsoleApp.Testing.Processes;
 
 public static class RectanglePerimeterProcess
 {
-    public static FunctionBlockProcess Build(FunctionBlock bAdd, FunctionBlock bMultiply)
+    public static FunctionBlockProcess Build(FunctionBlockInstance bAdd, FunctionBlockInstance bMultiply)
     {
         var process = new FunctionBlockProcess(id: "RectanglePerimeter", name: "Calculate perimeter of rectangle");
 
         {
-            var blocks = new List<FunctionBlock> { bAdd, bMultiply };
+            var blocks = new List<FunctionBlockInstance> { bAdd, bMultiply };
             process.Blocks = blocks;
             process.DefaultBlockIds = new[] { bAdd.Id };
         }
