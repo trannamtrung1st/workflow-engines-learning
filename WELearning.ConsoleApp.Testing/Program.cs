@@ -189,7 +189,3 @@ static class TestFunctionBlocks
         Console.WriteLine(finalResult);
     }
 }
-
-// [TODO] add performance test
-// [TODO] add inout variable
-// [TODO] enhance CFB
