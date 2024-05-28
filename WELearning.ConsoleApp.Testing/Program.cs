@@ -165,16 +165,17 @@ static class TestFunctionBlocks
         var rectangleAreaProcess = RectangleAreaProcess.Build(
             bMultiply: new(PredefinedBlocks.MultiplyCsScript)
         );
-        Console.WriteLine("\n{0}\n", JsonSerializer.Serialize(rectangleAreaProcess, Program.DefaultJsonOpts));
         await RunRectangleArea(processRunner, process: rectangleAreaProcess, cancellationToken: timeoutTokenProvider());
 
         await RunRectanglePerimeter(processRunner, process: RectanglePerimeterProcess.Build(
             bAdd: new(PredefinedBlocks.AddCsScript), bMultiply: new(PredefinedBlocks.MultiplyCsCompiled)
         ), cancellationToken: timeoutTokenProvider());
 
-        await RunRectanglePerimeter(processRunner, process: RectanglePerimeterProcess.Build(
+        var rectanglePerimeterJs = RectanglePerimeterProcess.Build(
             bAdd: new(PredefinedBlocks.AddJs), bMultiply: new(PredefinedBlocks.MultiplyCsCompiled)
-        ), cancellationToken: timeoutTokenProvider());
+        );
+        await RunRectanglePerimeter(processRunner, process: rectanglePerimeterJs, cancellationToken: timeoutTokenProvider());
+        Console.WriteLine("\n{0}\n", JsonSerializer.Serialize(rectanglePerimeterJs, Program.DefaultJsonOpts));
 
         await RunLoopProcess(processRunner, process: LoopProcess.Build(), cancellationToken: timeoutTokenProvider());
 
