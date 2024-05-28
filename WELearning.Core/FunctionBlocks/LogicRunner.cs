@@ -17,7 +17,7 @@ public class LogicRunner<TFramework> : ILogicRunner<TFramework>
         _engineFactory = engineFactory;
     }
 
-    public async Task<TReturn> Run<TReturn>(Logic logic, BlockGlobalObject<TFramework> globalObject, Guid optimizationScopeId, CancellationToken cancellationToken)
+    public async Task<(TReturn Result, IDisposable OptimizationScope)> Run<TReturn>(Logic logic, BlockGlobalObject<TFramework> globalObject, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         var engine = _engineFactory.CreateEngine(runtime: logic.Runtime);
         var optEngine = engine as IOptimizableRuntimeEngine;
@@ -42,17 +42,17 @@ public class LogicRunner<TFramework> : ILogicRunner<TFramework>
                 assemblies: logic.Assemblies != null ? logic.Assemblies.Concat(DefaultAssemblies) : DefaultAssemblies, types: logic.Types,
                 cancellationToken: cancellationToken
             );
-            return result;
+            return (result, null);
         }
     }
 
-    public async Task Run(Logic logic, BlockGlobalObject<TFramework> globalObject, Guid optimizationScopeId, CancellationToken cancellationToken)
+    public async Task<IDisposable> Run(Logic logic, BlockGlobalObject<TFramework> globalObject, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         var engine = _engineFactory.CreateEngine(runtime: logic.Runtime);
         var optEngine = engine as IOptimizableRuntimeEngine;
         if (optEngine != null)
         {
-            await optEngine.Execute(
+            var optimizationScope = await optEngine.Execute(
                 content: logic.Content,
                 arguments: globalObject,
                 imports: logic.Imports,
@@ -60,6 +60,7 @@ public class LogicRunner<TFramework> : ILogicRunner<TFramework>
                 optimizationScopeId: optimizationScopeId,
                 cancellationToken: cancellationToken
             );
+            return optimizationScope;
         }
         else
         {
@@ -70,16 +71,7 @@ public class LogicRunner<TFramework> : ILogicRunner<TFramework>
                 assemblies: logic.Assemblies != null ? logic.Assemblies.Concat(DefaultAssemblies) : DefaultAssemblies, types: logic.Types,
                 cancellationToken: cancellationToken
             );
-        }
-    }
-
-    public async Task CompleteOptimizationScope(Guid id)
-    {
-        foreach (var runtime in _engineFactory.SupportedRuntimes)
-        {
-            var engine = _engineFactory.CreateEngine(runtime: runtime) as IOptimizableRuntimeEngine;
-            if (engine != null)
-                await engine.CompleteOptimizationScope(id);
+            return null;
         }
     }
 }

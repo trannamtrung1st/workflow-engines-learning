@@ -107,14 +107,19 @@ static class TestEngines
 
     public static async Task LoopV8Javascript(int n, IOptimizableRuntimeEngine runtimeEngine, CancellationToken cancellationToken)
     {
+        IDisposable scope = null;
         Guid optimizationScopeId = Guid.NewGuid();
-        for (var i = 0; i < n; i++)
+        try
         {
-            await runtimeEngine.Execute(
-                content: @$"A.X * 5", arguments: new LoopTestArgs { X = i },
-                imports: null, assemblies: null, types: null,
-                optimizationScopeId, cancellationToken);
+            for (var i = 0; i < n; i++)
+            {
+                scope = await runtimeEngine.Execute(
+                    content: @$"A.X * 5", arguments: new LoopTestArgs { X = i },
+                    imports: null, assemblies: null, types: null,
+                    optimizationScopeId, cancellationToken);
+            }
         }
+        finally { scope?.Dispose(); }
     }
 
     public static async Task TestV8Lib(IRuntimeEngineFactory engineFactory, CancellationToken cancellationToken)

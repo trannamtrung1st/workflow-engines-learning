@@ -12,22 +12,38 @@ public class BlockRunner<TFramework> : IBlockRunner<TFramework> where TFramework
         _logicRunner = logicRunner;
     }
 
-    public async Task<BlockExecutionResult> Run(RunBlockRequest request, IBlockExecutionControl control, TFramework blockFramework, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    public async Task<BlockExecutionResult> Run(
+        RunBlockRequest request, IBlockExecutionControl control,
+        TFramework blockFramework, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         var block = request.Block;
+        var optimizationScopes = new HashSet<IDisposable>();
         optimizationScopeId ??= Guid.NewGuid();
         var globalObject = new BlockGlobalObject<TFramework>(blockFramework);
         try
         {
             var blockExecutionResult = await control.Execute(
                 triggerEvent: request.TriggerEvent,
-                EvaluateCondition: (condition, cancellationToken) => _logicRunner.Run<bool>(condition, globalObject: globalObject, optimizationScopeId.Value, cancellationToken),
-                RunAction: (actionLogic, cancellationToken) => _logicRunner.Run(actionLogic, globalObject, optimizationScopeId.Value, cancellationToken),
+                EvaluateCondition: async (condition, cancellationToken) =>
+                {
+                    var (Result, OptimizationScope) = await _logicRunner.Run<bool>(condition, globalObject: globalObject, optimizationScopeId.Value, cancellationToken);
+                    if (OptimizationScope != null) optimizationScopes.Add(OptimizationScope);
+                    return Result;
+                },
+                RunAction: async (actionLogic, cancellationToken) =>
+                {
+                    var optimizationScope = await _logicRunner.Run(actionLogic, globalObject, optimizationScopeId.Value, cancellationToken);
+                    if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
+                },
                 GetOutputEvents: () => blockFramework.OutputEvents,
                 cancellationToken: cancellationToken
             );
             return blockExecutionResult;
         }
-        finally { await _logicRunner.CompleteOptimizationScope(optimizationScopeId.Value); }
+        finally
+        {
+            foreach (var optimizationScope in optimizationScopes)
+                optimizationScope.Dispose();
+        }
     }
 }
