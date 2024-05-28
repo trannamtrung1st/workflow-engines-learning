@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.Json.Serialization;
 using WELearning.DynamicCodeExecution.Constants;
 
 namespace WELearning.Core.FunctionBlocks.Models.Design;
@@ -23,6 +24,9 @@ public class Logic
     public string Content { get; set; }
     public ERuntime Runtime { get; set; }
     public IEnumerable<string> Imports { get; set; }
+
+    [JsonIgnore] // [TODO]
     public IEnumerable<Assembly> Assemblies { get; set; }
+    [JsonIgnore]
     public IEnumerable<Type> Types { get; set; }
 }

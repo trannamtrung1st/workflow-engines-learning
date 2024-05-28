@@ -1,6 +1,8 @@
 ﻿
 using System.Diagnostics;
 using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using WELearning.ConsoleApp.Testing.Processes;
 using WELearning.Core.FunctionBlocks;
@@ -163,6 +165,7 @@ static class TestFunctionBlocks
         var rectangleAreaProcess = RectangleAreaProcess.Build(
             bMultiply: new(PredefinedBlocks.MultiplyCsScript)
         );
+        Console.WriteLine("\n{0}\n", JsonSerializer.Serialize(rectangleAreaProcess, Program.DefaultJsonOpts));
         await RunRectangleArea(processRunner, process: rectangleAreaProcess, cancellationToken: timeoutTokenProvider());
 
         await RunRectanglePerimeter(processRunner, process: RectanglePerimeterProcess.Build(
@@ -277,4 +280,15 @@ static class TestFunctionBlocks
 public class LoopTestArgs
 {
     public int X { get; set; }
+}
+
+partial class Program
+{
+    public static readonly JsonSerializerOptions DefaultJsonOpts;
+
+    static Program()
+    {
+        DefaultJsonOpts = new JsonSerializerOptions { WriteIndented = true };
+        DefaultJsonOpts.Converters.Add(new JsonStringEnumConverter());
+    }
 }
