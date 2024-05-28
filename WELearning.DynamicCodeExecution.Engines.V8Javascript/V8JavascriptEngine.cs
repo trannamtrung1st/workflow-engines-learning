@@ -68,20 +68,24 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
             import {{ {ExportedFunctionName} }} from '{moduleId}';
             {ExportedFunctionName}({ArgumentsVar})";
 
-        if (scope?.ModuleLoaded.Contains(ModuleName) != true)
+        var moduleLoaded = scope?.ModuleLoaded.Contains(ModuleName) == true;
+        if (!moduleLoaded)
         {
             engine.DocumentSettings.AddSystemDocument(identifier: moduleId, contents: content, category: ModuleCategory.Standard);
             scope?.ModuleLoaded.Add(ModuleName);
         }
 
+        bool compiled = false;
         var (script, cacheBytes) = _scriptCache.GetOrCreate(ModuleName, (entry) =>
         {
             entry.SetSize(CacheSize);
             entry.SetSlidingExpiration(DefaultSlidingExpiration);
             var script = engine.Compile(documentInfo, code: wrappedCode, cacheKind: V8CacheKind.Code, out var cacheBytes);
+            compiled = true;
             return (script, cacheBytes);
         });
 
+        if (compiled) return script;
         script = engine.Compile(documentInfo: documentInfo, code: wrappedCode, cacheKind: V8CacheKind.Code, cacheBytes: cacheBytes, out bool accepted);
         return script;
     }
@@ -169,7 +173,12 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, optimizationScopeId);
         TryAddArguments(engine, arguments);
         var script = await GetScript(engine, optimizationScope, content, imports, assemblies, cancellationToken);
-        var result = (TReturn)engine.Evaluate(script);
+        var evalResult = engine.Evaluate(script);
+        TReturn result;
+        if (evalResult is Task<object> task)
+            result = (TReturn)await task;
+        else
+            result = (TReturn)evalResult;
         return (result, optimizationScope);
     }
 

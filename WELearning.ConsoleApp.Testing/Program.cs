@@ -160,7 +160,7 @@ static class TestEngines
     public static async Task TestV8Lib(IRuntimeEngineFactory engineFactory, CancellationToken cancellationToken)
     {
         var runtimeEngine = engineFactory.CreateEngine(runtime: ERuntime.Javascript);
-        await runtimeEngine.Execute(JavascriptHelper.WrapModuleFunction(@"
+        var result = await runtimeEngine.Execute<string, object>(JavascriptHelper.WrapModuleFunction(@"
             const testLodash = _.filter([1, 2, 3], item => !!item);
             const apiString = await _FB_.TestAsync();
             return `Hello ` + testLodash.toString() + apiString;
