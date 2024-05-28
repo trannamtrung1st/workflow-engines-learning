@@ -5,6 +5,7 @@
     <ProjectReference Include="..\WELearning.DynamicCodeExecution.Engines.CSharpCompiled\WELearning.DynamicCodeExecution.Engines.CSharpCompiled.csproj" />
     <ProjectReference Include="..\WELearning.DynamicCodeExecution.Engines.CSharpScript\WELearning.DynamicCodeExecution.Engines.CSharpScript.csproj" />
     <ProjectReference Include="..\WELearning.DynamicCodeExecution.Engines.V8Javascript\WELearning.DynamicCodeExecution.Engines.V8Javascript.csproj" />
+    <ProjectReference Include="..\WELearning.DynamicCodeExecution.Engines.JintJavascript\WELearning.DynamicCodeExecution.Engines.JintJavascript.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

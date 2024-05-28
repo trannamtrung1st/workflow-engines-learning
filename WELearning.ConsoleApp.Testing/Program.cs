@@ -15,6 +15,7 @@ using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Constants;
 using WELearning.DynamicCodeExecution.Extensions;
 
+const string LibraryFolderPath = "/Users/trungtran/MyPlace/Personal/Learning/workflow-engines-learning/local/libs";
 var serviceCollection = new ServiceCollection()
     .AddDefaultProcessRunner<AppFramework>()
     .AddDefaultBlockRunner<AppFramework>()
@@ -23,7 +24,9 @@ var serviceCollection = new ServiceCollection()
     .AddDefaultRuntimeEngineFactory()
     .AddCSharpCompiledEngine()
     .AddCSharpScriptEngine()
-    .AddV8JavascriptEngine(options => options.LibraryFolderPath = "/Users/trungtran/MyPlace/Personal/Learning/workflow-engines-learning/local/libs");
+    // For JS engines, first found engine will be used
+    .AddJintJavascriptEngine(options => options.LibraryFolderPath = LibraryFolderPath)
+    .AddV8JavascriptEngine(options => options.LibraryFolderPath = LibraryFolderPath);
 using var rootServiceProvider = serviceCollection.BuildServiceProvider();
 using var scope = rootServiceProvider.CreateScope();
 var serviceProvider = scope.ServiceProvider;
@@ -41,7 +44,7 @@ static class TestEngines
         var runtimeEngineFactory = serviceProvider.GetService<IRuntimeEngineFactory>();
         var csCompiledEngine = runtimeEngineFactory.CreateEngine(ERuntime.CSharpCompiled);
         var csScriptEngine = runtimeEngineFactory.CreateEngine(ERuntime.CSharpScript);
-        var v8JavascriptEngine = runtimeEngineFactory.CreateEngine(ERuntime.Javascript) as IOptimizableRuntimeEngine;
+        var jsEngine = runtimeEngineFactory.CreateEngine(ERuntime.Javascript) as IOptimizableRuntimeEngine;
         var compiledAssemblies = new[]
         {
             typeof(object).Assembly,
@@ -56,8 +59,8 @@ static class TestEngines
             typeof(IExecutable<>).Namespace
         };
         const int FirstLoop = 1;
-        const int SecondLoop = 100_000;
-        // const int SecondLoop = 1_000_000;
+        // const int SecondLoop = 100_000;
+        const int SecondLoop = 1_000_000;
 
         var sw = Stopwatch.StartNew();
         await LoopCSharpCompiled(FirstLoop, csCompiledEngine, imports: imports, assemblies: compiledAssemblies, cancellationToken: timeoutTokenProvider());
@@ -71,13 +74,16 @@ static class TestEngines
         await LoopCSharpScript(SecondLoop, csScriptEngine, cancellationToken: timeoutTokenProvider());
         Console.WriteLine("C# script ({0}): {1}", SecondLoop, sw.ElapsedMilliseconds);
 
+        var jsEngineName = jsEngine.GetType().Name;
         sw.Restart();
-        await LoopV8Javascript(FirstLoop, v8JavascriptEngine, cancellationToken: timeoutTokenProvider());
-        Console.WriteLine("V8 Javascript (1st): {0}", sw.ElapsedMilliseconds);
-        await LoopV8Javascript(SecondLoop, v8JavascriptEngine, cancellationToken: timeoutTokenProvider());
-        Console.WriteLine("V8 Javascript ({0}): {1}", SecondLoop, sw.ElapsedMilliseconds);
+        await LoopJavascript(FirstLoop, jsEngine, cancellationToken: timeoutTokenProvider());
+        Console.WriteLine("{0} (1st): {1}", jsEngineName, sw.ElapsedMilliseconds);
+        await LoopJavascript(SecondLoop, jsEngine, cancellationToken: timeoutTokenProvider());
+        Console.WriteLine("{0} ({1}): {2}", jsEngineName, SecondLoop, sw.ElapsedMilliseconds);
 
         // await TestV8Lib(runtimeEngineFactory, cancellationToken: timeoutTokenProvider());
+
+        // await TestJintLib(runtimeEngineFactory, cancellationToken: timeoutTokenProvider());
     }
 
     public static async Task LoopCSharpCompiled(int n, IRuntimeEngine runtimeEngine, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken)
@@ -107,7 +113,7 @@ static class TestEngines
         }
     }
 
-    public static async Task LoopV8Javascript(int n, IOptimizableRuntimeEngine runtimeEngine, CancellationToken cancellationToken)
+    public static async Task LoopJavascript(int n, IOptimizableRuntimeEngine runtimeEngine, CancellationToken cancellationToken)
     {
         IDisposable scope = null;
         Guid optimizationScopeId = Guid.NewGuid();
@@ -116,12 +122,39 @@ static class TestEngines
             for (var i = 0; i < n; i++)
             {
                 scope = await runtimeEngine.Execute(
-                    content: @$"A.X * 5", arguments: new LoopTestArgs { X = i },
+                    content: @$"_A_.X * 5", arguments: new LoopTestArgs { X = i },
                     imports: null, assemblies: null, types: null,
                     optimizationScopeId, cancellationToken);
             }
         }
         finally { scope?.Dispose(); }
+    }
+
+    public static async Task TestJintLib(IRuntimeEngineFactory engineFactory, CancellationToken cancellationToken)
+    {
+        var runtimeEngine = engineFactory.CreateEngine(runtime: ERuntime.Javascript);
+        Func<Task<string>> TestAsync = async () =>
+        {
+            using var httpClient = new HttpClient();
+            var result = await httpClient.GetStringAsync("https://github.com/sebastienros/esprima-dotnet");
+            await Task.Delay(3000);
+            return result;
+        };
+        var result = await runtimeEngine.Execute<string, object>(@"
+            const testLodash = _.filter([1, 2, 3], item => !!item);
+            // await _A_.TestAsync();
+            return `Hello ` + testLodash.toString();
+        ",
+        arguments: new { TestAsync },
+        imports: new[]
+        {
+            "./lodash.min.js",
+            "./axios.min.js",
+            "./fetch.min.js"
+        },
+        types: new[] { typeof(Task) },
+        assemblies: null,
+        cancellationToken: cancellationToken);
     }
 
     public static async Task TestV8Lib(IRuntimeEngineFactory engineFactory, CancellationToken cancellationToken)
@@ -141,8 +174,8 @@ static class TestEngines
         arguments: default(object),
         imports: new[]
         {
-        "import 'axios.min.js'",
-        "import { fetch } from 'fetch.min.js'"
+            "import 'axios.min.js'",
+            "import { fetch } from 'fetch.min.js'"
         },
         types: null,
         assemblies: null,

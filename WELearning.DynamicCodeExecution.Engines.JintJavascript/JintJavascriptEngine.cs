@@ -1,29 +1,32 @@
 using System.Collections.Concurrent;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Security.Cryptography;
 using System.Text;
-using Microsoft.ClearScript;
-using Microsoft.ClearScript.JavaScript;
-using Microsoft.ClearScript.V8;
+using Esprima.Ast;
+using Jint;
+using Jint.Native;
+using Jint.Native.Object;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Constants;
-using WELearning.DynamicCodeExecution.Engines.V8Javascript.Models;
+using WELearning.DynamicCodeExecution.Engines.JintJavascript.Models;
 using WELearning.DynamicCodeExecution.Helpers;
 
 namespace WELearning.DynamicCodeExecution.Engines;
 
-public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
+public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
 {
+    private const string ExportedFunctionName = nameof(IExecutable<object>.Execute);
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
     private const long DefaultMaxEngineCacheCount = 1_000;
     private static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(30);
     private readonly MemoryCache _scriptCache;
     private readonly ManualResetEventSlim _engineCacheWait;
     private readonly ConcurrentDictionary<Guid, OptimizationScope> _engineCache;
-    private readonly IOptions<V8Options> _v8Options;
-    public V8JavascriptEngine(IOptions<V8Options> v8Options)
+    private readonly IOptions<JintOptions> _jintOptions;
+    public JintJavascriptEngine(IOptions<JintOptions> JintOptions)
     {
         var cacheOption = new MemoryCacheOptions
         {
@@ -32,7 +35,7 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         _scriptCache = new MemoryCache(cacheOption);
         _engineCache = new();
         _engineCacheWait = new(initialState: true);
-        _v8Options = v8Options;
+        _jintOptions = JintOptions;
         // [TODO] add lib loading cache
     }
 
@@ -47,36 +50,30 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
     public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
         => await Execute(content, arguments, imports, assemblies, types, optimizationScopeId: default, cancellationToken);
 
-    private static void TryAddGlobalObject<TArg>(V8ScriptEngine engine, TArg arguments)
+    private static void TryAddGlobalObject<TArg>(Engine engine, TArg arguments)
     {
         if (arguments == null) return;
-        engine.AddHostObject(
-            itemName: "_A_",
-            flags: HostItemFlags.GlobalMembers,
-            target: arguments);
+        engine.SetValue("_A_", arguments);
     }
 
-    private async Task<V8Script> GetScript(V8ScriptEngine engine, Guid? optimizationScopeId, string content, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken)
+    private async Task<string> GetScriptModule(Engine engine, string content, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken)
     {
-        var (CacheKey, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, cancellationToken);
-        var documentInfo = new DocumentInfo(name: CacheKey) { Category = ModuleCategory.Standard };
-        content = AddImports(content, imports);
-        bool firstCompiled = false;
-        var (script, cachedOptScopeId, cacheBytes) = _scriptCache.GetOrCreate(CacheKey, (entry) =>
+        var (ModuleName, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, cancellationToken);
+        var moduleName = _scriptCache.GetOrCreate(ModuleName, (entry) =>
         {
             entry.SetSize(CacheSize);
             entry.SetSlidingExpiration(DefaultSlidingExpiration);
-            var script = engine.Compile(documentInfo, code: content, cacheKind: V8CacheKind.Code, out var cacheBytes);
-            firstCompiled = true;
-            return (script, optimizationScopeId, cacheBytes);
+            var module = Engine.PrepareModule(code: content, options: new ModulePreparationOptions
+            {
+                ParsingOptions = ModuleParsingOptions.Default
+            });
+            engine.Modules.Add(ModuleName, b => b.AddModule(module));
+            return ModuleName;
         });
-        if (cachedOptScopeId != default && cachedOptScopeId == optimizationScopeId) return script;
-        if (firstCompiled) return script;
-        script = engine.Compile(documentInfo: documentInfo, code: content, cacheKind: V8CacheKind.Code, cacheBytes: cacheBytes, out bool accepted);
-        return script;
+        return moduleName;
     }
 
-    private async Task<(string CacheKey, long CacheSize)> GetScriptCacheEntry(
+    private async Task<(string ModuleName, long CacheSize)> GetScriptCacheEntry(
         string content, IEnumerable<string> imports,
         IEnumerable<Assembly> assemblies,
         CancellationToken cancellationToken)
@@ -87,23 +84,33 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         var hashContent = $"{content}_{importsStr}_{assembliesStr}";
         using var memStream = new MemoryStream(Encoding.UTF8.GetBytes(hashContent));
         var hash = await md5.ComputeHashAsync(memStream, cancellationToken);
+        var moduleName = Convert.ToBase64String(hash);
+        foreach (var c in Path.GetInvalidFileNameChars().Concat(new[] { '+', '=' }))
+            moduleName = moduleName.Replace(c, '_');
         var contentSizeInBytes = hashContent.Length * 2;
-        return (Encoding.UTF8.GetString(hash), contentSizeInBytes);
+        return (moduleName, contentSizeInBytes);
     }
 
-    private (V8ScriptEngine Engine, OptimizationScope Scope) PrepareV8Engine(Type[] types, Guid? optimizationScopeId)
+    private (Engine Engine, OptimizationScope Scope) PrepareEngine(Assembly[] assemblies, IEnumerable<string> imports, IEnumerable<Type> types, Guid? optimizationScopeId)
     {
-        V8ScriptEngine CreateNewEngine()
+        Engine CreateNewEngine()
         {
-            var engine = new V8ScriptEngine(flags:
-                V8ScriptEngineFlags.EnableTaskPromiseConversion |
-                V8ScriptEngineFlags.EnableDateTimeConversion |
-                V8ScriptEngineFlags.EnableValueTaskPromiseConversion
-            );
-            engine.DocumentSettings.SearchPath = _v8Options.Value.LibraryFolderPath;
-            engine.DocumentSettings.AccessFlags = DocumentAccessFlags.EnableFileLoading;
+            var engine = new Engine(options: cfg =>
+            {
+                cfg.EnableModules(basePath: _jintOptions.Value.LibraryFolderPath, restrictToBasePath: true);
+                if (assemblies?.Any() == true)
+                    cfg.AllowClr(assemblies);
+            });
             if (types?.Any() == true)
-                engine.AddHostTypes(types);
+            {
+                foreach (var type in types)
+                    engine.SetValue(type.Name, type);
+            }
+            if (imports?.Any() == true)
+            {
+                foreach (var import in imports)
+                    engine.Modules.Import(import);
+            }
             return engine;
         }
 
@@ -111,7 +118,7 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         lock (_engineCache)
         {
             _engineCacheWait.Wait();
-            V8ScriptEngine engine;
+            Engine engine;
             if (!_engineCache.TryGetValue(optimizationScopeId.Value, out var scope))
             {
                 engine = CreateNewEngine();
@@ -124,15 +131,6 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         }
     }
 
-    private string AddImports(string content, IEnumerable<string> imports)
-    {
-        var nl = Environment.NewLine;
-        var importPart = string.Empty;
-        if (imports?.Any() == true)
-            importPart = string.Join(nl, imports) + nl;
-        return importPart + content;
-    }
-
     public void Dispose()
     {
         _scriptCache.Dispose();
@@ -141,23 +139,42 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
 
     public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
-        var combinedTypes = ReflectionHelper.CombineTypes(assemblies, types);
-        var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, optimizationScopeId);
+        var combinedAssemblies = ReflectionHelper.CombineAssemblies(assemblies, types)?.ToArray();
+        var (engine, optimizationScope) = PrepareEngine(combinedAssemblies, imports, types, optimizationScopeId);
         TryAddGlobalObject(engine, arguments);
-        var script = await GetScript(engine, optimizationScopeId, content, imports, assemblies, cancellationToken);
-        var result = (TReturn)engine.Evaluate(script);
-        return (result, optimizationScope);
+        var module = await GetScriptModule(engine, content, imports, assemblies, cancellationToken);
+        var result = engine.Modules.Import(module);
+        engine.Modules.Import(module);
+        var castResult = Cast<TReturn>(result);
+        return (castResult, optimizationScope);
     }
 
     public async Task<IDisposable> Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
-        var combinedTypes = ReflectionHelper.CombineTypes(assemblies, types);
-        var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, optimizationScopeId);
+        var combinedAssemblies = ReflectionHelper.CombineAssemblies(assemblies, types)?.ToArray();
+        var (engine, optimizationScope) = PrepareEngine(combinedAssemblies, imports, types, optimizationScopeId);
         TryAddGlobalObject(engine, arguments);
-        var script = await GetScript(engine, optimizationScopeId, content, imports, assemblies, cancellationToken);
-        var result = engine.Evaluate(script);
-        if (result is Task task) await task;
+        var module = await GetScriptModule(engine, content, imports, assemblies, cancellationToken);
+        var result = engine.Modules.Import(module);
         return optimizationScope;
+    }
+
+    private static TReturn Cast<TReturn>(JsValue jsValue)
+    {
+        object value;
+        // [TODO]
+        switch (jsValue.Type)
+        {
+            case Jint.Runtime.Types.Boolean: value = jsValue.AsBoolean(); break;
+            case Jint.Runtime.Types.Number: value = jsValue.AsNumber(); break;
+            case Jint.Runtime.Types.Object: value = jsValue.ToObject(); break;
+            case Jint.Runtime.Types.String: value = jsValue.AsString(); break;
+            case Jint.Runtime.Types.Empty:
+            case Jint.Runtime.Types.Undefined:
+            case Jint.Runtime.Types.Null: value = null; break;
+            default: throw new NotSupportedException($"{jsValue.Type}");
+        }
+        return (TReturn)value;
     }
 
     class OptimizationScope : IDisposable
@@ -166,7 +183,7 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         private readonly ConcurrentDictionary<Guid, OptimizationScope> _engineCache;
         private readonly Guid _scopeId;
         public OptimizationScope(
-            V8ScriptEngine engine, Guid scopeId,
+            Engine engine, Guid scopeId,
             ConcurrentDictionary<Guid, OptimizationScope> engineCache,
             ManualResetEventSlim engineCacheWait)
         {
@@ -176,7 +193,7 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
             _engineCacheWait = engineCacheWait;
         }
 
-        public V8ScriptEngine Engine { get; }
+        public Engine Engine { get; }
 
         public void Dispose()
         {
