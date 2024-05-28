@@ -1,9 +1,7 @@
 using System.Collections.Concurrent;
 using System.Reflection;
-using System.Reflection.Emit;
 using System.Security.Cryptography;
 using System.Text;
-using Esprima.Ast;
 using Jint;
 using Jint.Native;
 using Jint.Native.Object;
@@ -37,6 +35,7 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         _engineCacheWait = new(initialState: true);
         _jintOptions = JintOptions;
         // [TODO] add lib loading cache
+        // [TODO] lock
     }
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.Javascript;
@@ -50,30 +49,26 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
     public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
         => await Execute(content, arguments, imports, assemblies, types, optimizationScopeId: default, cancellationToken);
 
-    private static void TryAddGlobalObject<TArg>(Engine engine, TArg arguments)
-    {
-        if (arguments == null) return;
-        engine.SetValue("_A_", arguments);
-    }
-
-    private async Task<string> GetScriptModule(Engine engine, string content, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken)
+    private async Task<ObjectInstance> GetScriptModule(Engine engine, string content, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken)
     {
         var (ModuleName, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, cancellationToken);
-        var moduleName = _scriptCache.GetOrCreate(ModuleName, (entry) =>
+        var module = _scriptCache.GetOrCreate(ModuleName, (entry) =>
         {
             entry.SetSize(CacheSize);
             entry.SetSlidingExpiration(DefaultSlidingExpiration);
-            var module = Engine.PrepareModule(code: content, options: new ModulePreparationOptions
+            content = AddImports(content, imports);
+            var preparedModule = Engine.PrepareModule(code: content, options: new ModulePreparationOptions
             {
                 ParsingOptions = ModuleParsingOptions.Default
             });
-            engine.Modules.Add(ModuleName, b => b.AddModule(module));
-            return ModuleName;
+            engine.Modules.Add(ModuleName, b => b.AddModule(preparedModule));
+            var module = engine.Modules.Import(ModuleName);
+            return module;
         });
-        return moduleName;
+        return module;
     }
 
-    private async Task<(string ModuleName, long CacheSize)> GetScriptCacheEntry(
+    private static async Task<(string ModuleName, long CacheSize)> GetScriptCacheEntry(
         string content, IEnumerable<string> imports,
         IEnumerable<Assembly> assemblies,
         CancellationToken cancellationToken)
@@ -91,7 +86,7 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         return (moduleName, contentSizeInBytes);
     }
 
-    private (Engine Engine, OptimizationScope Scope) PrepareEngine(Assembly[] assemblies, IEnumerable<string> imports, IEnumerable<Type> types, Guid? optimizationScopeId)
+    private (Engine Engine, OptimizationScope Scope) PrepareEngine(Assembly[] assemblies, IEnumerable<Type> types, Guid? optimizationScopeId)
     {
         Engine CreateNewEngine()
         {
@@ -105,11 +100,6 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
             {
                 foreach (var type in types)
                     engine.SetValue(type.Name, type);
-            }
-            if (imports?.Any() == true)
-            {
-                foreach (var import in imports)
-                    engine.Modules.Import(import);
             }
             return engine;
         }
@@ -131,6 +121,15 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         }
     }
 
+    private static string AddImports(string content, IEnumerable<string> imports)
+    {
+        var nl = Environment.NewLine;
+        var importPart = string.Empty;
+        if (imports?.Any() == true)
+            importPart = string.Join(nl, imports) + nl;
+        return importPart + content;
+    }
+
     public void Dispose()
     {
         _scriptCache.Dispose();
@@ -140,29 +139,29 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
     public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         var combinedAssemblies = ReflectionHelper.CombineAssemblies(assemblies, types)?.ToArray();
-        var (engine, optimizationScope) = PrepareEngine(combinedAssemblies, imports, types, optimizationScopeId);
-        TryAddGlobalObject(engine, arguments);
+        var (engine, optimizationScope) = PrepareEngine(combinedAssemblies, types, optimizationScopeId);
         var module = await GetScriptModule(engine, content, imports, assemblies, cancellationToken);
-        var result = engine.Modules.Import(module);
-        engine.Modules.Import(module);
-        var castResult = Cast<TReturn>(result);
+        var exportedFunction = module.Get(ExportedFunctionName);
+        var result = exportedFunction.Call(arg1: JsValue.FromObjectWithType(engine, arguments, typeof(TArg)));
+        var castResult = Cast<TReturn>(result.UnwrapIfPromise());
         return (castResult, optimizationScope);
     }
 
     public async Task<IDisposable> Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         var combinedAssemblies = ReflectionHelper.CombineAssemblies(assemblies, types)?.ToArray();
-        var (engine, optimizationScope) = PrepareEngine(combinedAssemblies, imports, types, optimizationScopeId);
-        TryAddGlobalObject(engine, arguments);
+        var (engine, optimizationScope) = PrepareEngine(combinedAssemblies, types, optimizationScopeId);
         var module = await GetScriptModule(engine, content, imports, assemblies, cancellationToken);
-        var result = engine.Modules.Import(module);
+        var exportedFunction = module.Get(ExportedFunctionName);
+        var result = exportedFunction.Call(arg1: JsValue.FromObjectWithType(engine, arguments, typeof(TArg)));
+        result.UnwrapIfPromise();
         return optimizationScope;
     }
 
     private static TReturn Cast<TReturn>(JsValue jsValue)
     {
         object value;
-        // [TODO]
+        // [TODO] cast
         switch (jsValue.Type)
         {
             case Jint.Runtime.Types.Boolean: value = jsValue.AsBoolean(); break;
@@ -171,7 +170,7 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
             case Jint.Runtime.Types.String: value = jsValue.AsString(); break;
             case Jint.Runtime.Types.Empty:
             case Jint.Runtime.Types.Undefined:
-            case Jint.Runtime.Types.Null: value = null; break;
+            case Jint.Runtime.Types.Null: return default;
             default: throw new NotSupportedException($"{jsValue.Type}");
         }
         return (TReturn)value;

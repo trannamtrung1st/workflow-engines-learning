@@ -1,14 +1,20 @@
+using WELearning.DynamicCodeExecution.Abstracts;
+
 namespace WELearning.Core.Helpers;
 
 public static class JavascriptHelper
 {
-    public static string WrapTopLevelAsyncCall(string script)
+    public static string WrapModuleFunction(
+        string script, string topStatements = null, string bottomStatements = null,
+        string globalVarName = "_FB_"
+    )
     {
         return @$"
-        async function executeScript() {{
+        {topStatements}
+        export async function {nameof(IExecutable<object>.Execute)}({globalVarName}) {{
             {script}
         }}
-        executeScript();
+        {bottomStatements}
         ";
     }
 }

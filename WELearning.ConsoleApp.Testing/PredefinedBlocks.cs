@@ -179,24 +179,24 @@ static class PredefinedBlocks
     {
         return CreateBlockAddBase(
             runtime: ERuntime.Javascript,
-            addContent: JavascriptHelper.WrapTopLevelAsyncCall(@$"
-            var FB = _A_.FB;
+            addContent: JavascriptHelper.WrapModuleFunction(@$"
+            var FB = _FB_.FB;
             var x = FB.GetDouble(""X"");
             var y = FB.GetDouble(""Y"");
             var result = x + y;
             await FB.Set(""Result"", result);
             await FB.Publish(""Completed"");
             "),
-            handleInvalidContent: JavascriptHelper.WrapTopLevelAsyncCall(@$"
-            var FB = _A_.FB;
+            handleInvalidContent: JavascriptHelper.WrapModuleFunction(@$"
+            var FB = _FB_.FB;
             FB.LogWarning(""Invalid arguments X, Y"");
             await FB.Publish(""Completed"");
             "),
-            invalidConditionContent: @$"
-            var FB = _A_.FB;
+            invalidConditionContent: JavascriptHelper.WrapModuleFunction(@$"
+            var FB = _FB_.FB;
             var x = FB.Get(""X""); var y = FB.Get(""Y"");
-            !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
-            ",
+            return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
+            "),
             assemblies: null
         );
     }

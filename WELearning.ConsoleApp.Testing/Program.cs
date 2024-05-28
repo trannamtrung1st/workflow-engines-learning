@@ -83,7 +83,7 @@ static class TestEngines
 
         // await TestV8Lib(runtimeEngineFactory, cancellationToken: timeoutTokenProvider());
 
-        // await TestJintLib(runtimeEngineFactory, cancellationToken: timeoutTokenProvider());
+        await TestJintLib(runtimeEngineFactory, cancellationToken: timeoutTokenProvider());
     }
 
     public static async Task LoopCSharpCompiled(int n, IRuntimeEngine runtimeEngine, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken)
@@ -122,7 +122,7 @@ static class TestEngines
             for (var i = 0; i < n; i++)
             {
                 scope = await runtimeEngine.Execute(
-                    content: @$"_A_.X * 5", arguments: new LoopTestArgs { X = i },
+                    content: JavascriptHelper.WrapModuleFunction(@$"return _FB_.X * 5"), arguments: new LoopTestArgs { X = i },
                     imports: null, assemblies: null, types: null,
                     optimizationScopeId, cancellationToken);
             }
@@ -130,29 +130,29 @@ static class TestEngines
         finally { scope?.Dispose(); }
     }
 
+    private static readonly Func<Task<string>> TestAsync = async () =>
+    {
+        using var httpClient = new HttpClient();
+        var result = await httpClient.GetStringAsync("https://github.com/sebastienros/esprima-dotnet");
+        await Task.Delay(3000);
+        return result;
+    };
+
     public static async Task TestJintLib(IRuntimeEngineFactory engineFactory, CancellationToken cancellationToken)
     {
         var runtimeEngine = engineFactory.CreateEngine(runtime: ERuntime.Javascript);
-        Func<Task<string>> TestAsync = async () =>
-        {
-            using var httpClient = new HttpClient();
-            var result = await httpClient.GetStringAsync("https://github.com/sebastienros/esprima-dotnet");
-            await Task.Delay(3000);
-            return result;
-        };
-        var result = await runtimeEngine.Execute<string, object>(@"
+
+        var result = await runtimeEngine.Execute<string, object>(JavascriptHelper.WrapModuleFunction(@"
             const testLodash = _.filter([1, 2, 3], item => !!item);
-            // await _A_.TestAsync();
-            return `Hello ` + testLodash.toString();
-        ",
+            const apiString = await _FB_.TestAsync();
+            return `Hello ` + testLodash.toString() + apiString;
+        ", topStatements: @"
+            import './lodash.min.js';
+            import './axios.min.js';
+        "),
         arguments: new { TestAsync },
-        imports: new[]
-        {
-            "./lodash.min.js",
-            "./axios.min.js",
-            "./fetch.min.js"
-        },
-        types: new[] { typeof(Task) },
+        imports: new[] { "import './fetch.min.js'" },
+        types: null,
         assemblies: null,
         cancellationToken: cancellationToken);
     }
@@ -160,23 +160,16 @@ static class TestEngines
     public static async Task TestV8Lib(IRuntimeEngineFactory engineFactory, CancellationToken cancellationToken)
     {
         var runtimeEngine = engineFactory.CreateEngine(runtime: ERuntime.Javascript);
-        await runtimeEngine.Execute(JavascriptHelper.WrapTopLevelAsyncCall(@$"
-            const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay));
-            await sleep(5000);
-            
-            const axiosResponse = await axios.get('https://cat-fact.herokuapp.com/facts');
-            console.log(axiosResponse); 
-            
-            const fetchResponse = await fetch('https://cat-fact.herokuapp.com/facts');
-            const fetchJson = await fetchResponse.json();
-            console.log(fetchJson); 
+        await runtimeEngine.Execute(JavascriptHelper.WrapModuleFunction(@"
+            const testLodash = _.filter([1, 2, 3], item => !!item);
+            const apiString = await _FB_.TestAsync();
+            return `Hello ` + testLodash.toString() + apiString;
+        ", topStatements: @"
+            import 'lodash.min.js';
+            import 'axios.min.js';
         "),
-        arguments: default(object),
-        imports: new[]
-        {
-            "import 'axios.min.js'",
-            "import { fetch } from 'fetch.min.js'"
-        },
+        arguments: new { TestAsync },
+        imports: new[] { "import { fetch } from 'fetch.min.js'" },
         types: null,
         assemblies: null,
         cancellationToken: cancellationToken);

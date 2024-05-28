@@ -16,6 +16,8 @@ namespace WELearning.DynamicCodeExecution.Engines;
 
 public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
 {
+    private const string ArgumentsVar = "args";
+    private const string ExportedFunctionName = nameof(IExecutable<object>.Execute);
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
     private const long DefaultMaxEngineCacheCount = 1_000;
     private static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(30);
@@ -47,36 +49,44 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
     public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
         => await Execute(content, arguments, imports, assemblies, types, optimizationScopeId: default, cancellationToken);
 
-    private static void TryAddGlobalObject<TArg>(V8ScriptEngine engine, TArg arguments)
+    private static void TryAddArguments<TArg>(V8ScriptEngine engine, TArg arguments)
     {
         if (arguments == null) return;
         engine.AddHostObject(
-            itemName: "_A_",
+            itemName: ArgumentsVar,
             flags: HostItemFlags.GlobalMembers,
             target: arguments);
     }
 
-    private async Task<V8Script> GetScript(V8ScriptEngine engine, Guid? optimizationScopeId, string content, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken)
+    private async Task<V8Script> GetScript(V8ScriptEngine engine, OptimizationScope scope, string content, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken)
     {
-        var (CacheKey, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, cancellationToken);
-        var documentInfo = new DocumentInfo(name: CacheKey) { Category = ModuleCategory.Standard };
+        var (ModuleName, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, cancellationToken);
+        var documentInfo = new DocumentInfo(name: ModuleName) { Category = ModuleCategory.Standard };
         content = AddImports(content, imports);
-        bool firstCompiled = false;
-        var (script, cachedOptScopeId, cacheBytes) = _scriptCache.GetOrCreate(CacheKey, (entry) =>
+        var moduleId = $"System_{ModuleName}";
+        var wrappedCode = @$"
+            import {{ {ExportedFunctionName} }} from '{moduleId}';
+            {ExportedFunctionName}({ArgumentsVar})";
+
+        if (scope?.ModuleLoaded.Contains(ModuleName) != true)
+        {
+            engine.DocumentSettings.AddSystemDocument(identifier: moduleId, contents: content, category: ModuleCategory.Standard);
+            scope?.ModuleLoaded.Add(ModuleName);
+        }
+
+        var (script, cacheBytes) = _scriptCache.GetOrCreate(ModuleName, (entry) =>
         {
             entry.SetSize(CacheSize);
             entry.SetSlidingExpiration(DefaultSlidingExpiration);
-            var script = engine.Compile(documentInfo, code: content, cacheKind: V8CacheKind.Code, out var cacheBytes);
-            firstCompiled = true;
-            return (script, optimizationScopeId, cacheBytes);
+            var script = engine.Compile(documentInfo, code: wrappedCode, cacheKind: V8CacheKind.Code, out var cacheBytes);
+            return (script, cacheBytes);
         });
-        if (cachedOptScopeId != default && cachedOptScopeId == optimizationScopeId) return script;
-        if (firstCompiled) return script;
-        script = engine.Compile(documentInfo: documentInfo, code: content, cacheKind: V8CacheKind.Code, cacheBytes: cacheBytes, out bool accepted);
+
+        script = engine.Compile(documentInfo: documentInfo, code: wrappedCode, cacheKind: V8CacheKind.Code, cacheBytes: cacheBytes, out bool accepted);
         return script;
     }
 
-    private async Task<(string CacheKey, long CacheSize)> GetScriptCacheEntry(
+    private static async Task<(string ModuleName, long CacheSize)> GetScriptCacheEntry(
         string content, IEnumerable<string> imports,
         IEnumerable<Assembly> assemblies,
         CancellationToken cancellationToken)
@@ -87,8 +97,11 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         var hashContent = $"{content}_{importsStr}_{assembliesStr}";
         using var memStream = new MemoryStream(Encoding.UTF8.GetBytes(hashContent));
         var hash = await md5.ComputeHashAsync(memStream, cancellationToken);
+        var moduleName = Convert.ToBase64String(hash);
+        foreach (var c in Path.GetInvalidFileNameChars().Concat(new[] { '+', '=' }))
+            moduleName = moduleName.Replace(c, '_');
         var contentSizeInBytes = hashContent.Length * 2;
-        return (Encoding.UTF8.GetString(hash), contentSizeInBytes);
+        return (moduleName, contentSizeInBytes);
     }
 
     private (V8ScriptEngine Engine, OptimizationScope Scope) PrepareV8Engine(Type[] types, Guid? optimizationScopeId)
@@ -115,7 +128,18 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
             if (!_engineCache.TryGetValue(optimizationScopeId.Value, out var scope))
             {
                 engine = CreateNewEngine();
-                _engineCache[optimizationScopeId.Value] = new OptimizationScope(engine, optimizationScopeId.Value, _engineCache, _engineCacheWait);
+                scope = new OptimizationScope(engine, optimizationScopeId.Value, RemoveCache: (scopeId) =>
+                {
+                    if (_engineCache.Remove(scopeId, out _))
+                    {
+                        lock (_engineCache)
+                        {
+                            if (_engineCache.Count < DefaultMaxEngineCacheCount && !_engineCacheWait.IsSet)
+                                _engineCacheWait.Set();
+                        }
+                    }
+                });
+                _engineCache[optimizationScopeId.Value] = scope;
                 if (_engineCache.Count >= DefaultMaxEngineCacheCount) _engineCacheWait.Reset();
             }
             else
@@ -124,7 +148,7 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         }
     }
 
-    private string AddImports(string content, IEnumerable<string> imports)
+    private static string AddImports(string content, IEnumerable<string> imports)
     {
         var nl = Environment.NewLine;
         var importPart = string.Empty;
@@ -143,8 +167,8 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
     {
         var combinedTypes = ReflectionHelper.CombineTypes(assemblies, types);
         var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, optimizationScopeId);
-        TryAddGlobalObject(engine, arguments);
-        var script = await GetScript(engine, optimizationScopeId, content, imports, assemblies, cancellationToken);
+        TryAddArguments(engine, arguments);
+        var script = await GetScript(engine, optimizationScope, content, imports, assemblies, cancellationToken);
         var result = (TReturn)engine.Evaluate(script);
         return (result, optimizationScope);
     }
@@ -153,8 +177,8 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
     {
         var combinedTypes = ReflectionHelper.CombineTypes(assemblies, types);
         var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, optimizationScopeId);
-        TryAddGlobalObject(engine, arguments);
-        var script = await GetScript(engine, optimizationScopeId, content, imports, assemblies, cancellationToken);
+        TryAddArguments(engine, arguments);
+        var script = await GetScript(engine, optimizationScope, content, imports, assemblies, cancellationToken);
         var result = engine.Evaluate(script);
         if (result is Task task) await task;
         return optimizationScope;
@@ -162,33 +186,25 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
 
     class OptimizationScope : IDisposable
     {
-        private readonly ManualResetEventSlim _engineCacheWait;
-        private readonly ConcurrentDictionary<Guid, OptimizationScope> _engineCache;
-        private readonly Guid _scopeId;
+        private readonly Action<Guid> RemoveCache;
         public OptimizationScope(
             V8ScriptEngine engine, Guid scopeId,
-            ConcurrentDictionary<Guid, OptimizationScope> engineCache,
-            ManualResetEventSlim engineCacheWait)
+            Action<Guid> RemoveCache)
         {
             Engine = engine;
-            _scopeId = scopeId;
-            _engineCache = engineCache;
-            _engineCacheWait = engineCacheWait;
+            Id = scopeId;
+            this.RemoveCache = RemoveCache;
+            ModuleLoaded = new HashSet<string>();
         }
 
+        public Guid Id { get; }
         public V8ScriptEngine Engine { get; }
+        public HashSet<string> ModuleLoaded { get; }
 
         public void Dispose()
         {
             Engine.Dispose();
-            if (_engineCache.Remove(_scopeId, out _))
-            {
-                lock (_engineCache)
-                {
-                    if (_engineCache.Count < DefaultMaxEngineCacheCount && !_engineCacheWait.IsSet)
-                        _engineCacheWait.Set();
-                }
-            }
+            RemoveCache(Id);
         }
     }
 }
