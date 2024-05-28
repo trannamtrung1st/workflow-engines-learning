@@ -8,3 +8,5 @@ Welcome!
 + In-out variable
 + Enhance CFB
 + Enhance FB instance structure
++ Wire FB models
++ ValueObject ~ VariableBinding
