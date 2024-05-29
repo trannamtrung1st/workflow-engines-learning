@@ -13,6 +13,7 @@ Welcome!
 + Multiple ActionLogicIds
 + DefaultValue ~ ConstantValue, Shorten name BFB, CFB, ...
 + Input/Output only blocks, no events
++ Inout variables?
 + CFB states
 + Distribution, data store
 + Wait for data refresh

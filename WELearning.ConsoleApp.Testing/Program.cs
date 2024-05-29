@@ -32,23 +32,26 @@ using var scope = rootServiceProvider.CreateScope();
 var serviceProvider = scope.ServiceProvider;
 var timeoutTokenProvider = () => new CancellationTokenSource(TimeSpan.FromSeconds(100)).Token;
 
-await TestEngines.BenchmarkLoop(serviceProvider, timeoutTokenProvider);
-
+await TestEngines.BenchmarkLoops(serviceProvider, timeoutTokenProvider);
 Console.WriteLine();
-
 await TestFunctionBlocks.BenchmarkComplexProcess(serviceProvider, timeoutTokenProvider);
+Console.WriteLine();
+await TestEngines.Run(serviceProvider, timeoutTokenProvider);
+Console.WriteLine();
+await TestFunctionBlocks.Run(serviceProvider, timeoutTokenProvider);
 
 // === Definitions ===
 
 static class TestEngines
 {
-    public static async Task BenchmarkLoop(IServiceProvider serviceProvider, Func<CancellationToken> timeoutTokenProvider)
+    public static async Task BenchmarkLoops(IServiceProvider serviceProvider, Func<CancellationToken> timeoutTokenProvider)
     {
         Console.WriteLine("=== Benchmark loops ===");
         var runtimeEngineFactory = serviceProvider.GetService<IRuntimeEngineFactory>();
         var csCompiledEngine = runtimeEngineFactory.CreateEngine(ERuntime.CSharpCompiled);
         var csScriptEngine = runtimeEngineFactory.CreateEngine(ERuntime.CSharpScript);
         var jsEngine = runtimeEngineFactory.CreateEngine(ERuntime.Javascript) as IOptimizableRuntimeEngine;
+        var jsEngineName = jsEngine.GetType().Name;
         var compiledAssemblies = new[]
         {
             typeof(object).Assembly,
@@ -78,7 +81,6 @@ static class TestEngines
         await LoopCSharpScript(SecondLoop, csScriptEngine, cancellationToken: timeoutTokenProvider());
         Console.WriteLine("C# script ({0}): {1}", SecondLoop, sw.ElapsedMilliseconds);
 
-        var jsEngineName = jsEngine.GetType().Name;
         sw.Restart();
         await LoopJavascript(FirstLoop, jsEngine, cancellationToken: timeoutTokenProvider());
         Console.WriteLine("{0} (1st): {1}", jsEngineName, sw.ElapsedMilliseconds);
@@ -89,47 +91,7 @@ static class TestEngines
     public static async Task Run(IServiceProvider serviceProvider, Func<CancellationToken> timeoutTokenProvider)
     {
         var runtimeEngineFactory = serviceProvider.GetService<IRuntimeEngineFactory>();
-        var csCompiledEngine = runtimeEngineFactory.CreateEngine(ERuntime.CSharpCompiled);
-        var csScriptEngine = runtimeEngineFactory.CreateEngine(ERuntime.CSharpScript);
-        var jsEngine = runtimeEngineFactory.CreateEngine(ERuntime.Javascript) as IOptimizableRuntimeEngine;
-        var compiledAssemblies = new[]
-        {
-            typeof(object).Assembly,
-            Assembly.Load("System.Runtime"),
-            typeof(LoopTestArgs).Assembly,
-            typeof(IExecutable<>).Assembly
-        };
-        var imports = new[]
-        {
-            "System.Threading",
-            "System.Threading.Tasks",
-            typeof(IExecutable<>).Namespace
-        };
-        const int FirstLoop = 1;
-        // const int SecondLoop = 100_000;
-        const int SecondLoop = 1_000_000;
-
-        var sw = Stopwatch.StartNew();
-        await LoopCSharpCompiled(FirstLoop, csCompiledEngine, imports: imports, assemblies: compiledAssemblies, cancellationToken: timeoutTokenProvider());
-        Console.WriteLine("C# compiled (1st): {0}", sw.ElapsedMilliseconds);
-        await LoopCSharpCompiled(SecondLoop, csCompiledEngine, imports: imports, assemblies: compiledAssemblies, cancellationToken: timeoutTokenProvider());
-        Console.WriteLine("C# compiled ({0}): {1}", SecondLoop, sw.ElapsedMilliseconds);
-
-        sw.Restart();
-        await LoopCSharpScript(FirstLoop, csScriptEngine, cancellationToken: timeoutTokenProvider());
-        Console.WriteLine("C# script (1st): {0}", sw.ElapsedMilliseconds);
-        await LoopCSharpScript(SecondLoop, csScriptEngine, cancellationToken: timeoutTokenProvider());
-        Console.WriteLine("C# script ({0}): {1}", SecondLoop, sw.ElapsedMilliseconds);
-
-        var jsEngineName = jsEngine.GetType().Name;
-        sw.Restart();
-        await LoopJavascript(FirstLoop, jsEngine, cancellationToken: timeoutTokenProvider());
-        Console.WriteLine("{0} (1st): {1}", jsEngineName, sw.ElapsedMilliseconds);
-        await LoopJavascript(SecondLoop, jsEngine, cancellationToken: timeoutTokenProvider());
-        Console.WriteLine("{0} ({1}): {2}", jsEngineName, SecondLoop, sw.ElapsedMilliseconds);
-
         // await TestV8Lib(runtimeEngineFactory, cancellationToken: timeoutTokenProvider());
-
         await TestJintLib(runtimeEngineFactory, cancellationToken: timeoutTokenProvider());
     }
 
@@ -234,26 +196,27 @@ static class TestFunctionBlocks
         var processRunner = serviceProvider.GetService<IProcessRunner>();
         var engineFactory = serviceProvider.GetService<IRuntimeEngineFactory>();
         var jsEngine = engineFactory.CreateEngine(ERuntime.Javascript);
+        var jsEngineName = jsEngine.GetType().Name;
         var csCompiledProcess = ComplexProcess.Build(
             bAddDef: PredefinedBlocks.AddCsCompiled,
             bMultiplyDef: PredefinedBlocks.MultiplyCsCompiled,
             bRandomDef: PredefinedBlocks.RandomCsCompiled,
             bDelayDef: PredefinedBlocks.DelayCsCompiled);
-        Task RunCsCompiled() => RunComplexProcess(processRunner, process: csCompiledProcess, cancellationToken: timeoutTokenProvider());
+        Task<double> RunCsCompiled() => RunComplexProcess(processRunner, process: csCompiledProcess, cancellationToken: timeoutTokenProvider());
 
         var csScriptProcess = ComplexProcess.Build(
             bAddDef: PredefinedBlocks.AddCsScript,
             bMultiplyDef: PredefinedBlocks.MultiplyCsScript,
             bRandomDef: PredefinedBlocks.RandomCsScript,
             bDelayDef: PredefinedBlocks.DelayCsScript);
-        Task RunCsScript() => RunComplexProcess(processRunner, process: csScriptProcess, cancellationToken: timeoutTokenProvider());
+        Task<double> RunCsScript() => RunComplexProcess(processRunner, process: csScriptProcess, cancellationToken: timeoutTokenProvider());
 
         var jsProcess = ComplexProcess.Build(
             bAddDef: PredefinedBlocks.AddJs,
             bMultiplyDef: PredefinedBlocks.MultiplyJs,
             bRandomDef: PredefinedBlocks.RandomJs,
             bDelayDef: PredefinedBlocks.DelayJs);
-        Task RunJs() => RunComplexProcess(processRunner, process: jsProcess, cancellationToken: timeoutTokenProvider());
+        Task<double> RunJs() => RunComplexProcess(processRunner, process: jsProcess, cancellationToken: timeoutTokenProvider());
 
         var sw = Stopwatch.StartNew();
         await Loop(FirstLoop, func: RunCsCompiled);
@@ -271,7 +234,6 @@ static class TestFunctionBlocks
         await Loop(ThirdLoop, func: RunCsScript);
         Console.WriteLine("C# script ({0}): {1}", ThirdLoop, sw.ElapsedMilliseconds);
 
-        var jsEngineName = jsEngine.GetType().Name;
         sw.Restart();
         await Loop(FirstLoop, func: RunJs);
         Console.WriteLine("{0} (1st): {1}", jsEngineName, sw.ElapsedMilliseconds);
@@ -280,6 +242,18 @@ static class TestFunctionBlocks
         await Loop(ThirdLoop, func: RunJs);
         Console.WriteLine("{0} ({1}): {2}", jsEngineName, ThirdLoop, sw.ElapsedMilliseconds);
 
+        const int ParallelLoopCount = 1000;
+        Console.WriteLine();
+        Console.WriteLine("=== Benchmark complex process (Parallel) ===");
+        sw.Restart();
+        await ParallelLoop(ParallelLoopCount, RunCsCompiled);
+        Console.WriteLine("C# compiled ({0}): {1}", ParallelLoopCount, sw.ElapsedMilliseconds);
+        sw.Restart();
+        await ParallelLoop(ParallelLoopCount, RunCsScript);
+        Console.WriteLine("C# script ({0}): {1}", ParallelLoopCount, sw.ElapsedMilliseconds);
+        sw.Restart();
+        await ParallelLoop(ParallelLoopCount, RunJs);
+        Console.WriteLine("{0} ({1}): {2}", jsEngineName, ParallelLoopCount, sw.ElapsedMilliseconds);
     }
 
     public static async Task Loop(int n, Func<Task> func)
@@ -288,7 +262,23 @@ static class TestFunctionBlocks
             await func();
     }
 
-    public static async Task RunComplexProcess(IProcessRunner processRunner,
+    public static async Task ParallelLoop(int n, Func<Task> func)
+    {
+        var waits = new List<TaskCompletionSource>();
+        for (int i = 0; i < n; i++)
+        {
+            var tcs = new TaskCompletionSource();
+            waits.Add(tcs);
+            _ = Task.Factory.StartNew(function: async () =>
+            {
+                await func();
+                tcs.SetResult();
+            }, creationOptions: TaskCreationOptions.LongRunning);
+        }
+        await Task.WhenAll(waits.Select(w => w.Task));
+    }
+
+    public static async Task<double> RunComplexProcess(IProcessRunner processRunner,
         FunctionBlockProcess process, CancellationToken cancellationToken)
     {
         var bindings = new HashSet<ProcessVariableBinding>();
@@ -300,6 +290,7 @@ static class TestFunctionBlocks
         await processRunner.Run(runRequest, processContext, processControl, cancellationToken);
 
         var finalResult = processControl.GetBlockControl("Add2").GetOutput("Result");
+        return (double)finalResult.Value;
     }
 
     public static async Task Run(IServiceProvider serviceProvider, Func<CancellationToken> timeoutTokenProvider)

@@ -18,12 +18,10 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
 {
     private const string ExportedFunctionName = nameof(IExecutable<object>.Execute);
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
-    private const long DefaultMaxEngineCacheCount = 1_000;
     private static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(30);
     private readonly MemoryCache _scriptCache;
-    private readonly ManualResetEventSlim _engineCacheWait;
-    private readonly ConcurrentDictionary<Guid, OptimizationScope> _engineCache;
     private readonly IOptions<JintOptions> _jintOptions;
+    private readonly EngineCache _engineCache;
     public JintJavascriptEngine(IOptions<JintOptions> JintOptions)
     {
         var cacheOption = new MemoryCacheOptions
@@ -32,10 +30,9 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         };
         _scriptCache = new MemoryCache(cacheOption);
         _engineCache = new();
-        _engineCacheWait = new(initialState: true);
         _jintOptions = JintOptions;
         // [TODO] add lib loading cache
-        // [TODO] lock
+        // [TODO] lock refactor
     }
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.Javascript;
@@ -49,9 +46,9 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
     public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
         => await Execute(content, arguments, imports, assemblies, types, optimizationScopeId: default, cancellationToken);
 
-    private async Task<ObjectInstance> GetScriptModule(Engine engine, string content, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken)
+    private async Task<ObjectInstance> GetScriptModule(Guid engineId, Engine engine, string content, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken)
     {
-        var (ModuleName, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, cancellationToken);
+        var (ModuleName, CacheSize) = await GetScriptCacheEntry(engineId, content, imports, assemblies, cancellationToken);
         var module = _scriptCache.GetOrCreate(ModuleName, (entry) =>
         {
             entry.SetSize(CacheSize);
@@ -69,14 +66,14 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
     }
 
     private static async Task<(string ModuleName, long CacheSize)> GetScriptCacheEntry(
-        string content, IEnumerable<string> imports,
+        Guid engineId, string content, IEnumerable<string> imports,
         IEnumerable<Assembly> assemblies,
         CancellationToken cancellationToken)
     {
         using var md5 = MD5.Create();
         var importsStr = imports != null ? string.Join(string.Empty, imports) : null;
         var assembliesStr = assemblies != null ? string.Join(string.Empty, assemblies.Select(ass => ass.FullName)) : null;
-        var hashContent = $"{content}_{importsStr}_{assembliesStr}";
+        var hashContent = $"{engineId}_{content}_{importsStr}_{assembliesStr}";
         using var memStream = new MemoryStream(Encoding.UTF8.GetBytes(hashContent));
         var hash = await md5.ComputeHashAsync(memStream, cancellationToken);
         var moduleName = Convert.ToBase64String(hash);
@@ -86,9 +83,9 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         return (moduleName, contentSizeInBytes);
     }
 
-    private (Engine Engine, OptimizationScope Scope) PrepareEngine(Assembly[] assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    private (EngineWrap Engine, OptimizationScope Scope) PrepareEngine(Assembly[] assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
-        Engine CreateNewEngine()
+        EngineWrap CreateNewEngine()
         {
             var engine = new Engine(options: cfg =>
             {
@@ -101,35 +98,29 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
                 foreach (var type in types)
                     engine.SetValue(type.Name, type);
             }
-            return engine;
+            return new EngineWrap(engine);
         }
 
         if (optimizationScopeId == default) return (CreateNewEngine(), null);
-        _engineCacheWait.Wait(cancellationToken);
-        lock (_engineCache)
+        EngineWrap engine;
+        if (!_engineCache.TryGetValue(optimizationScopeId.Value, out var scope))
         {
-            Engine engine;
-            if (!_engineCache.TryGetValue(optimizationScopeId.Value, out var scope))
+            _engineCache.RequestSlot(cancellationToken);
+            try
             {
                 engine = CreateNewEngine();
-                scope = new OptimizationScope(engine, optimizationScopeId.Value, RemoveCache: (scopeId) =>
-                {
-                    if (_engineCache.Remove(scopeId, out _))
-                    {
-                        lock (_engineCache)
-                        {
-                            if (_engineCache.Count < DefaultMaxEngineCacheCount && !_engineCacheWait.IsSet)
-                                _engineCacheWait.Set();
-                        }
-                    }
-                });
-                _engineCache[optimizationScopeId.Value] = scope;
-                if (_engineCache.Count >= DefaultMaxEngineCacheCount) _engineCacheWait.Reset();
+                scope = new OptimizationScope(engine, optimizationScopeId.Value, ReleaseSlot: _engineCache.ReleaseSlot);
+                _engineCache.SetSlot(optimizationScopeId.Value, scope);
             }
-            else
-                engine = scope.Engine;
-            return (engine, scope);
+            catch
+            {
+                _engineCache.ReleaseSlot(optimizationScopeId.Value);
+                throw;
+            }
         }
+        else
+            engine = scope.Engine;
+        return (engine, scope);
     }
 
     private static string AddImports(string content, IEnumerable<string> imports)
@@ -144,30 +135,35 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
     public void Dispose()
     {
         _scriptCache.Dispose();
-        _engineCacheWait.Dispose();
-        foreach (var item in _engineCache.Values)
-            item.Dispose();
+        _engineCache.Dispose();
     }
 
     public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         var combinedAssemblies = ReflectionHelper.CombineAssemblies(assemblies, types)?.ToArray();
-        var (engine, optimizationScope) = PrepareEngine(combinedAssemblies, types, optimizationScopeId, cancellationToken);
-        var module = await GetScriptModule(engine, content, imports, assemblies, cancellationToken);
-        var exportedFunction = module.Get(ExportedFunctionName);
-        var result = exportedFunction.Call(arg1: JsValue.FromObjectWithType(engine, arguments, typeof(TArg)));
-        var castResult = Cast<TReturn>(result.UnwrapIfPromise());
+        var (engineWrap, optimizationScope) = PrepareEngine(combinedAssemblies, types, optimizationScopeId, cancellationToken);
+        TReturn castResult = default;
+        await engineWrap.SafeAccessEngine(async (engine) =>
+        {
+            var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, imports, assemblies, cancellationToken);
+            var exportedFunction = module.Get(ExportedFunctionName);
+            var result = exportedFunction.Call(arg1: JsValue.FromObjectWithType(engine, arguments, typeof(TArg)));
+            castResult = Cast<TReturn>(result.UnwrapIfPromise());
+        }, cancellationToken);
         return (castResult, optimizationScope);
     }
 
     public async Task<IDisposable> Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         var combinedAssemblies = ReflectionHelper.CombineAssemblies(assemblies, types)?.ToArray();
-        var (engine, optimizationScope) = PrepareEngine(combinedAssemblies, types, optimizationScopeId, cancellationToken);
-        var module = await GetScriptModule(engine, content, imports, assemblies, cancellationToken);
-        var exportedFunction = module.Get(ExportedFunctionName);
-        var result = exportedFunction.Call(arg1: JsValue.FromObjectWithType(engine, arguments, typeof(TArg)));
-        result.UnwrapIfPromise();
+        var (engineWrap, optimizationScope) = PrepareEngine(combinedAssemblies, types, optimizationScopeId, cancellationToken);
+        await engineWrap.SafeAccessEngine(async (engine) =>
+        {
+            var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, imports, assemblies, cancellationToken);
+            var exportedFunction = module.Get(ExportedFunctionName);
+            var result = exportedFunction.Call(arg1: JsValue.FromObjectWithType(engine, arguments, typeof(TArg)));
+            result.UnwrapIfPromise();
+        }, cancellationToken);
         return optimizationScope;
     }
 
@@ -189,25 +185,108 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         return (TReturn)value;
     }
 
-    class OptimizationScope : IDisposable
+    class EngineCache : IDisposable
     {
-        private readonly Action<Guid> RemoveCache;
-        public OptimizationScope(
-            Engine engine, Guid scopeId,
-            Action<Guid> RemoveCache)
+        private const long DefaultMaxEngineCacheCount = 1_000;
+        private readonly ManualResetEventSlim _engineCacheWait;
+        private readonly ConcurrentDictionary<Guid, OptimizationScope> _engineCache;
+        private int _slotCount;
+
+        public EngineCache()
         {
-            Engine = engine;
-            Id = scopeId;
-            this.RemoveCache = RemoveCache;
+            _slotCount = 0;
+            _engineCache = new();
+            _engineCacheWait = new(initialState: true);
+        }
+
+        public void RequestSlot(CancellationToken cancellationToken)
+        {
+            bool acquired = false;
+            while (!acquired)
+            {
+                lock (_engineCacheWait)
+                {
+                    if (_engineCacheWait.IsSet)
+                    {
+                        if (++_slotCount == DefaultMaxEngineCacheCount)
+                            _engineCacheWait.Reset();
+                        acquired = true;
+                    }
+                }
+                if (!acquired)
+                    _engineCacheWait.Wait(cancellationToken);
+            }
+        }
+
+        public void ReleaseSlot(Guid id)
+        {
+            if (_engineCache.Remove(id, out _))
+            {
+                lock (_engineCacheWait)
+                {
+                    if (--_slotCount < DefaultMaxEngineCacheCount && !_engineCacheWait.IsSet)
+                        _engineCacheWait.Set();
+                }
+            }
+        }
+
+        public void SetSlot(Guid id, OptimizationScope scope) => _engineCache[id] = scope;
+
+        public bool TryGetValue(Guid id, out OptimizationScope scope) => _engineCache.TryGetValue(id, out scope);
+
+        public void Dispose()
+        {
+            _engineCacheWait.Dispose();
+            foreach (var engine in _engineCache.Values)
+                engine.Dispose();
+        }
+    }
+
+    class EngineWrap : IDisposable
+    {
+        private readonly SemaphoreSlim _lock;
+        private readonly Engine _engine;
+        public EngineWrap(Engine engine)
+        {
+            _lock = new(1);
+            _engine = engine;
+            Id = Guid.NewGuid();
         }
 
         public Guid Id { get; }
-        public Engine Engine { get; }
+
+        public void Dispose()
+        {
+            _engine.Dispose();
+        }
+
+        public async Task SafeAccessEngine(Func<Engine, Task> func, CancellationToken cancellationToken)
+        {
+            await _lock.WaitAsync(cancellationToken);
+            try { await func(_engine); }
+            finally { _lock.Release(); }
+        }
+    }
+
+    class OptimizationScope : IDisposable
+    {
+        private readonly Action<Guid> ReleaseSlot;
+        public OptimizationScope(
+            EngineWrap engine, Guid scopeId,
+            Action<Guid> ReleaseSlot)
+        {
+            Engine = engine;
+            Id = scopeId;
+            this.ReleaseSlot = ReleaseSlot;
+        }
+
+        public Guid Id { get; }
+        public EngineWrap Engine { get; }
 
         public void Dispose()
         {
             Engine.Dispose();
-            RemoveCache(Id);
+            ReleaseSlot(Id);
         }
     }
 }

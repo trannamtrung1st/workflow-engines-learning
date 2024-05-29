@@ -43,9 +43,7 @@ public class ProcessExecutionControl : IProcessExecutionControl
     {
         lock (_completeWait)
         {
-            if (_blockRunningProcessCount == 0) return;
-            _blockRunningProcessCount--;
-            if (_blockRunningProcessCount == 0)
+            if (_blockRunningProcessCount > 0 && --_blockRunningProcessCount == 0)
                 _completeWait.Set();
         }
     }
@@ -73,18 +71,18 @@ public class ProcessExecutionControl : IProcessExecutionControl
             return blockControl;
         });
 
-    protected async Task RunTaskAsync(Func<CancellationToken, Task> func, CancellationToken cancellationToken)
+    protected Task RunTaskAsync(Func<CancellationToken, Task> func, CancellationToken cancellationToken)
     {
         StartProcess();
-        try
+        return Task.Factory.StartNew(async () =>
         {
-            await Task.Yield();
-            await func(cancellationToken);
-        }
-        finally { CompleteProcess(); }
+            try
+            { await func(cancellationToken); }
+            finally { CompleteProcess(); }
+        }, creationOptions: TaskCreationOptions.LongRunning);
     }
 
-    public virtual async Task Run(RunProcessRequest request,
+    public virtual Task Run(RunProcessRequest request,
         Func<RunBlockRequest, IBlockExecutionControl, CancellationToken, Task<BlockExecutionResult>> RunBlock,
         CancellationToken cancellationToken)
     {
@@ -93,13 +91,10 @@ public class ProcessExecutionControl : IProcessExecutionControl
         {
             var startingBlockTriggers = request.Triggers
                 ?? request.Process.DefaultBlockIds.Select(bId => new BlockTrigger(blockId: bId, triggerEvent: null));
-            await RunTaskAsync((cancellationToken) =>
-            {
-                TriggerBlocks(blockTriggers: startingBlockTriggers, RunBlock, cancellationToken);
-                return Task.CompletedTask;
-            }, cancellationToken);
+            TriggerBlocks(blockTriggers: startingBlockTriggers, RunBlock, cancellationToken);
             WaitForCompletion(cancellationToken);
             Status = EProcessExecutionStatus.Completed;
+            return Task.CompletedTask;
         }
         catch (Exception ex)
         {

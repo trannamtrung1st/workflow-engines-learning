@@ -14,6 +14,7 @@ using WELearning.DynamicCodeExecution.Helpers;
 
 namespace WELearning.DynamicCodeExecution.Engines;
 
+// [NOTE] out-dated, later updates will be on Jint
 public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
 {
     private const string ArgumentsVar = "args";
