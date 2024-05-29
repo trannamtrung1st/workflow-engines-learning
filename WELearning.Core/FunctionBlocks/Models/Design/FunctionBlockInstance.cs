@@ -5,7 +5,7 @@ public class FunctionBlockInstance
     public FunctionBlockInstance(FunctionBlock definition, string id = null, string displayName = null)
     {
         Id = id ?? definition.Id;
-        DisplayName = displayName ?? definition.Name;
+        DisplayName = displayName ?? id ?? definition.Name;
         Definition = definition;
     }
 

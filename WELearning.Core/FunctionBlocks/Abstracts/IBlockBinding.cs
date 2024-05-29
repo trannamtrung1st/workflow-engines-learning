@@ -9,4 +9,5 @@ public interface IBlockBinding
     bool IsNumeric { get; }
     Task Set(object value);
     double GetDouble();
+    int GetInt();
 }

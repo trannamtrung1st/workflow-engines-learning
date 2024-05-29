@@ -19,6 +19,9 @@ public class BlockFramework : IBlockFramework
     private readonly HashSet<string> _outputEvents;
     public IImmutableSet<string> OutputEvents => _outputEvents.ToImmutableHashSet();
 
+    public Task DelayAsync(int ms) => Task.Delay(ms);
+    public void Delay(int ms) => Task.Delay(ms).Wait();
+
     public IBlockBinding Get(string name, bool isInternal = false)
         => _blockBindings.GetOrAdd(name, (key) => new BlockBinding(key, control: _control, isInternal: isInternal));
 
@@ -26,6 +29,12 @@ public class BlockFramework : IBlockFramework
     {
         var binding = Get(name, isInternal);
         return binding.GetDouble();
+    }
+
+    public int GetInt(string name, bool isInternal = false)
+    {
+        var binding = Get(name, isInternal);
+        return binding.GetInt();
     }
 
     public Task Set(string name, object value, bool isInternal = false)

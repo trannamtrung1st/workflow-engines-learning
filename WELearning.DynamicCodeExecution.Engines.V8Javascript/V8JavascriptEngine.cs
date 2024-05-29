@@ -108,7 +108,7 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         return (moduleName, contentSizeInBytes);
     }
 
-    private (V8ScriptEngine Engine, OptimizationScope Scope) PrepareV8Engine(Type[] types, Guid? optimizationScopeId)
+    private (V8ScriptEngine Engine, OptimizationScope Scope) PrepareV8Engine(Type[] types, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         V8ScriptEngine CreateNewEngine()
         {
@@ -125,9 +125,9 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         }
 
         if (optimizationScopeId == default) return (CreateNewEngine(), null);
+        _engineCacheWait.Wait(cancellationToken);
         lock (_engineCache)
         {
-            _engineCacheWait.Wait();
             V8ScriptEngine engine;
             if (!_engineCache.TryGetValue(optimizationScopeId.Value, out var scope))
             {
@@ -165,12 +165,14 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
     {
         _scriptCache.Dispose();
         _engineCacheWait.Dispose();
+        foreach (var item in _engineCache.Values)
+            item.Dispose();
     }
 
     public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         var combinedTypes = ReflectionHelper.CombineTypes(assemblies, types);
-        var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, optimizationScopeId);
+        var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, optimizationScopeId, cancellationToken);
         TryAddArguments(engine, arguments);
         var script = await GetScript(engine, optimizationScope, content, imports, assemblies, cancellationToken);
         var evalResult = engine.Evaluate(script);
@@ -185,7 +187,7 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
     public async Task<IDisposable> Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         var combinedTypes = ReflectionHelper.CombineTypes(assemblies, types);
-        var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, optimizationScopeId);
+        var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, optimizationScopeId, cancellationToken);
         TryAddArguments(engine, arguments);
         var script = await GetScript(engine, optimizationScope, content, imports, assemblies, cancellationToken);
         var result = engine.Evaluate(script);

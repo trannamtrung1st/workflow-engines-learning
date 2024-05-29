@@ -52,6 +52,13 @@ public class BlockBinding : IBlockBinding
         return double.Parse(value);
     }
 
+    public int GetInt()
+    {
+        var value = Value?.ToString();
+        if (value == null) throw new ArgumentNullException(Name);
+        return int.Parse(value);
+    }
+
     public virtual Task Set(object value)
     {
         if (IsInternal) _control.GetInternalData(Name).Value = value;

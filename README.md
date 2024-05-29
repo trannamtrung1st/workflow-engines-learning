@@ -14,6 +14,7 @@ Welcome!
 + DefaultValue ~ ConstantValue, Shorten name BFB, CFB, ...
 + Input/Output only blocks, no events
 + CFB states
-+ Distribution
++ Distribution, data store
 + Wait for data refresh
 + Exception handling: states losses, etc ...
++ Log and debug capabilities

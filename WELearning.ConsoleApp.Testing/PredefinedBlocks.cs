@@ -8,27 +8,11 @@ using WELearning.Core.Helpers;
 static class PredefinedBlocks
 {
     private static readonly Assembly AppFrameworkAssembly = typeof(AppFramework).Assembly;
-    public static readonly FunctionBlock MultiplyCsScript = CreateBlockMultiplyCsScript();
-    public static readonly FunctionBlock MultiplyCsCompiled = CreateBlockMultiplyCsCompiled();
-    public static readonly FunctionBlock AddCsScript = CreateBlockAddCsScript();
-    public static readonly FunctionBlock AddJs = CreateBlockAddJs();
-    public static readonly FunctionBlock RandomCsScript = CreateBlockRandomCsScript();
-    public static readonly FunctionBlock FactorialCsScript = CreateBlockFactorialCsScript();
+    private static readonly IEnumerable<Assembly> DefaultCsCompiledAssemblies;
+    private static readonly IEnumerable<string> DefaultCsCompiledImports;
+    private static readonly IEnumerable<Assembly> DefaultCsScriptAssemblies;
 
-    #region Multiply
-    private static FunctionBlock CreateBlockMultiplyCsScript()
-    {
-        var assemblies = new[] { AppFrameworkAssembly };
-        return CreateBlockMultiplyCs(
-            runtime: ERuntime.CSharpScript,
-            multiplyScriptProvider: s => s,
-            handleInvalidScriptProvider: s => s,
-            invalidConditionScriptProvider: s => s,
-            imports: null, assemblies: assemblies
-        );
-    }
-
-    private static FunctionBlock CreateBlockMultiplyCsCompiled()
+    static PredefinedBlocks()
     {
         var mscorlib = typeof(object).GetTypeInfo().Assembly;
         var assemblies = new List<Assembly> { mscorlib, AppFrameworkAssembly };
@@ -42,26 +26,124 @@ static class PredefinedBlocks
             // "netstandard",
         };
         assemblies.AddRange(dllNames.Select(dll => Assembly.Load(dll)));
+        var imports = new[]
+        {
+            "System.Threading",
+            "System.Threading.Tasks",
+            typeof(BaseCompiledFunction<>).Namespace,
+        };
 
-        return CreateBlockMultiplyCs(
-            runtime: ERuntime.CSharpCompiled,
-            multiplyScriptProvider: s => BaseCompiledFunction<AppFramework>.WrapScript(s),
-            handleInvalidScriptProvider: s => BaseCompiledFunction<AppFramework>.WrapScript(s),
-            invalidConditionScriptProvider: s => BaseCompiledFunction<bool, AppFramework>.WrapScript(s),
-            imports: new[]
-            {
-                "System.Threading",
-                "System.Threading.Tasks",
-                typeof(BaseCompiledFunction<>).Namespace,
-            }, assemblies: assemblies
+        DefaultCsCompiledAssemblies = assemblies;
+        DefaultCsCompiledImports = imports;
+        DefaultCsScriptAssemblies = new[] { AppFrameworkAssembly };
+
+        MultiplyCsCompiled = CreateBlockMultiplyCsCompiled();
+        MultiplyCsScript = CreateBlockMultiplyCsScript();
+        MultiplyJs = CreateBlockMultiplyJs();
+        AddCsCompiled = CreateBlockAddCsCompiled();
+        AddCsScript = CreateBlockAddCsScript();
+        AddJs = CreateBlockAddJs();
+        RandomCsCompiled = CreateBlockRandomCsCompiled();
+        RandomCsScript = CreateBlockRandomCsScript();
+        RandomJs = CreateBlockRandomJs();
+        DelayCsCompiled = CreateBlockDelayCsCompiled();
+        DelayCsScript = CreateBlockDelayCsScript();
+        DelayJs = CreateBlockDelayJs();
+        FactorialCsScript = CreateBlockFactorialCsScript();
+    }
+
+    public static readonly FunctionBlock MultiplyCsCompiled;
+    public static readonly FunctionBlock MultiplyCsScript;
+    public static readonly FunctionBlock MultiplyJs;
+    public static readonly FunctionBlock AddCsCompiled;
+    public static readonly FunctionBlock AddCsScript;
+    public static readonly FunctionBlock AddJs;
+    public static readonly FunctionBlock RandomCsCompiled;
+    public static readonly FunctionBlock RandomCsScript;
+    public static readonly FunctionBlock RandomJs;
+    public static readonly FunctionBlock DelayCsCompiled;
+    public static readonly FunctionBlock DelayCsScript;
+    public static readonly FunctionBlock DelayJs;
+    public static readonly FunctionBlock FactorialCsScript;
+
+    #region Multiply
+    private static FunctionBlock CreateBlockMultiplyCsScript()
+    {
+        return CreateBlockMultiply(
+            runtime: ERuntime.CSharpScript,
+            multiplyScript: @$"
+            var x = FB.GetDouble(""X"");
+            var y = FB.GetDouble(""Y"");
+            var result = x * y;
+            await FB.Set(""Result"", result);
+            await FB.Publish(""Completed"");
+            ",
+            handleInvalidScript: @$"
+            FB.LogWarning(""Invalid arguments X, Y"");
+            await FB.Publish(""Completed"");
+            ",
+            invalidConditionScript: @$"
+            var x = FB.Get(""X""); var y = FB.Get(""Y"");
+            return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
+            ",
+            imports: null, assemblies: DefaultCsScriptAssemblies
         );
     }
 
-    private static FunctionBlock CreateBlockMultiplyCs(
+    private static FunctionBlock CreateBlockMultiplyCsCompiled()
+    {
+        return CreateBlockMultiply(
+            runtime: ERuntime.CSharpCompiled,
+            multiplyScript: BaseCompiledFunction<AppFramework>.WrapScript(@$"
+            var x = FB.GetDouble(""X"");
+            var y = FB.GetDouble(""Y"");
+            var result = x * y;
+            await FB.Set(""Result"", result);
+            await FB.Publish(""Completed"");
+            "),
+            handleInvalidScript: BaseCompiledFunction<AppFramework>.WrapScript(@$"
+            FB.LogWarning(""Invalid arguments X, Y"");
+            await FB.Publish(""Completed"");
+            "),
+            invalidConditionScript: BaseCompiledFunction<bool, AppFramework>.WrapScript(@$"
+            var x = FB.Get(""X""); var y = FB.Get(""Y"");
+            return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
+            "),
+            imports: DefaultCsCompiledImports, assemblies: DefaultCsCompiledAssemblies
+        );
+    }
+
+    private static FunctionBlock CreateBlockMultiplyJs()
+    {
+        return CreateBlockMultiply(
+            runtime: ERuntime.Javascript,
+            multiplyScript: JavascriptHelper.WrapModuleFunction(@$"
+            const FB = _FB_.FB;
+            const x = FB.GetDouble(""X"");
+            const y = FB.GetDouble(""Y"");
+            const result = x * y;
+            await FB.Set(""Result"", result);
+            await FB.Publish(""Completed"");
+            "),
+            handleInvalidScript: JavascriptHelper.WrapModuleFunction(@$"
+            const FB = _FB_.FB;
+            FB.LogWarning(""Invalid arguments X, Y"");
+            await FB.Publish(""Completed"");
+            "),
+            invalidConditionScript: JavascriptHelper.WrapModuleFunction(@$"
+            const FB = _FB_.FB;
+            const x = FB.Get(""X""); const y = FB.Get(""Y"");
+            return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
+            "),
+            imports: null, assemblies: null
+        );
+    }
+
+    private static FunctionBlock CreateBlockMultiply(
         ERuntime runtime,
-        Func<string, string> multiplyScriptProvider,
-        Func<string, string> handleInvalidScriptProvider,
-        Func<string, string> invalidConditionScriptProvider,
+        string multiplyScript,
+        string handleInvalidScript,
+        string invalidConditionScript,
         IEnumerable<string> imports,
         IEnumerable<Assembly> assemblies)
     {
@@ -90,22 +172,13 @@ static class PredefinedBlocks
         var lRun = new Logic(
             id: "Run",
             name: "Run",
-            content: multiplyScriptProvider(@$"
-            var x = FB.GetDouble(""{iX.Name}"");
-            var y = FB.GetDouble(""{iY.Name}"");
-            var result = x * y;
-            await FB.Set(""{oResult.Name}"", result);
-            await FB.Publish(""{eCompleted.Name}"");
-            "),
+            content: multiplyScript,
             runtime: runtime,
             imports: imports, assemblies: assemblies, types: null);
         var lHandleInvalid = new Logic(
             id: "HandleInvalid",
             name: "Handle invalid",
-            content: handleInvalidScriptProvider(@$"
-            FB.LogWarning(""Invalid arguments {iX.Name}, {iY.Name}"");
-            await FB.Publish(""{eCompleted.Name}"");
-            "),
+            content: handleInvalidScript,
             runtime: runtime,
             imports: imports, assemblies: assemblies, types: null);
         var logics = new[] { lRun, lHandleInvalid };
@@ -125,10 +198,7 @@ static class PredefinedBlocks
                 tIdle2Invalid.TriggerCondition = new(
                     id: "InvalidCondition",
                     name: "Invalid condition",
-                    content: invalidConditionScriptProvider(@$"
-                        var x = FB.Get(""{iX.Name}""); var y = FB.Get(""{iY.Name}"");
-                        return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
-                    "),
+                    content: invalidConditionScript,
                     runtime: runtime,
                     imports: imports, assemblies: assemblies, types: null);
                 tIdle2Invalid.ActionLogicId = lHandleInvalid.Id;
@@ -152,58 +222,82 @@ static class PredefinedBlocks
     }
     #endregion
 
+    #region Add
     private static FunctionBlock CreateBlockAddCsScript()
     {
-        return CreateBlockAddBase(
+        return CreateBlockAdd(
             runtime: ERuntime.CSharpScript,
-            addContent: @$"
+            addScript: @$"
             var x = FB.GetDouble(""X"");
             var y = FB.GetDouble(""Y"");
             var result = x + y;
             await FB.Set(""Result"", result);
             await FB.Publish(""Completed"");
             ",
-            handleInvalidContent: @$"
+            handleInvalidScript: @$"
             FB.LogWarning(""Invalid arguments X, Y"");
             await FB.Publish(""Completed"");
             ",
-            invalidConditionContent: @$"
+            invalidConditionScript: @$"
             var x = FB.Get(""X""); var y = FB.Get(""Y"");
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
             ",
-            assemblies: new[] { AppFrameworkAssembly }
+            imports: null, assemblies: DefaultCsScriptAssemblies
+        );
+    }
+
+    private static FunctionBlock CreateBlockAddCsCompiled()
+    {
+        return CreateBlockAdd(
+            runtime: ERuntime.CSharpCompiled,
+            addScript: BaseCompiledFunction<AppFramework>.WrapScript(@$"
+            var x = FB.GetDouble(""X"");
+            var y = FB.GetDouble(""Y"");
+            var result = x + y;
+            await FB.Set(""Result"", result);
+            await FB.Publish(""Completed"");
+            "),
+            handleInvalidScript: BaseCompiledFunction<AppFramework>.WrapScript(@$"
+            FB.LogWarning(""Invalid arguments X, Y"");
+            await FB.Publish(""Completed"");
+            "),
+            invalidConditionScript: BaseCompiledFunction<bool, AppFramework>.WrapScript(@$"
+            var x = FB.Get(""X""); var y = FB.Get(""Y"");
+            return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
+            "),
+            imports: DefaultCsCompiledImports, assemblies: DefaultCsCompiledAssemblies
         );
     }
 
     private static FunctionBlock CreateBlockAddJs()
     {
-        return CreateBlockAddBase(
+        return CreateBlockAdd(
             runtime: ERuntime.Javascript,
-            addContent: JavascriptHelper.WrapModuleFunction(@$"
-            var FB = _FB_.FB;
-            var x = FB.GetDouble(""X"");
-            var y = FB.GetDouble(""Y"");
-            var result = x + y;
+            addScript: JavascriptHelper.WrapModuleFunction(@$"
+            const FB = _FB_.FB;
+            const x = FB.GetDouble(""X"");
+            const y = FB.GetDouble(""Y"");
+            const result = x + y;
             await FB.Set(""Result"", result);
             await FB.Publish(""Completed"");
             "),
-            handleInvalidContent: JavascriptHelper.WrapModuleFunction(@$"
-            var FB = _FB_.FB;
+            handleInvalidScript: JavascriptHelper.WrapModuleFunction(@$"
+            const FB = _FB_.FB;
             FB.LogWarning(""Invalid arguments X, Y"");
             await FB.Publish(""Completed"");
             "),
-            invalidConditionContent: JavascriptHelper.WrapModuleFunction(@$"
-            var FB = _FB_.FB;
-            var x = FB.Get(""X""); var y = FB.Get(""Y"");
+            invalidConditionScript: JavascriptHelper.WrapModuleFunction(@$"
+            const FB = _FB_.FB;
+            const x = FB.Get(""X""); const y = FB.Get(""Y"");
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
             "),
-            assemblies: null
+            imports: null, assemblies: null
         );
     }
 
-    private static FunctionBlock CreateBlockAddBase(ERuntime runtime,
-        string addContent, string handleInvalidContent, string invalidConditionContent,
-        IEnumerable<Assembly> assemblies)
+    private static FunctionBlock CreateBlockAdd(ERuntime runtime,
+        string addScript, string handleInvalidScript, string invalidConditionScript,
+        IEnumerable<string> imports, IEnumerable<Assembly> assemblies)
     {
         var bAdd = new FunctionBlock(id: "Add", name: "Add X + Y");
 
@@ -230,15 +324,15 @@ static class PredefinedBlocks
         var lRun = new Logic(
             id: "Run",
             name: "Run",
-            content: addContent,
+            content: addScript,
             runtime: runtime,
-            imports: null, assemblies: assemblies, types: null);
+            imports: imports, assemblies: assemblies, types: null);
         var lHandleInvalid = new Logic(
             id: "HandleInvalid",
             name: "Handle invalid",
-            content: handleInvalidContent,
+            content: handleInvalidScript,
             runtime: runtime,
-            imports: null, assemblies: assemblies, types: null);
+            imports: imports, assemblies: assemblies, types: null);
         var logics = new[] { lRun, lHandleInvalid };
         bAdd.Logics = logics;
 
@@ -256,9 +350,9 @@ static class PredefinedBlocks
                 tIdle2Invalid.TriggerCondition = new(
                     id: "InvalidCondition",
                     name: "Invalid condition",
-                    content: invalidConditionContent,
+                    content: invalidConditionScript,
                     runtime: runtime,
-                    imports: null, assemblies: assemblies, types: null);
+                    imports: imports, assemblies: assemblies, types: null);
                 tIdle2Invalid.ActionLogicId = lHandleInvalid.Id;
 
                 var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eRun.Name);
@@ -278,10 +372,52 @@ static class PredefinedBlocks
 
         return bAdd;
     }
+    #endregion
 
+    #region Random
     private static FunctionBlock CreateBlockRandomCsScript()
     {
-        var assemblies = new[] { AppFrameworkAssembly };
+        return CreateBlockRandom(
+            runtime: ERuntime.CSharpScript,
+            randomScript: @$"
+            var result = FB.NextRandomDouble();
+            await FB.Set(""Result"", result);
+            await FB.Publish(""Completed"");
+            ",
+            imports: null, assemblies: DefaultCsScriptAssemblies
+        );
+    }
+
+    private static FunctionBlock CreateBlockRandomCsCompiled()
+    {
+        return CreateBlockRandom(
+            runtime: ERuntime.CSharpCompiled,
+            randomScript: BaseCompiledFunction<AppFramework>.WrapScript(@$"
+            var result = FB.NextRandomDouble();
+            await FB.Set(""Result"", result);
+            await FB.Publish(""Completed"");
+            "),
+            imports: DefaultCsCompiledImports, assemblies: DefaultCsCompiledAssemblies
+        );
+    }
+
+    private static FunctionBlock CreateBlockRandomJs()
+    {
+        return CreateBlockRandom(
+            runtime: ERuntime.Javascript,
+            randomScript: JavascriptHelper.WrapModuleFunction(@$"
+            const FB = _FB_.FB;
+            const result = FB.NextRandomDouble();
+            await FB.Set(""Result"", result);
+            await FB.Publish(""Completed"");
+            "),
+            imports: null, assemblies: null
+        );
+    }
+
+    private static FunctionBlock CreateBlockRandom(ERuntime runtime,
+        string randomScript, IEnumerable<string> imports, IEnumerable<Assembly> assemblies)
+    {
         var bRandom = new FunctionBlock(id: "RandomDouble", name: "Random double");
 
         bRandom.Inputs = Array.Empty<Variable>();
@@ -304,13 +440,9 @@ static class PredefinedBlocks
         var lRun = new Logic(
             id: "Run",
             name: "Run",
-            content: @$"
-            var result = FB.NextRandomDouble();
-            await FB.Set(""{oResult.Name}"", result);
-            await FB.Publish(""{eCompleted.Name}"");
-            ",
-            runtime: ERuntime.CSharpScript,
-            imports: null, assemblies: assemblies, types: null);
+            content: randomScript,
+            runtime: runtime,
+            imports: imports, assemblies: assemblies, types: null);
         var logics = new[] { lRun };
         bRandom.Logics = logics;
 
@@ -338,6 +470,106 @@ static class PredefinedBlocks
 
         return bRandom;
     }
+    #endregion
+
+    #region Delay
+    private static FunctionBlock CreateBlockDelayCsScript()
+    {
+        return CreateBlockDelay(
+            runtime: ERuntime.CSharpScript,
+            delayScript: @$"
+            var ms = FB.GetInt(""Ms"");
+            await FB.DelayAsync(ms);
+            await FB.Publish(""Completed"");
+            ",
+            imports: null, assemblies: DefaultCsScriptAssemblies
+        );
+    }
+
+    private static FunctionBlock CreateBlockDelayCsCompiled()
+    {
+        return CreateBlockDelay(
+            runtime: ERuntime.CSharpCompiled,
+            delayScript: BaseCompiledFunction<AppFramework>.WrapScript(@$"
+            var ms = FB.GetInt(""Ms"");
+            await FB.DelayAsync(ms);
+            await FB.Publish(""Completed"");
+            "),
+            imports: DefaultCsCompiledImports, assemblies: DefaultCsCompiledAssemblies
+        );
+    }
+
+    private static FunctionBlock CreateBlockDelayJs()
+    {
+        return CreateBlockDelay(
+            runtime: ERuntime.Javascript,
+            delayScript: JavascriptHelper.WrapModuleFunction(@$"
+            const FB = _FB_.FB;
+            const ms = FB.GetInt(""Ms"");
+            FB.Delay(ms);
+            await FB.Publish(""Completed"");
+            "),
+            imports: null, assemblies: null
+        );
+    }
+
+    private static FunctionBlock CreateBlockDelay(ERuntime runtime,
+        string delayScript, IEnumerable<string> imports, IEnumerable<Assembly> assemblies)
+    {
+        var bDelay = new FunctionBlock(id: "Delay", name: "Delay");
+
+        var iMs = new Variable("Ms", EDataType.Int);
+        var inputs = new[] { iMs };
+        bDelay.Inputs = inputs;
+
+        bDelay.Outputs = Array.Empty<Variable>();
+
+        var inputEvents = new List<BlockEvent>();
+        var eRun = new BlockEvent(name: "Run", variableNames: new[] { iMs.Name });
+        inputEvents.Add(eRun);
+        bDelay.InputEvents = inputEvents;
+        bDelay.DefaultTriggerEvent = eRun.Name;
+
+        var outputEvents = new List<BlockEvent>();
+        var eCompleted = new BlockEvent(name: "Completed", variableNames: Array.Empty<string>());
+        outputEvents.Add(eCompleted);
+        bDelay.OutputEvents = outputEvents;
+
+        var lRun = new Logic(
+            id: "Run",
+            name: "Run",
+            content: delayScript,
+            runtime: runtime,
+            imports: imports, assemblies: assemblies, types: null);
+        var logics = new[] { lRun };
+        bDelay.Logics = logics;
+
+        {
+            var execControl = new BlockExecutionControlChart();
+
+            var sIdle = new BlockState("Idle");
+            var sRunning = new BlockState("Running");
+            var states = new[] { sIdle, sRunning };
+
+            var transitions = new List<BlockStateTransition>();
+            {
+                var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eRun.Name);
+                tIdle2Running.ActionLogicId = lRun.Id;
+
+                transitions.Add(tIdle2Running);
+                transitions.Add(new(fromState: sRunning.Name, toState: sIdle.Name));
+            }
+
+            execControl.States = states;
+            execControl.StateTransitions = transitions;
+            execControl.InitialState = sIdle.Name;
+            bDelay.ExecutionControlChart = execControl;
+        }
+
+        return bDelay;
+    }
+
+    #endregion
 
     private static FunctionBlock CreateBlockFactorialCsScript()
     {
