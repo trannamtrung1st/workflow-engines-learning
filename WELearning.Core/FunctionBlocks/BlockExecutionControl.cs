@@ -6,41 +6,46 @@ using WELearning.Core.FunctionBlocks.Models.Runtime;
 
 namespace WELearning.Core.FunctionBlocks;
 
-public class BlockExecutionControl : IBlockExecutionControl
+public class BlockExecutionControl<TFramework> : IBlockExecutionControl, IDisposable where TFramework : IBlockFramework
 {
-    private readonly ConcurrentDictionary<string, VariableBinding> _inputBindings;
-    private readonly ConcurrentDictionary<string, VariableBinding> _outputBindings;
-    private readonly ConcurrentDictionary<string, VariableBinding> _internalBindings;
+    private readonly ConcurrentDictionary<Variable, ValueObject> _valueMap;
+    private readonly SemaphoreSlim _mutexLock;
     private readonly ManualResetEventSlim _idleWait;
-    public BlockExecutionControl(FunctionBlockInstance block)
+    private readonly ILogicRunner<TFramework> _logicRunner;
+    private readonly IBlockFrameworkFactory<TFramework> _blockFrameworkFactory;
+    public BlockExecutionControl(FunctionBlockInstance block, ILogicRunner<TFramework> logicRunner, IBlockFrameworkFactory<TFramework> blockFrameworkFactory)
     {
-        _inputBindings = new();
-        _outputBindings = new();
-        _internalBindings = new();
+        _logicRunner = logicRunner;
+        _blockFrameworkFactory = blockFrameworkFactory;
+        _valueMap = new();
         _idleWait = new(initialState: true);
+        _mutexLock = new(1);
         Block = block;
-        CurrentState = block.Definition.ExecutionControlChart.InitialState;
+        CurrentState = block.Definition.ExecutionControlChart?.InitialState;
     }
 
     public FunctionBlockInstance Block { get; }
     public virtual string CurrentState { get; protected set; }
     public virtual Exception Exception { get; protected set; }
-    public virtual bool IsRunning => Status == EBlockExecutionStatus.Running;
+    public virtual bool IsIdle => _idleWait.IsSet;
     public virtual EBlockExecutionStatus Status { get; protected set; }
 
     public event EventHandler Running;
     public event EventHandler<Exception> Failed;
     public event EventHandler<BlockExecutionResult> Completed;
 
-    public virtual VariableBinding GetInput(string key) => GetVariableBinding(_inputBindings, key);
-    public virtual VariableBinding GetOutput(string key) => GetVariableBinding(_outputBindings, key);
-    public virtual VariableBinding GetInternalData(string key) => GetVariableBinding(_internalBindings, key);
-    private VariableBinding GetVariableBinding(ConcurrentDictionary<string, VariableBinding> source, string name)
-        => source.GetOrAdd(name, (name) => new VariableBinding(name));
+    public virtual ValueObject GetInOut(string key) => GetValueObject(key, EBindingType.InOut);
+    public virtual ValueObject GetInput(string key) => GetValueObject(key, EBindingType.Input);
+    public virtual ValueObject GetOutput(string key) => GetValueObject(key, EBindingType.Output);
+    public virtual ValueObject GetInternalData(string key) => GetValueObject(key, EBindingType.Internal);
+    public virtual ValueObject GetValueObject(string name, EBindingType type)
+    {
+        var variable = ValidateBinding(name, type);
+        return _valueMap.GetOrAdd(variable, (variable) => new ValueObject(variable));
+    }
 
     public virtual async Task<BlockStateTransition> FindTransition(
-        string triggerEvent, Func<Logic, CancellationToken, Task<bool>> EvaluateCondition,
-        CancellationToken cancellationToken)
+        string triggerEvent, Func<Logic, CancellationToken, Task<bool>> Evaluate, CancellationToken cancellationToken)
     {
         foreach (var transition in Block.Definition.ExecutionControlChart.StateTransitions)
         {
@@ -48,7 +53,7 @@ public class BlockExecutionControl : IBlockExecutionControl
                 && transition.TriggerEventName == triggerEvent
                 && (
                     transition.TriggerCondition == null
-                    || await EvaluateCondition(transition.TriggerCondition, cancellationToken)
+                    || await Evaluate(transition.TriggerCondition, cancellationToken)
                 ))
             {
                 return transition;
@@ -58,37 +63,61 @@ public class BlockExecutionControl : IBlockExecutionControl
     }
 
     public virtual async Task<BlockExecutionResult> Execute(string triggerEvent,
-        Func<Logic, CancellationToken, Task<bool>> EvaluateCondition,
-        Func<Logic, CancellationToken, Task> RunAction,
-        Func<IEnumerable<string>> GetOutputEvents,
-        CancellationToken cancellationToken)
+        IEnumerable<VariableBinding> bindings, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
-        WaitForCompletion(cancellationToken);
-        _idleWait.Reset();
+        lock (_idleWait)
+        {
+            if (!IsIdle) throw new InvalidOperationException("Not ready for execute!");
+            _idleWait.Reset();
+        }
+        var optimizationScopes = new HashSet<IDisposable>();
         try
         {
             Status = EBlockExecutionStatus.Running;
             Running?.Invoke(this, EventArgs.Empty);
-            triggerEvent = triggerEvent ?? Block.Definition.DefaultTriggerEvent;
+            optimizationScopeId ??= Guid.NewGuid();
+            var blockFramework = _blockFrameworkFactory.Create(this);
+            var globalObject = new BlockGlobalObject<TFramework>(blockFramework);
+
+            async Task<bool> Evaluate(Logic condition, CancellationToken cancellationToken)
+            {
+                var (result, optimizationScope) = await _logicRunner.Run<bool>(condition, globalObject: globalObject, optimizationScopeId.Value, cancellationToken);
+                if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
+                return result;
+            }
+
+            async Task RunAction(Logic actionLogic, CancellationToken cancellationToken)
+            {
+                var optimizationScope = await _logicRunner.Run(actionLogic, globalObject, optimizationScopeId.Value, cancellationToken);
+                if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
+            }
+
+            PrepareStates(bindings);
+            triggerEvent ??= Block.Definition.DefaultTriggerEvent;
             var transitionResults = new List<BlockTransitionResult>();
-            var transition = await FindTransition(triggerEvent, EvaluateCondition, cancellationToken);
+            var transition = await FindTransition(triggerEvent, Evaluate, cancellationToken);
             if (transition == null) throw new KeyNotFoundException($"Transition for event {triggerEvent} not found!");
             do
             {
                 var fromState = CurrentState;
                 var toState = transition.ToState;
                 CurrentState = transition.ToState;
-                if (transition.ActionLogicId != null)
+                if (transition.ActionLogicIds?.Any() == true)
                 {
-                    var actionLogic = Block.Definition.Logics.FirstOrDefault(l => l.Id == transition.ActionLogicId);
-                    if (actionLogic == null) throw new KeyNotFoundException($"Action logic {transition.ActionLogicId} not found!");
-                    await RunAction(actionLogic, cancellationToken);
+                    var tasks = new List<Task>();
+                    foreach (var actionLogicId in transition.ActionLogicIds)
+                    {
+                        var actionLogic = Block.Definition.Logics.FirstOrDefault(l => l.Id == actionLogicId);
+                        if (actionLogic == null) throw new KeyNotFoundException($"Action logic {actionLogic} not found!");
+                        tasks.Add(RunAction(actionLogic, cancellationToken));
+                    }
+                    await Task.WhenAll(tasks);
                 }
                 transitionResults.Add(new(fromState, toState));
-                transition = await FindTransition(BlockStateTransition.DirectTransitionEvent, EvaluateCondition, cancellationToken);
+                transition = await FindTransition(BlockStateTransition.DirectTransitionEvent, Evaluate, cancellationToken);
             } while (transition != null);
             Status = EBlockExecutionStatus.Completed;
-            var executionResult = new BlockExecutionResult(transitionResults, outputEvents: GetOutputEvents());
+            var executionResult = new BlockExecutionResult(transitionResults, outputEvents: blockFramework.OutputEvents);
             Completed?.Invoke(this, executionResult);
             return executionResult;
         }
@@ -99,8 +128,46 @@ public class BlockExecutionControl : IBlockExecutionControl
             Failed?.Invoke(this, ex);
             throw;
         }
-        finally { _idleWait.Set(); }
+        finally
+        {
+            _idleWait.Set();
+            foreach (var optimizationScope in optimizationScopes)
+                optimizationScope.Dispose();
+        }
     }
 
-    public void WaitForCompletion(CancellationToken cancellationToken) => _idleWait.Wait(cancellationToken);
+    public virtual void WaitForIdle(CancellationToken cancellationToken) => _idleWait.Wait(cancellationToken);
+
+    public virtual async Task MutexAccess(Func<Task> Task, CancellationToken cancellationToken)
+    {
+        await _mutexLock.WaitAsync(cancellationToken);
+        try { await Task(); }
+        finally { _mutexLock.Release(); }
+    }
+
+    protected virtual void PrepareStates(IEnumerable<VariableBinding> bindings)
+    {
+        foreach (var binding in bindings)
+        {
+            var valueObject = GetValueObject(binding.VariableName, binding.Type);
+            valueObject.Value = binding.Value;
+        }
+    }
+
+    private Variable ValidateBinding(string name, EBindingType type)
+    {
+        var isInOrOut = type == EBindingType.Input || type == EBindingType.Output || type == EBindingType.InOut;
+        var variable = Block.Definition.Variables.FirstOrDefault(v => v.Name == name
+            && (
+                v.BindingType == type
+                || (v.BindingType == EBindingType.InOut && isInOrOut)
+            ));
+        return variable ?? throw new KeyNotFoundException(name);
+    }
+
+    public void Dispose()
+    {
+        _mutexLock.Dispose();
+        _idleWait.Dispose();
+    }
 }

@@ -39,17 +39,17 @@ public static class DependencyWaitProcess
 
         {
             var dataConnections = new List<BlockDataConnection>();
-            dataConnections.Add(new(blockId: bDelay.Id, variableName: "Ms", displayName: "Delay ms", source: EDataSource.External));
-            dataConnections.Add(new(blockId: bAdd1.Id, variableName: "X", displayName: null, source: EDataSource.External));
-            dataConnections.Add(new(blockId: bAdd1.Id, variableName: "Y", displayName: null, source: EDataSource.External));
-            dataConnections.Add(new(blockId: bAdd2.Id, variableName: "X", displayName: null, source: EDataSource.External));
-            dataConnections.Add(new(blockId: bAdd2.Id, variableName: "Y", displayName: null, source: EDataSource.External));
-            dataConnections.Add(new(blockId: bAdd3.Id, variableName: "X", displayName: null, source: EDataSource.Internal)
+            dataConnections.Add(new(blockId: bDelay.Id, variableName: "Ms", displayName: "Delay ms", variableType: EBindingType.Input, source: EDataSource.External));
+            dataConnections.Add(new(blockId: bAdd1.Id, variableName: "X", displayName: null, variableType: EBindingType.Input, source: EDataSource.External));
+            dataConnections.Add(new(blockId: bAdd1.Id, variableName: "Y", displayName: null, variableType: EBindingType.Input, source: EDataSource.External));
+            dataConnections.Add(new(blockId: bAdd2.Id, variableName: "X", displayName: null, variableType: EBindingType.Input, source: EDataSource.External));
+            dataConnections.Add(new(blockId: bAdd2.Id, variableName: "Y", displayName: null, variableType: EBindingType.Input, source: EDataSource.External));
+            dataConnections.Add(new(blockId: bAdd3.Id, variableName: "X", displayName: null, variableType: EBindingType.Input, source: EDataSource.Internal)
             {
                 SourceBlockId = bAdd1.Id,
                 SourceVariableName = "Result"
             });
-            dataConnections.Add(new(blockId: bAdd3.Id, variableName: "Y", displayName: null, source: EDataSource.Internal)
+            dataConnections.Add(new(blockId: bAdd3.Id, variableName: "Y", displayName: null, variableType: EBindingType.Input, source: EDataSource.Internal)
             {
                 SourceBlockId = bAdd2.Id,
                 SourceVariableName = "Result"

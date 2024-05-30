@@ -4,12 +4,14 @@ namespace WELearning.Core.FunctionBlocks.Models.Runtime;
 
 public class RunProcessRequest
 {
-    public RunProcessRequest(FunctionBlockProcess process, HashSet<BlockTrigger> triggers = null)
+    public RunProcessRequest(FunctionBlockProcess process, IEnumerable<ProcessVariableBinding> bindings, IEnumerable<BlockTrigger> triggers = null)
     {
         Process = process;
         Triggers = triggers;
+        Bindings = bindings;
     }
 
     public FunctionBlockProcess Process { get; }
-    public HashSet<BlockTrigger> Triggers { get; }
+    public IEnumerable<BlockTrigger> Triggers { get; }
+    public IEnumerable<ProcessVariableBinding> Bindings { get; }
 }

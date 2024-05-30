@@ -11,11 +11,14 @@ public static class LoopProcess
     {
         var process = new FunctionBlockProcess(id: "Loop", name: "Sample loop process");
 
-        var bAdd = new FunctionBlockInstance(PredefinedBlocks.AddCsScript);
+        var bAdd = new FunctionBlockInstance(definition: PredefinedBlocks.AddCsScript);
         var bLoopController = new FunctionBlockInstance(definition: CreateLoopControllerBlock());
+        var bInputs = new FunctionBlockInstance(definition: PredefinedBlocks.CreateInOutBlock(
+            new Variable(name: "One", dataType: EDataType.Int, bindingType: EBindingType.InOut, defaultValue: 1)
+        ), id: "Inputs");
 
         {
-            var blocks = new List<FunctionBlockInstance> { bAdd, bLoopController };
+            var blocks = new List<FunctionBlockInstance> { bAdd, bLoopController, bInputs };
             process.Blocks = blocks;
             process.DefaultBlockIds = new[] { bLoopController.Id };
         }
@@ -38,20 +41,21 @@ public static class LoopProcess
 
         {
             var dataConnections = new List<BlockDataConnection>();
-            dataConnections.Add(new(blockId: bLoopController.Id, variableName: "N", displayName: "Loop count", source: EDataSource.External));
-            dataConnections.Add(new(blockId: bLoopController.Id, variableName: "CurrentResult", displayName: "Current result", source: EDataSource.Internal)
+            dataConnections.Add(new(blockId: bLoopController.Id, variableName: "N", displayName: "Loop count", variableType: EBindingType.Input, source: EDataSource.External));
+            dataConnections.Add(new(blockId: bLoopController.Id, variableName: "Result", displayName: "Loop result", variableType: EBindingType.Input, source: EDataSource.Internal)
             {
                 SourceBlockId = bAdd.Id,
                 SourceVariableName = "Result"
             });
-            dataConnections.Add(new(blockId: bAdd.Id, variableName: "X", displayName: null, source: EDataSource.Internal)
+            dataConnections.Add(new(blockId: bAdd.Id, variableName: "X", displayName: null, variableType: EBindingType.Input, source: EDataSource.Internal)
             {
                 SourceBlockId = bLoopController.Id,
                 SourceVariableName = "Result"
             });
-            dataConnections.Add(new(blockId: bAdd.Id, variableName: "Y", displayName: null, source: EDataSource.Internal)
+            dataConnections.Add(new(blockId: bAdd.Id, variableName: "Y", displayName: null, variableType: EBindingType.Input, source: EDataSource.Internal)
             {
-                ConstantValue = 1
+                SourceBlockId = bInputs.Id,
+                SourceVariableName = "One"
             });
             process.DataConnections = dataConnections;
         }
@@ -64,35 +68,28 @@ public static class LoopProcess
         var assemblies = new[] { typeof(AppFramework).Assembly };
         var bLoopController = new FunctionBlock(id: "LoopController", name: "Loop controller");
 
-        var iN = new Variable("N", EDataType.Int);
-        var iCurrentResult = new Variable("CurrentResult", EDataType.Numeric);
-        bLoopController.Inputs = new[] { iN, iCurrentResult };
+        var iN = new Variable("N", EDataType.Int, EBindingType.Input);
+        var ioResult = new Variable("Result", EDataType.Numeric, EBindingType.InOut);
+        bLoopController.Variables = new[] { iN, ioResult };
 
-        var oResult = new Variable("Result", EDataType.Numeric);
-        var outputs = new[] { oResult };
-        bLoopController.Outputs = outputs;
-
-        var eRun = new BlockEvent(name: "Run", variableNames: new[] { iN.Name });
-        var eiLoop = new BlockEvent(name: "Loop", variableNames: new[] { iN.Name, iCurrentResult.Name });
-        var inputEvents = new[] { eRun, eiLoop };
-        bLoopController.InputEvents = inputEvents;
+        var eRun = new BlockEvent(isInput: true, name: "Run", variableNames: new[] { iN.Name });
+        var eiLoop = new BlockEvent(isInput: true, name: "Loop", variableNames: new[] { iN.Name, ioResult.Name });
+        var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: new[] { ioResult.Name });
+        var eoLoop = new BlockEvent(isInput: false, name: "Loop", variableNames: new[] { ioResult.Name });
+        var events = new[] { eRun, eiLoop, eCompleted, eoLoop };
+        bLoopController.Events = events;
         bLoopController.DefaultTriggerEvent = eRun.Name;
-
-        var eCompleted = new BlockEvent(name: "Completed", variableNames: new[] { oResult.Name });
-        var eoLoop = new BlockEvent(name: "Loop", variableNames: new[] { oResult.Name });
-        var outputEvents = new[] { eCompleted, eoLoop };
-        bLoopController.OutputEvents = outputEvents;
 
         var lRun = new Logic(
             id: "Run",
             name: "Run",
             content: @$"
-            await FB.Set(""{oResult.Name}"", 0.0);
-            var n = (int)FB.Get(""{iN.Name}"").Value;
+            await FB.Out(""Result"").Set(0.0);
+            var n = FB.In(""N"").ToInt();
             if (n > 0) 
-                await FB.Publish(""{eoLoop.Name}"");
+                await FB.Publish(""Loop"");
             else 
-                await FB.Publish(""{eCompleted.Name}"");
+                await FB.Publish(""Completed"");
             ",
             runtime: ERuntime.CSharpScript,
             imports: null, assemblies: assemblies, types: null);
@@ -100,13 +97,12 @@ public static class LoopProcess
             id: "Loop",
             name: "Loop",
             content: @$"
-            var currentResult = (double)FB.Get(""{iCurrentResult.Name}"").Value;
-            FB.Set(""{oResult.Name}"", currentResult);
-            var n = (int)FB.Get(""{iN.Name}"").Value;
+            var currentResult = FB.InOut(""Result"").ToInt();
+            var n = FB.In(""N"").ToInt();
             if (currentResult < n) 
-                await FB.Publish(""{eoLoop.Name}"");
+                await FB.Publish(""Loop"");
             else 
-                await FB.Publish(""{eCompleted.Name}"");
+                await FB.Publish(""Completed"");
             ",
             runtime: ERuntime.CSharpScript,
             imports: null, assemblies: assemblies, types: null);
@@ -124,10 +120,10 @@ public static class LoopProcess
             var transitions = new List<BlockStateTransition>();
             {
                 var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eRun.Name);
-                tIdle2Running.ActionLogicId = lRun.Id;
+                tIdle2Running.ActionLogicIds = new[] { lRun.Id };
 
                 var tLooping2Looping = new BlockStateTransition(fromState: sLooping.Name, toState: sLooping.Name, triggerEventName: eiLoop.Name);
-                tLooping2Looping.ActionLogicId = lLoop.Id;
+                tLooping2Looping.ActionLogicIds = new[] { lLoop.Id };
 
                 transitions.Add(tIdle2Running);
                 transitions.Add(new(fromState: sRunning.Name, toState: sLooping.Name)
@@ -136,7 +132,7 @@ public static class LoopProcess
                         id: "Running2LoopingCondition",
                         name: "Running to looping condition",
                         content: @$"
-                            var n = (int)FB.Get(""{iN.Name}"").Value;
+                            var n = FB.In(""N"").ToInt();
                             return n > 0;
                         ",
                         runtime: ERuntime.CSharpScript,
@@ -149,7 +145,7 @@ public static class LoopProcess
                         id: "Running2IdleCondition",
                         name: "Running to idle condition",
                         content: @$"
-                            var n = (int)FB.Get(""{iN.Name}"").Value;
+                            var n = FB.In(""N"").ToInt();
                             return n <= 0;
                         ",
                         runtime: ERuntime.CSharpScript,
@@ -163,8 +159,8 @@ public static class LoopProcess
                         id: "Looping2IdleCondition",
                         name: "Looping to idle condition",
                         content: @$"
-                            var n = (int)FB.Get(""{iN.Name}"").Value;
-                            var result = (double)FB.Get(""{oResult.Name}"").Value;
+                            var n = FB.In(""N"").ToInt();
+                            var result = FB.In(""Result"").ToDouble();
                             return result >= n;
                         ",
                         runtime: ERuntime.CSharpScript,

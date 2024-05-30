@@ -14,11 +14,7 @@ public class FunctionBlock
     public BlockExecutionControlChart ExecutionControlChart { get; set; }
 
     public string DefaultTriggerEvent { get; set; }
-    public IEnumerable<BlockEvent> InputEvents { get; set; }
-    public IEnumerable<BlockEvent> OutputEvents { get; set; }
-
-    public IEnumerable<Variable> Inputs { get; set; }
-    public IEnumerable<Variable> Outputs { get; set; }
-
+    public IEnumerable<BlockEvent> Events { get; set; }
+    public IEnumerable<Variable> Variables { get; set; }
     public IEnumerable<Logic> Logics { get; set; }
 }

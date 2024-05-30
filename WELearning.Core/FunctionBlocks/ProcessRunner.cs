@@ -5,20 +5,20 @@ namespace WELearning.Core.FunctionBlocks;
 
 public class ProcessRunner<TFramework> : IProcessRunner
 {
-    private readonly IBlockRunner<TFramework> _blockRunner;
-    private readonly IBlockFrameworkFactory<TFramework> _blockFrameworkFactory;
-    public ProcessRunner(IBlockRunner<TFramework> blockRunner, IBlockFrameworkFactory<TFramework> blockFrameworkFactory)
+    public virtual async Task Run(RunProcessRequest request, IProcessExecutionControl processControl, CancellationToken cancellationToken)
     {
-        _blockRunner = blockRunner;
-        _blockFrameworkFactory = blockFrameworkFactory;
-    }
-
-    public virtual async Task Run(RunProcessRequest request, ProcessExecutionContext processContext, IProcessExecutionControl processControl, CancellationToken cancellationToken)
-    {
-        await processControl.Execute(request, RunBlock: (runBlockRequest, blockControl, cancellationToken) =>
+        bool started = false;
+        while (!started)
         {
-            var blockFramework = _blockFrameworkFactory.Create(blockControl);
-            return _blockRunner.Run(runBlockRequest, blockControl, blockFramework, optimizationScopeId: default, cancellationToken);
-        }, cancellationToken);
+            processControl.WaitForIdle(cancellationToken);
+            await processControl.MutexAccess(async () =>
+            {
+                if (processControl.IsIdle)
+                {
+                    await processControl.Execute(triggers: request.Triggers, bindings: request.Bindings, cancellationToken);
+                    started = true;
+                }
+            }, cancellationToken);
+        }
     }
 }

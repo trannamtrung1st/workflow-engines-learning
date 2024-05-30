@@ -10,14 +10,15 @@ public interface IProcessExecutionControl
     event EventHandler<Exception> Failed;
     event EventHandler Completed;
 
-    bool IsRunning { get; }
+    bool IsIdle { get; }
     FunctionBlockProcess Process { get; }
     int RunningTasksCount { get; }
     IEnumerable<BlockExecutionTaskInfo> ExecutionTasks { get; }
     Exception Exception { get; }
     EProcessExecutionStatus Status { get; }
 
-    void WaitForCompletion(CancellationToken cancellationToken);
     bool TryGetBlockControl(string blockId, out IBlockExecutionControl blockControl);
-    Task Execute(RunProcessRequest request, Func<RunBlockRequest, IBlockExecutionControl, CancellationToken, Task<BlockExecutionResult>> RunBlock, CancellationToken cancellationToken);
+    Task Execute(IEnumerable<BlockTrigger> triggers, IEnumerable<ProcessVariableBinding> bindings, CancellationToken cancellationToken);
+    Task MutexAccess(Func<Task> task, CancellationToken cancellationToken);
+    void WaitForIdle(CancellationToken cancellationToken);
 }

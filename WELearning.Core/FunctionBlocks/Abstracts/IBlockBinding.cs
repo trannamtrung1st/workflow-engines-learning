@@ -3,11 +3,23 @@ namespace WELearning.Core.FunctionBlocks.Abstracts;
 public interface IBlockBinding
 {
     string Name { get; }
-    object Value { get; }
     bool ValueSet { get; }
-    bool Is<T>();
+}
+
+public interface IInputBinding : IBlockBinding
+{
+    object Value { get; }
+    double ToDouble();
+    int ToInt();
     bool IsNumeric { get; }
+    bool Is<T>();
+}
+
+public interface IOutputBinding : IBlockBinding
+{
     Task Set(object value);
-    double GetDouble();
-    int GetInt();
+}
+
+public interface IReadWriteBinding : IInputBinding, IOutputBinding
+{
 }

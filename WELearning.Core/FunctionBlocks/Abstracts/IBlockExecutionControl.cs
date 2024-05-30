@@ -12,17 +12,17 @@ public interface IBlockExecutionControl
 
     FunctionBlockInstance Block { get; }
     string CurrentState { get; }
-    bool IsRunning { get; }
+    bool IsIdle { get; }
     Exception Exception { get; }
     EBlockExecutionStatus Status { get; }
 
-    VariableBinding GetInput(string key);
-    VariableBinding GetOutput(string key);
-    VariableBinding GetInternalData(string key);
+    ValueObject GetValueObject(string key, EBindingType type);
+    ValueObject GetInOut(string key);
+    ValueObject GetInput(string key);
+    ValueObject GetOutput(string key);
+    ValueObject GetInternalData(string key);
     Task<BlockExecutionResult> Execute(string triggerEvent,
-        Func<Logic, CancellationToken, Task<bool>> EvaluateCondition,
-        Func<Logic, CancellationToken, Task> RunAction,
-        Func<IEnumerable<string>> GetOutputEvents,
-        CancellationToken cancellationToken);
-    void WaitForCompletion(CancellationToken cancellationToken);
+        IEnumerable<VariableBinding> bindings, Guid? optimizationScopeId, CancellationToken cancellationToken);
+    void WaitForIdle(CancellationToken cancellationToken);
+    Task MutexAccess(Func<Task> task, CancellationToken cancellationToken);
 }

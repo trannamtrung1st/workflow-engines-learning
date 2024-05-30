@@ -4,5 +4,5 @@ namespace WELearning.Core.FunctionBlocks.Abstracts;
 
 public interface IProcessRunner
 {
-    Task Run(RunProcessRequest request, ProcessExecutionContext processContext, IProcessExecutionControl processControl, CancellationToken cancellationToken);
+    Task Run(RunProcessRequest request, IProcessExecutionControl processControl, CancellationToken cancellationToken);
 }

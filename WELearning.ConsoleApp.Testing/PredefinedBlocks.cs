@@ -4,6 +4,7 @@ using WELearning.DynamicCodeExecution.Constants;
 using System.Reflection;
 using WELearning.Core.FunctionBlocks.Framework;
 using WELearning.Core.Helpers;
+using WELearning.Core.FunctionBlocks.Constants;
 
 static class PredefinedBlocks
 {
@@ -66,16 +67,23 @@ static class PredefinedBlocks
     public static readonly FunctionBlock DelayJs;
     public static readonly FunctionBlock FactorialCsScript;
 
+    public static FunctionBlock CreateInOutBlock(params Variable[] variables)
+    {
+        if (variables.Any(v => v.BindingType != EBindingType.InOut))
+            throw new ArgumentException("Invalid binding type!");
+        return new FunctionBlock(id: "Inout", name: "Inout block") { Variables = variables };
+    }
+
     #region Multiply
     private static FunctionBlock CreateBlockMultiplyCsScript()
     {
         return CreateBlockMultiply(
             runtime: ERuntime.CSharpScript,
             multiplyScript: @$"
-            var x = FB.GetDouble(""X"");
-            var y = FB.GetDouble(""Y"");
+            var x = FB.In(""X"").ToDouble();
+            var y = FB.In(""Y"").ToDouble();
             var result = x * y;
-            await FB.Set(""Result"", result);
+            await FB.Out(""Result"").Set(result);
             await FB.Publish(""Completed"");
             ",
             handleInvalidScript: @$"
@@ -83,7 +91,7 @@ static class PredefinedBlocks
             await FB.Publish(""Completed"");
             ",
             invalidConditionScript: @$"
-            var x = FB.Get(""X""); var y = FB.Get(""Y"");
+            var x = FB.In(""X""); var y = FB.In(""Y"");
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
             ",
             imports: null, assemblies: DefaultCsScriptAssemblies
@@ -95,10 +103,10 @@ static class PredefinedBlocks
         return CreateBlockMultiply(
             runtime: ERuntime.CSharpCompiled,
             multiplyScript: BaseCompiledFunction<AppFramework>.WrapScript(@$"
-            var x = FB.GetDouble(""X"");
-            var y = FB.GetDouble(""Y"");
+            var x = FB.In(""X"").ToDouble();
+            var y = FB.In(""Y"").ToDouble();
             var result = x * y;
-            await FB.Set(""Result"", result);
+            await FB.Out(""Result"").Set(result);
             await FB.Publish(""Completed"");
             "),
             handleInvalidScript: BaseCompiledFunction<AppFramework>.WrapScript(@$"
@@ -106,7 +114,7 @@ static class PredefinedBlocks
             await FB.Publish(""Completed"");
             "),
             invalidConditionScript: BaseCompiledFunction<bool, AppFramework>.WrapScript(@$"
-            var x = FB.Get(""X""); var y = FB.Get(""Y"");
+            var x = FB.In(""X""); var y = FB.In(""Y"");
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
             "),
             imports: DefaultCsCompiledImports, assemblies: DefaultCsCompiledAssemblies
@@ -119,10 +127,10 @@ static class PredefinedBlocks
             runtime: ERuntime.Javascript,
             multiplyScript: JavascriptHelper.WrapModuleFunction(@$"
             const FB = _FB_.FB;
-            const x = FB.GetDouble(""X"");
-            const y = FB.GetDouble(""Y"");
+            const x = FB.In(""X"").ToDouble();
+            const y = FB.In(""Y"").ToDouble();
             const result = x * y;
-            await FB.Set(""Result"", result);
+            await FB.Out(""Result"").Set(result);
             await FB.Publish(""Completed"");
             "),
             handleInvalidScript: JavascriptHelper.WrapModuleFunction(@$"
@@ -132,7 +140,7 @@ static class PredefinedBlocks
             "),
             invalidConditionScript: JavascriptHelper.WrapModuleFunction(@$"
             const FB = _FB_.FB;
-            const x = FB.Get(""X""); const y = FB.Get(""Y"");
+            const x = FB.In(""X""); const y = FB.In(""Y"");
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
             "),
             imports: null, assemblies: null
@@ -149,25 +157,15 @@ static class PredefinedBlocks
     {
         var bMultiply = new FunctionBlock(id: "Multiply", name: "Multiply X * Y");
 
-        var iX = new Variable("X", EDataType.Numeric);
-        var iY = new Variable("Y", EDataType.Numeric);
-        var inputs = new[] { iX, iY };
-        bMultiply.Inputs = inputs;
+        var iX = new Variable("X", EDataType.Numeric, EBindingType.Input);
+        var iY = new Variable("Y", EDataType.Numeric, EBindingType.Input);
+        var oResult = new Variable("Result", EDataType.Numeric, EBindingType.Output);
+        bMultiply.Variables = new[] { iX, iY, oResult };
 
-        var oResult = new Variable("Result", EDataType.Numeric);
-        var outputs = new[] { oResult };
-        bMultiply.Outputs = outputs;
-
-        var inputEvents = new List<BlockEvent>();
-        var eRun = new BlockEvent(name: "Run", variableNames: new[] { iX.Name, iY.Name });
-        inputEvents.Add(eRun);
-        bMultiply.InputEvents = inputEvents;
+        var eRun = new BlockEvent(isInput: true, name: "Run", variableNames: new[] { iX.Name, iY.Name });
+        var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: new[] { oResult.Name });
+        bMultiply.Events = new[] { eRun, eCompleted };
         bMultiply.DefaultTriggerEvent = eRun.Name;
-
-        var outputEvents = new List<BlockEvent>();
-        var eCompleted = new BlockEvent(name: "Completed", variableNames: new[] { oResult.Name });
-        outputEvents.Add(eCompleted);
-        bMultiply.OutputEvents = outputEvents;
 
         var lRun = new Logic(
             id: "Run",
@@ -201,10 +199,10 @@ static class PredefinedBlocks
                     content: invalidConditionScript,
                     runtime: runtime,
                     imports: imports, assemblies: assemblies, types: null);
-                tIdle2Invalid.ActionLogicId = lHandleInvalid.Id;
+                tIdle2Invalid.ActionLogicIds = new[] { lHandleInvalid.Id };
 
                 var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eRun.Name);
-                tIdle2Running.ActionLogicId = lRun.Id;
+                tIdle2Running.ActionLogicIds = new[] { lRun.Id };
 
                 transitions.Add(tIdle2Invalid);
                 transitions.Add(tIdle2Running);
@@ -228,10 +226,10 @@ static class PredefinedBlocks
         return CreateBlockAdd(
             runtime: ERuntime.CSharpScript,
             addScript: @$"
-            var x = FB.GetDouble(""X"");
-            var y = FB.GetDouble(""Y"");
+            var x = FB.In(""X"").ToDouble();
+            var y = FB.In(""Y"").ToDouble();
             var result = x + y;
-            await FB.Set(""Result"", result);
+            await FB.Out(""Result"").Set(result);
             await FB.Publish(""Completed"");
             ",
             handleInvalidScript: @$"
@@ -239,7 +237,7 @@ static class PredefinedBlocks
             await FB.Publish(""Completed"");
             ",
             invalidConditionScript: @$"
-            var x = FB.Get(""X""); var y = FB.Get(""Y"");
+            var x = FB.In(""X""); var y = FB.In(""Y"");
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
             ",
             imports: null, assemblies: DefaultCsScriptAssemblies
@@ -251,10 +249,10 @@ static class PredefinedBlocks
         return CreateBlockAdd(
             runtime: ERuntime.CSharpCompiled,
             addScript: BaseCompiledFunction<AppFramework>.WrapScript(@$"
-            var x = FB.GetDouble(""X"");
-            var y = FB.GetDouble(""Y"");
+            var x = FB.In(""X"").ToDouble();
+            var y = FB.In(""Y"").ToDouble();
             var result = x + y;
-            await FB.Set(""Result"", result);
+            await FB.Out(""Result"").Set(result);
             await FB.Publish(""Completed"");
             "),
             handleInvalidScript: BaseCompiledFunction<AppFramework>.WrapScript(@$"
@@ -262,7 +260,7 @@ static class PredefinedBlocks
             await FB.Publish(""Completed"");
             "),
             invalidConditionScript: BaseCompiledFunction<bool, AppFramework>.WrapScript(@$"
-            var x = FB.Get(""X""); var y = FB.Get(""Y"");
+            var x = FB.In(""X""); var y = FB.In(""Y"");
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
             "),
             imports: DefaultCsCompiledImports, assemblies: DefaultCsCompiledAssemblies
@@ -275,10 +273,10 @@ static class PredefinedBlocks
             runtime: ERuntime.Javascript,
             addScript: JavascriptHelper.WrapModuleFunction(@$"
             const FB = _FB_.FB;
-            const x = FB.GetDouble(""X"");
-            const y = FB.GetDouble(""Y"");
+            const x = FB.In(""X"").ToDouble();
+            const y = FB.In(""Y"").ToDouble();
             const result = x + y;
-            await FB.Set(""Result"", result);
+            await FB.Out(""Result"").Set(result);
             await FB.Publish(""Completed"");
             "),
             handleInvalidScript: JavascriptHelper.WrapModuleFunction(@$"
@@ -288,7 +286,7 @@ static class PredefinedBlocks
             "),
             invalidConditionScript: JavascriptHelper.WrapModuleFunction(@$"
             const FB = _FB_.FB;
-            const x = FB.Get(""X""); const y = FB.Get(""Y"");
+            const x = FB.In(""X""); const y = FB.In(""Y"");
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
             "),
             imports: null, assemblies: null
@@ -301,25 +299,15 @@ static class PredefinedBlocks
     {
         var bAdd = new FunctionBlock(id: "Add", name: "Add X + Y");
 
-        var iX = new Variable("X", EDataType.Numeric);
-        var iY = new Variable("Y", EDataType.Numeric);
-        var inputs = new[] { iX, iY };
-        bAdd.Inputs = inputs;
+        var iX = new Variable("X", EDataType.Numeric, EBindingType.Input);
+        var iY = new Variable("Y", EDataType.Numeric, EBindingType.Input);
+        var oResult = new Variable("Result", EDataType.Numeric, EBindingType.Output);
+        bAdd.Variables = new[] { iX, iY, oResult };
 
-        var oResult = new Variable("Result", EDataType.Numeric);
-        var outputs = new[] { oResult };
-        bAdd.Outputs = outputs;
-
-        var inputEvents = new List<BlockEvent>();
-        var eRun = new BlockEvent(name: "Run", variableNames: new[] { iX.Name, iY.Name });
-        inputEvents.Add(eRun);
-        bAdd.InputEvents = inputEvents;
+        var eRun = new BlockEvent(isInput: true, name: "Run", variableNames: new[] { iX.Name, iY.Name });
+        var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: new[] { oResult.Name });
+        bAdd.Events = new[] { eRun, eCompleted };
         bAdd.DefaultTriggerEvent = eRun.Name;
-
-        var outputEvents = new List<BlockEvent>();
-        var eCompleted = new BlockEvent(name: "Completed", variableNames: new[] { oResult.Name });
-        outputEvents.Add(eCompleted);
-        bAdd.OutputEvents = outputEvents;
 
         var lRun = new Logic(
             id: "Run",
@@ -353,10 +341,10 @@ static class PredefinedBlocks
                     content: invalidConditionScript,
                     runtime: runtime,
                     imports: imports, assemblies: assemblies, types: null);
-                tIdle2Invalid.ActionLogicId = lHandleInvalid.Id;
+                tIdle2Invalid.ActionLogicIds = new[] { lHandleInvalid.Id };
 
                 var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eRun.Name);
-                tIdle2Running.ActionLogicId = lRun.Id;
+                tIdle2Running.ActionLogicIds = new[] { lRun.Id };
 
                 transitions.Add(tIdle2Invalid);
                 transitions.Add(tIdle2Running);
@@ -381,7 +369,7 @@ static class PredefinedBlocks
             runtime: ERuntime.CSharpScript,
             randomScript: @$"
             var result = FB.NextRandomDouble();
-            await FB.Set(""Result"", result);
+            await FB.Out(""Result"").Set(result);
             await FB.Publish(""Completed"");
             ",
             imports: null, assemblies: DefaultCsScriptAssemblies
@@ -394,7 +382,7 @@ static class PredefinedBlocks
             runtime: ERuntime.CSharpCompiled,
             randomScript: BaseCompiledFunction<AppFramework>.WrapScript(@$"
             var result = FB.NextRandomDouble();
-            await FB.Set(""Result"", result);
+            await FB.Out(""Result"").Set(result);
             await FB.Publish(""Completed"");
             "),
             imports: DefaultCsCompiledImports, assemblies: DefaultCsCompiledAssemblies
@@ -408,7 +396,7 @@ static class PredefinedBlocks
             randomScript: JavascriptHelper.WrapModuleFunction(@$"
             const FB = _FB_.FB;
             const result = FB.NextRandomDouble();
-            await FB.Set(""Result"", result);
+            await FB.Out(""Result"").Set(result);
             await FB.Publish(""Completed"");
             "),
             imports: null, assemblies: null
@@ -420,22 +408,13 @@ static class PredefinedBlocks
     {
         var bRandom = new FunctionBlock(id: "RandomDouble", name: "Random double");
 
-        bRandom.Inputs = Array.Empty<Variable>();
+        var oResult = new Variable("Result", EDataType.Numeric, EBindingType.Output);
+        bRandom.Variables = new[] { oResult };
 
-        var oResult = new Variable("Result", EDataType.Numeric);
-        var outputs = new[] { oResult };
-        bRandom.Outputs = outputs;
-
-        var inputEvents = new List<BlockEvent>();
-        var eRun = new BlockEvent(name: "Run", variableNames: Array.Empty<string>());
-        inputEvents.Add(eRun);
-        bRandom.InputEvents = inputEvents;
+        var eRun = new BlockEvent(isInput: true, name: "Run", variableNames: Array.Empty<string>());
+        var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: new[] { oResult.Name });
+        bRandom.Events = new[] { eRun, eCompleted };
         bRandom.DefaultTriggerEvent = eRun.Name;
-
-        var outputEvents = new List<BlockEvent>();
-        var eCompleted = new BlockEvent(name: "Completed", variableNames: new[] { oResult.Name });
-        outputEvents.Add(eCompleted);
-        bRandom.OutputEvents = outputEvents;
 
         var lRun = new Logic(
             id: "Run",
@@ -456,7 +435,7 @@ static class PredefinedBlocks
             var transitions = new List<BlockStateTransition>();
             {
                 var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eRun.Name);
-                tIdle2Running.ActionLogicId = lRun.Id;
+                tIdle2Running.ActionLogicIds = new[] { lRun.Id };
 
                 transitions.Add(tIdle2Running);
                 transitions.Add(new(fromState: sRunning.Name, toState: sIdle.Name));
@@ -478,7 +457,7 @@ static class PredefinedBlocks
         return CreateBlockDelay(
             runtime: ERuntime.CSharpScript,
             delayScript: @$"
-            var ms = FB.GetInt(""Ms"");
+            var ms = FB.In(""Ms"").ToInt();
             await FB.DelayAsync(ms);
             await FB.Publish(""Completed"");
             ",
@@ -491,7 +470,7 @@ static class PredefinedBlocks
         return CreateBlockDelay(
             runtime: ERuntime.CSharpCompiled,
             delayScript: BaseCompiledFunction<AppFramework>.WrapScript(@$"
-            var ms = FB.GetInt(""Ms"");
+            var ms = FB.In(""Ms"").ToInt();
             await FB.DelayAsync(ms);
             await FB.Publish(""Completed"");
             "),
@@ -505,7 +484,7 @@ static class PredefinedBlocks
             runtime: ERuntime.Javascript,
             delayScript: JavascriptHelper.WrapModuleFunction(@$"
             const FB = _FB_.FB;
-            const ms = FB.GetInt(""Ms"");
+            const ms = FB.In(""Ms"").ToInt();
             FB.Delay(ms);
             await FB.Publish(""Completed"");
             "),
@@ -518,22 +497,13 @@ static class PredefinedBlocks
     {
         var bDelay = new FunctionBlock(id: "Delay", name: "Delay");
 
-        var iMs = new Variable("Ms", EDataType.Int);
-        var inputs = new[] { iMs };
-        bDelay.Inputs = inputs;
+        var iMs = new Variable("Ms", EDataType.Int, EBindingType.Input);
+        bDelay.Variables = new[] { iMs };
 
-        bDelay.Outputs = Array.Empty<Variable>();
-
-        var inputEvents = new List<BlockEvent>();
-        var eRun = new BlockEvent(name: "Run", variableNames: new[] { iMs.Name });
-        inputEvents.Add(eRun);
-        bDelay.InputEvents = inputEvents;
+        var eRun = new BlockEvent(isInput: true, name: "Run", variableNames: new[] { iMs.Name });
+        var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: Array.Empty<string>());
+        bDelay.Events = new[] { eRun, eCompleted };
         bDelay.DefaultTriggerEvent = eRun.Name;
-
-        var outputEvents = new List<BlockEvent>();
-        var eCompleted = new BlockEvent(name: "Completed", variableNames: Array.Empty<string>());
-        outputEvents.Add(eCompleted);
-        bDelay.OutputEvents = outputEvents;
 
         var lRun = new Logic(
             id: "Run",
@@ -554,7 +524,7 @@ static class PredefinedBlocks
             var transitions = new List<BlockStateTransition>();
             {
                 var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eRun.Name);
-                tIdle2Running.ActionLogicId = lRun.Id;
+                tIdle2Running.ActionLogicIds = new[] { lRun.Id };
 
                 transitions.Add(tIdle2Running);
                 transitions.Add(new(fromState: sRunning.Name, toState: sIdle.Name));
@@ -576,28 +546,22 @@ static class PredefinedBlocks
         var assemblies = new[] { AppFrameworkAssembly };
         var bFactorial = new FunctionBlock(id: "Factorial", name: "Factorial n!");
 
-        var iN = new Variable("N", EDataType.Int);
-        bFactorial.Inputs = new[] { iN };
+        var iN = new Variable("N", EDataType.Int, EBindingType.Input);
+        var oResult = new Variable("Result", EDataType.Numeric, EBindingType.Output);
+        var itnState = new Variable("State", EDataType.Object, EBindingType.Internal);
+        bFactorial.Variables = new[] { iN, oResult, itnState };
 
-        var oResult = new Variable("Result", EDataType.Numeric);
-        var outputs = new[] { oResult };
-        bFactorial.Outputs = outputs;
-
-        var eRun = new BlockEvent(name: "Run", variableNames: new[] { iN.Name });
-        var inputEvents = new[] { eRun };
-        bFactorial.InputEvents = inputEvents;
+        var eRun = new BlockEvent(isInput: true, name: "Run", variableNames: new[] { iN.Name });
+        var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: new[] { oResult.Name });
+        bFactorial.Events = new[] { eRun, eCompleted };
         bFactorial.DefaultTriggerEvent = eRun.Name;
-
-        var eCompleted = new BlockEvent(name: "Completed", variableNames: new[] { oResult.Name });
-        var outputEvents = new[] { eCompleted };
-        bFactorial.OutputEvents = outputEvents;
 
         var lRun = new Logic(
             id: "Run",
             name: "Run",
             content: @$"
             // [factor, result]
-            await FB.Set(""State"", new[] {{ 1, 1 }}, isInternal: true);
+            await FB.Internal(""State"").Set(new[] {{ 1, 1 }});
             ",
             runtime: ERuntime.CSharpScript,
             imports: null, assemblies: assemblies, types: null);
@@ -605,9 +569,9 @@ static class PredefinedBlocks
             id: "Loop",
             name: "Loop",
             content: @$"
-            var state = (int[])FB.Get(""State"", isInternal: true).Value;
+            var state = (int[])FB.Internal(""State"").Value;
             var factor = state[0] + 1;
-            await FB.Set(""State"", new[] {{ factor, state[1] * factor }}, isInternal: true);
+            await FB.Internal(""State"").Set(new[] {{ factor, state[1] * factor }});
             ",
             runtime: ERuntime.CSharpScript,
             imports: null, assemblies: assemblies, types: null);
@@ -615,8 +579,8 @@ static class PredefinedBlocks
             id: "Output",
             name: "Output",
             content: @$"
-            var state = (int[])FB.Get(""State"", isInternal: true).Value;
-            await FB.Set(""{oResult.Name}"", state[1]);                
+            var state = (int[])FB.Internal(""State"").Value;
+            await FB.Out(""Result"").Set(state[1]);                
             await FB.Publish(""{eCompleted.Name}"");
             ",
             runtime: ERuntime.CSharpScript,
@@ -636,14 +600,14 @@ static class PredefinedBlocks
             var transitions = new List<BlockStateTransition>();
             {
                 var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eRun.Name);
-                tIdle2Running.ActionLogicId = lRun.Id;
+                tIdle2Running.ActionLogicIds = new[] { lRun.Id };
 
                 var loopingCondition = new Logic(
                     id: "LoopingCondition",
                     name: "Looping condition",
                     content: @$"
-                        var n = (int)FB.Get(""{iN.Name}"").Value;
-                        var state = (int[])FB.Get(""State"", isInternal: true).Value;
+                        var n = FB.In(""N"").ToInt();
+                        var state = (int[])FB.Internal(""State"").Value;
                         return state[0] < n;
                     ",
                     runtime: ERuntime.CSharpScript,
@@ -651,16 +615,16 @@ static class PredefinedBlocks
                 );
                 var tRunning2Looping = new BlockStateTransition(fromState: sRunning.Name, toState: sLooping.Name);
                 tRunning2Looping.TriggerCondition = loopingCondition;
-                tRunning2Looping.ActionLogicId = lLoop.Id;
+                tRunning2Looping.ActionLogicIds = new[] { lLoop.Id };
 
                 var tLooping2Looping = new BlockStateTransition(fromState: sLooping.Name, toState: sLooping.Name);
                 tLooping2Looping.TriggerCondition = loopingCondition;
-                tLooping2Looping.ActionLogicId = lLoop.Id;
+                tLooping2Looping.ActionLogicIds = new[] { lLoop.Id };
 
                 var tRunning2Output = new BlockStateTransition(fromState: sRunning.Name, toState: sOutput.Name);
-                tRunning2Output.ActionLogicId = lOutput.Id;
+                tRunning2Output.ActionLogicIds = new[] { lOutput.Id };
                 var tLooping2Output = new BlockStateTransition(fromState: sLooping.Name, toState: sOutput.Name);
-                tLooping2Output.ActionLogicId = lOutput.Id;
+                tLooping2Output.ActionLogicIds = new[] { lOutput.Id };
 
                 transitions.Add(tIdle2Running);
                 transitions.Add(tRunning2Looping);

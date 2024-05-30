@@ -23,8 +23,8 @@ public static class RectangleAreaProcess
 
         {
             var dataConnections = new List<BlockDataConnection>();
-            dataConnections.Add(new(blockId: bMultiply.Id, variableName: "X", displayName: "Length", source: EDataSource.External));
-            dataConnections.Add(new(blockId: bMultiply.Id, variableName: "Y", displayName: "Width", source: EDataSource.External));
+            dataConnections.Add(new(blockId: bMultiply.Id, variableName: "X", displayName: "Length", variableType: EBindingType.Input, source: EDataSource.External));
+            dataConnections.Add(new(blockId: bMultiply.Id, variableName: "Y", displayName: "Width", variableType: EBindingType.Input, source: EDataSource.External));
             process.DataConnections = dataConnections;
         }
 

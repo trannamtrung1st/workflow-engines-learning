@@ -15,5 +15,5 @@ public class BlockStateTransition
     public string FromState { get; set; }
     public string ToState { get; set; }
     public Logic TriggerCondition { get; set; }
-    public string ActionLogicId { get; set; }
+    public IEnumerable<string> ActionLogicIds { get; set; }
 }

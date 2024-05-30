@@ -1,5 +1,6 @@
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Constants;
+using WELearning.Core.Constants;
 
 namespace WELearning.ConsoleApp.Testing.Processes;
 
@@ -15,9 +16,13 @@ public static class ComplexProcess
         var bDelay = new FunctionBlockInstance(bDelayDef, id: "Delay");
         var bRandom = new FunctionBlockInstance(bRandomDef, id: "Random");
         var bAdd2 = new FunctionBlockInstance(bAddDef, id: "Add2");
+        var bInputs = new FunctionBlockInstance(definition: PredefinedBlocks.CreateInOutBlock(
+            new Variable(name: "MulY", dataType: EDataType.Int, bindingType: EBindingType.InOut, defaultValue: 2),
+            new Variable(name: "DelayMs", dataType: EDataType.Int, bindingType: EBindingType.InOut, defaultValue: 10)
+        ), id: "Inputs");
 
         {
-            var blocks = new List<FunctionBlockInstance> { bAdd1, bMul, bDelay, bRandom, bAdd2 };
+            var blocks = new List<FunctionBlockInstance> { bAdd1, bMul, bDelay, bRandom, bAdd2, bInputs };
             process.Blocks = blocks;
             process.DefaultBlockIds = new[] { bAdd1.Id };
         }
@@ -50,27 +55,29 @@ public static class ComplexProcess
 
         {
             var dataConnections = new List<BlockDataConnection>();
-            dataConnections.Add(new(blockId: bAdd1.Id, variableName: "X", displayName: null, source: EDataSource.External));
-            dataConnections.Add(new(blockId: bAdd1.Id, variableName: "Y", displayName: null, source: EDataSource.External));
-            dataConnections.Add(new(blockId: bMul.Id, variableName: "X", displayName: null, source: EDataSource.Internal)
+            dataConnections.Add(new(blockId: bAdd1.Id, variableName: "X", displayName: null, variableType: EBindingType.Input, source: EDataSource.External));
+            dataConnections.Add(new(blockId: bAdd1.Id, variableName: "Y", displayName: null, variableType: EBindingType.Input, source: EDataSource.External));
+            dataConnections.Add(new(blockId: bMul.Id, variableName: "X", displayName: null, variableType: EBindingType.Input, source: EDataSource.Internal)
             {
                 SourceBlockId = bAdd1.Id,
                 SourceVariableName = "Result"
             });
-            dataConnections.Add(new(blockId: bMul.Id, variableName: "Y", displayName: null, source: EDataSource.Internal)
+            dataConnections.Add(new(blockId: bMul.Id, variableName: "Y", displayName: null, variableType: EBindingType.Input, source: EDataSource.Internal)
             {
-                ConstantValue = 2
+                SourceBlockId = bInputs.Id,
+                SourceVariableName = "MulY"
             });
-            dataConnections.Add(new(blockId: bDelay.Id, variableName: "Ms", displayName: null, source: EDataSource.Internal)
+            dataConnections.Add(new(blockId: bDelay.Id, variableName: "Ms", displayName: null, variableType: EBindingType.Input, source: EDataSource.Internal)
             {
-                ConstantValue = 10
+                SourceBlockId = bInputs.Id,
+                SourceVariableName = "DelayMs"
             });
-            dataConnections.Add(new(blockId: bAdd2.Id, variableName: "X", displayName: null, source: EDataSource.Internal)
+            dataConnections.Add(new(blockId: bAdd2.Id, variableName: "X", displayName: null, variableType: EBindingType.Input, source: EDataSource.Internal)
             {
                 SourceBlockId = bMul.Id,
                 SourceVariableName = "Result"
             });
-            dataConnections.Add(new(blockId: bAdd2.Id, variableName: "Y", displayName: null, source: EDataSource.Internal)
+            dataConnections.Add(new(blockId: bAdd2.Id, variableName: "Y", displayName: null, variableType: EBindingType.Input, source: EDataSource.Internal)
             {
                 SourceBlockId = bRandom.Id,
                 SourceVariableName = "Result"
