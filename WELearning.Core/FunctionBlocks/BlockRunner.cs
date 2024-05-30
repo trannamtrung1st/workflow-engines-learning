@@ -12,11 +12,11 @@ public class BlockRunner<TFramework> : IBlockRunner<TFramework> where TFramework
         _logicRunner = logicRunner;
     }
 
+    // [TODO] refactor runner and control
     public async Task<BlockExecutionResult> Run(
         RunBlockRequest request, IBlockExecutionControl control,
         TFramework blockFramework, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
-        var block = request.Block;
         var optimizationScopes = new HashSet<IDisposable>();
         optimizationScopeId ??= Guid.NewGuid();
         var globalObject = new BlockGlobalObject<TFramework>(blockFramework);

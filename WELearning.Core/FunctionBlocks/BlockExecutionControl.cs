@@ -11,13 +11,13 @@ public class BlockExecutionControl : IBlockExecutionControl
     private readonly ConcurrentDictionary<string, VariableBinding> _inputBindings;
     private readonly ConcurrentDictionary<string, VariableBinding> _outputBindings;
     private readonly ConcurrentDictionary<string, VariableBinding> _internalBindings;
-    private readonly ManualResetEventSlim _completeWait;
+    private readonly ManualResetEventSlim _idleWait;
     public BlockExecutionControl(FunctionBlockInstance block)
     {
         _inputBindings = new();
         _outputBindings = new();
         _internalBindings = new();
-        _completeWait = new(initialState: true);
+        _idleWait = new(initialState: true);
         Block = block;
         CurrentState = block.Definition.ExecutionControlChart.InitialState;
     }
@@ -25,20 +25,12 @@ public class BlockExecutionControl : IBlockExecutionControl
     public FunctionBlockInstance Block { get; }
     public virtual string CurrentState { get; protected set; }
     public virtual Exception Exception { get; protected set; }
+    public virtual bool IsRunning => Status == EBlockExecutionStatus.Running;
+    public virtual EBlockExecutionStatus Status { get; protected set; }
 
-    private EBlockExecutionStatus _status;
-    public virtual EBlockExecutionStatus Status
-    {
-        get => _status; protected set
-        {
-            switch (value)
-            {
-                case EBlockExecutionStatus.Running: _completeWait.Reset(); break;
-                default: _completeWait.Set(); break;
-            }
-            _status = value;
-        }
-    }
+    public event EventHandler Running;
+    public event EventHandler<Exception> Failed;
+    public event EventHandler<BlockExecutionResult> Completed;
 
     public virtual VariableBinding GetInput(string key) => GetVariableBinding(_inputBindings, key);
     public virtual VariableBinding GetOutput(string key) => GetVariableBinding(_outputBindings, key);
@@ -71,9 +63,12 @@ public class BlockExecutionControl : IBlockExecutionControl
         Func<IEnumerable<string>> GetOutputEvents,
         CancellationToken cancellationToken)
     {
-        Status = EBlockExecutionStatus.Running;
+        WaitForCompletion(cancellationToken);
+        _idleWait.Reset();
         try
         {
+            Status = EBlockExecutionStatus.Running;
+            Running?.Invoke(this, EventArgs.Empty);
             triggerEvent = triggerEvent ?? Block.Definition.DefaultTriggerEvent;
             var transitionResults = new List<BlockTransitionResult>();
             var transition = await FindTransition(triggerEvent, EvaluateCondition, cancellationToken);
@@ -93,15 +88,19 @@ public class BlockExecutionControl : IBlockExecutionControl
                 transition = await FindTransition(BlockStateTransition.DirectTransitionEvent, EvaluateCondition, cancellationToken);
             } while (transition != null);
             Status = EBlockExecutionStatus.Completed;
-            return new BlockExecutionResult(transitionResults, outputEvents: GetOutputEvents());
+            var executionResult = new BlockExecutionResult(transitionResults, outputEvents: GetOutputEvents());
+            Completed?.Invoke(this, executionResult);
+            return executionResult;
         }
         catch (Exception ex)
         {
             Exception = ex;
             Status = EBlockExecutionStatus.Failed;
+            Failed?.Invoke(this, ex);
             throw;
         }
+        finally { _idleWait.Set(); }
     }
 
-    public void WaitForCompletion(CancellationToken cancellationToken) => _completeWait.Wait(cancellationToken);
+    public void WaitForCompletion(CancellationToken cancellationToken) => _idleWait.Wait(cancellationToken);
 }

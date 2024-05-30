@@ -9,49 +9,67 @@ namespace WELearning.Core.FunctionBlocks;
 public class ProcessExecutionControl : IProcessExecutionControl
 {
     private readonly ProcessExecutionContext _context;
-    private readonly ManualResetEventSlim _completeWait;
+    private readonly ManualResetEventSlim _idleWait;
     private ConcurrentDictionary<string, BlockExecutionControl> _blockExecutionControlMap;
     private readonly ConcurrentBag<BlockExecutionTaskInfo> _executionTasks;
+    private int _runningTasksCount;
 
     public ProcessExecutionControl(FunctionBlockProcess process, ProcessExecutionContext context)
     {
         _context = context;
-        _blockRunningProcessCount = 0;
+        _runningTasksCount = 0;
         _blockExecutionControlMap = new();
-        _completeWait = new(initialState: true);
+        _idleWait = new(initialState: true);
         _executionTasks = new();
         Process = process;
     }
 
+    public event EventHandler Running;
+    public event EventHandler<Exception> Failed;
+    public event EventHandler Completed;
+
     public FunctionBlockProcess Process { get; }
-    private int _blockRunningProcessCount;
-    public virtual int BlockRunningProcessCount => _blockRunningProcessCount;
+    public virtual int RunningTasksCount => _runningTasksCount;
     public virtual IEnumerable<BlockExecutionTaskInfo> ExecutionTasks => _executionTasks;
     public virtual Exception Exception { get; protected set; }
     public virtual EProcessExecutionStatus Status { get; protected set; }
+    public virtual bool IsRunning => Status == EProcessExecutionStatus.Running;
 
-    protected virtual void StartProcess()
+    protected virtual void StartTask()
     {
-        lock (_completeWait)
+        lock (_idleWait)
         {
-            _blockRunningProcessCount++;
-            _completeWait.Reset();
+            _runningTasksCount++;
         }
     }
 
-    protected virtual void CompleteProcess()
+    protected virtual void CompleteTask()
     {
-        lock (_completeWait)
+        bool processCompleted = false;
+        lock (_idleWait)
         {
-            if (_blockRunningProcessCount > 0 && --_blockRunningProcessCount == 0)
-                _completeWait.Set();
+            if (_runningTasksCount > 0 && --_runningTasksCount == 0 && IsRunning)
+            {
+                _idleWait.Set();
+                if (IsRunning)
+                {
+                    Status = EProcessExecutionStatus.Completed;
+                    processCompleted = true;
+                }
+            }
         }
+        if (processCompleted) Completed?.Invoke(this, EventArgs.Empty);
     }
 
-    public virtual void WaitForCompletion(CancellationToken cancellationToken) => _completeWait.Wait(cancellationToken);
+    public virtual void WaitForCompletion(CancellationToken cancellationToken) => _idleWait.Wait(cancellationToken);
 
-    public virtual IBlockExecutionControl GetBlockControl(string blockId)
-        => _blockExecutionControlMap[blockId];
+    public bool TryGetBlockControl(string blockId, out IBlockExecutionControl blockControl)
+    {
+        blockControl = null;
+        if (_blockExecutionControlMap.TryGetValue(blockId, out var targetBlockControl))
+            blockControl = targetBlockControl;
+        return blockControl != null;
+    }
 
     public virtual IBlockExecutionControl GetOrInitBlockControl(FunctionBlockInstance block)
         => _blockExecutionControlMap.GetOrAdd(block.Id, (key) =>
@@ -73,35 +91,43 @@ public class ProcessExecutionControl : IProcessExecutionControl
 
     protected Task RunTaskAsync(Func<CancellationToken, Task> func, CancellationToken cancellationToken)
     {
-        StartProcess();
+        StartTask();
         return Task.Factory.StartNew(async () =>
         {
-            try
-            { await func(cancellationToken); }
-            finally { CompleteProcess(); }
+            try { await func(cancellationToken); }
+            catch (Exception ex) { HandleFailed(ex); }
+            finally { CompleteTask(); }
         }, creationOptions: TaskCreationOptions.LongRunning);
     }
 
-    public virtual Task Run(RunProcessRequest request,
+    // [TODO] refactor runner and control
+    public virtual Task Execute(RunProcessRequest request,
         Func<RunBlockRequest, IBlockExecutionControl, CancellationToken, Task<BlockExecutionResult>> RunBlock,
         CancellationToken cancellationToken)
     {
-        Status = EProcessExecutionStatus.Running;
+        WaitForCompletion(cancellationToken);
+        _idleWait.Reset();
         try
         {
+            Status = EProcessExecutionStatus.Running;
+            Running?.Invoke(this, EventArgs.Empty);
             var startingBlockTriggers = request.Triggers
                 ?? request.Process.DefaultBlockIds.Select(bId => new BlockTrigger(blockId: bId, triggerEvent: null));
             TriggerBlocks(blockTriggers: startingBlockTriggers, RunBlock, cancellationToken);
-            WaitForCompletion(cancellationToken);
-            Status = EProcessExecutionStatus.Completed;
             return Task.CompletedTask;
         }
         catch (Exception ex)
         {
-            Exception = ex;
-            Status = EProcessExecutionStatus.Failed;
+            HandleFailed(ex);
             throw;
         }
+    }
+
+    private void HandleFailed(Exception ex)
+    {
+        Exception = ex;
+        Status = EProcessExecutionStatus.Failed;
+        Failed?.Invoke(this, ex);
     }
 
     protected virtual void TriggerBlocks(

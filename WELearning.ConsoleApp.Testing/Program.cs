@@ -271,8 +271,12 @@ static class TestFunctionBlocks
             waits.Add(tcs);
             _ = Task.Factory.StartNew(function: async () =>
             {
-                await func();
-                tcs.SetResult();
+                try
+                {
+                    await func();
+                    tcs.SetResult();
+                }
+                catch (Exception ex) { tcs.SetException(ex); }
             }, creationOptions: TaskCreationOptions.LongRunning);
         }
         await Task.WhenAll(waits.Select(w => w.Task));
@@ -289,7 +293,13 @@ static class TestFunctionBlocks
         var processControl = new ProcessExecutionControl(process, processContext);
         await processRunner.Run(runRequest, processContext, processControl, cancellationToken);
 
-        var finalResult = processControl.GetBlockControl("Add2").GetOutput("Result");
+        var tcs = new TaskCompletionSource();
+        processControl.Completed += (o, e) => tcs.SetResult();
+        processControl.Failed += (o, e) => tcs.SetException(e);
+        await tcs.Task;
+
+        if (!processControl.TryGetBlockControl("Add2", out var blockControl)) throw new Exception("Control not found");
+        var finalResult = blockControl.GetOutput("Result");
         return (double)finalResult.Value;
     }
 
@@ -385,7 +395,13 @@ static class TestFunctionBlocks
         var processControl = new ProcessExecutionControl(process, processContext);
         await processRunner.Run(runRequest, processContext, processControl, cancellationToken);
 
-        var finalResult = processControl.GetBlockControl("Multiply").GetOutput("Result");
+        var tcs = new TaskCompletionSource();
+        processControl.Completed += (o, e) => tcs.SetResult();
+        processControl.Failed += (o, e) => tcs.SetException(e);
+        await tcs.Task;
+
+        if (!processControl.TryGetBlockControl("Multiply", out var blockControl)) throw new Exception("Control not found");
+        var finalResult = blockControl.GetOutput("Result");
         Console.WriteLine(finalResult);
     }
 
@@ -401,7 +417,13 @@ static class TestFunctionBlocks
         var processControl = new ProcessExecutionControl(process, processContext);
         await processRunner.Run(runRequest, processContext, processControl, cancellationToken);
 
-        var finalResult = processControl.GetBlockControl("Multiply").GetOutput("Result");
+        var tcs = new TaskCompletionSource();
+        processControl.Completed += (o, e) => tcs.SetResult();
+        processControl.Failed += (o, e) => tcs.SetException(e);
+        await tcs.Task;
+
+        if (!processControl.TryGetBlockControl("Multiply", out var blockControl)) throw new Exception("Control not found");
+        var finalResult = blockControl.GetOutput("Result");
         Console.WriteLine(finalResult);
     }
 
@@ -415,7 +437,13 @@ static class TestFunctionBlocks
         var processControl = new ProcessExecutionControl(process, processContext);
         await processRunner.Run(runRequest, processContext, processControl, cancellationToken);
 
-        var finalResult = processControl.GetBlockControl("LoopController").GetOutput("Result");
+        var tcs = new TaskCompletionSource();
+        processControl.Completed += (o, e) => tcs.SetResult();
+        processControl.Failed += (o, e) => tcs.SetException(e);
+        await tcs.Task;
+
+        if (!processControl.TryGetBlockControl("LoopController", out var blockControl)) throw new Exception("Control not found");
+        var finalResult = blockControl.GetOutput("Result");
         Console.WriteLine(finalResult);
     }
 
@@ -433,7 +461,13 @@ static class TestFunctionBlocks
         var processControl = new ProcessExecutionControl(process, processContext);
         await processRunner.Run(runRequest, processContext, processControl, cancellationToken);
 
-        var finalResult = processControl.GetBlockControl("Add3").GetOutput("Result");
+        var tcs = new TaskCompletionSource();
+        processControl.Completed += (o, e) => tcs.SetResult();
+        processControl.Failed += (o, e) => tcs.SetException(e);
+        await tcs.Task;
+
+        if (!processControl.TryGetBlockControl("Add3", out var blockControl)) throw new Exception("Control not found");
+        var finalResult = blockControl.GetOutput("Result");
         Console.WriteLine(finalResult);
     }
 }

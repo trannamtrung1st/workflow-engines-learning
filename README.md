@@ -19,3 +19,4 @@ Welcome!
 + Wait for data refresh
 + Exception handling: states losses, etc ...
 + Log and debug capabilities
++ Benchmark .NET for resource consumption

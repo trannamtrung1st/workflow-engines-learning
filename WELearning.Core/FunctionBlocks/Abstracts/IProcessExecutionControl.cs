@@ -6,13 +6,18 @@ namespace WELearning.Core.FunctionBlocks.Abstracts;
 
 public interface IProcessExecutionControl
 {
+    event EventHandler Running;
+    event EventHandler<Exception> Failed;
+    event EventHandler Completed;
+
+    bool IsRunning { get; }
     FunctionBlockProcess Process { get; }
-    int BlockRunningProcessCount { get; }
+    int RunningTasksCount { get; }
     IEnumerable<BlockExecutionTaskInfo> ExecutionTasks { get; }
     Exception Exception { get; }
     EProcessExecutionStatus Status { get; }
+
     void WaitForCompletion(CancellationToken cancellationToken);
-    IBlockExecutionControl GetBlockControl(string blockId);
-    IBlockExecutionControl GetOrInitBlockControl(FunctionBlockInstance block);
-    Task Run(RunProcessRequest request, Func<RunBlockRequest, IBlockExecutionControl, CancellationToken, Task<BlockExecutionResult>> RunBlock, CancellationToken cancellationToken);
+    bool TryGetBlockControl(string blockId, out IBlockExecutionControl blockControl);
+    Task Execute(RunProcessRequest request, Func<RunBlockRequest, IBlockExecutionControl, CancellationToken, Task<BlockExecutionResult>> RunBlock, CancellationToken cancellationToken);
 }

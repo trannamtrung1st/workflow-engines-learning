@@ -32,7 +32,6 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         _engineCache = new();
         _jintOptions = JintOptions;
         // [TODO] add lib loading cache
-        // [TODO] lock refactor
     }
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.Javascript;
