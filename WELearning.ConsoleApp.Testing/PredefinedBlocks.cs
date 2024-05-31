@@ -8,15 +8,15 @@ using WELearning.Core.FunctionBlocks.Constants;
 
 static class PredefinedBlocks
 {
-    private static readonly Assembly AppFrameworkAssembly = typeof(AppFramework).Assembly;
-    private static readonly IEnumerable<Assembly> DefaultCsCompiledAssemblies;
+    private static readonly string AppFrameworkAssembly = typeof(AppFramework).Assembly.FullName;
+    private static readonly IEnumerable<string> DefaultCsCompiledAssemblies;
     private static readonly IEnumerable<string> DefaultCsCompiledImports;
-    private static readonly IEnumerable<Assembly> DefaultCsScriptAssemblies;
+    private static readonly IEnumerable<string> DefaultCsScriptAssemblies;
 
     static PredefinedBlocks()
     {
-        var mscorlib = typeof(object).GetTypeInfo().Assembly;
-        var assemblies = new List<Assembly> { mscorlib, AppFrameworkAssembly };
+        var mscorlib = typeof(object).GetTypeInfo().Assembly.FullName;
+        var assemblies = new List<string> { mscorlib, AppFrameworkAssembly };
         var dllNames = new string[]
         {
             "System.Runtime",
@@ -26,7 +26,7 @@ static class PredefinedBlocks
             // "System.Linq",
             // "netstandard",
         };
-        assemblies.AddRange(dllNames.Select(dll => Assembly.Load(dll)));
+        assemblies.AddRange(dllNames);
         var imports = new[]
         {
             "System.Threading",
@@ -69,9 +69,28 @@ static class PredefinedBlocks
 
     public static FunctionBlock CreateInOutBlock(params Variable[] variables)
     {
-        if (variables.Any(v => v.BindingType != EBindingType.InOut))
+        if (variables.Any(v => v.VariableType != EVariableType.InOut))
             throw new ArgumentException("Invalid binding type!");
-        return new FunctionBlock(id: "Inout", name: "Inout block") { Variables = variables };
+        return new FunctionBlock(id: "InOut", name: "InOut block") { Variables = variables };
+    }
+
+    public static FunctionBlock CreateInputBlock(params Variable[] variables)
+    {
+        if (variables.Any(v => v.VariableType != EVariableType.Output))
+            throw new ArgumentException("Invalid binding type!");
+        return new FunctionBlock(id: "Input", name: "Input block") { Variables = variables };
+    }
+
+    public static FunctionBlock CreateOutputBlock(params Variable[] variables)
+    {
+        if (variables.Any(v => v.VariableType != EVariableType.Input))
+            throw new ArgumentException("Invalid binding type!");
+        var bOutput = new FunctionBlock(id: "Output", name: "Output block");
+        bOutput.Variables = variables;
+        var eRun = new BlockEvent(isInput: true, name: "Run", variableNames: variables.Select(v => v.Name).ToArray());
+        bOutput.Events = new[] { eRun };
+        bOutput.DefaultTriggerEvent = eRun.Name;
+        return bOutput;
     }
 
     #region Multiply
@@ -153,13 +172,13 @@ static class PredefinedBlocks
         string handleInvalidScript,
         string invalidConditionScript,
         IEnumerable<string> imports,
-        IEnumerable<Assembly> assemblies)
+        IEnumerable<string> assemblies)
     {
         var bMultiply = new FunctionBlock(id: "Multiply", name: "Multiply X * Y");
 
-        var iX = new Variable("X", EDataType.Numeric, EBindingType.Input);
-        var iY = new Variable("Y", EDataType.Numeric, EBindingType.Input);
-        var oResult = new Variable("Result", EDataType.Numeric, EBindingType.Output);
+        var iX = new Variable("X", EDataType.Numeric, EVariableType.Input);
+        var iY = new Variable("Y", EDataType.Numeric, EVariableType.Input);
+        var oResult = new Variable("Result", EDataType.Numeric, EVariableType.Output);
         bMultiply.Variables = new[] { iX, iY, oResult };
 
         var eRun = new BlockEvent(isInput: true, name: "Run", variableNames: new[] { iX.Name, iY.Name });
@@ -295,13 +314,13 @@ static class PredefinedBlocks
 
     private static FunctionBlock CreateBlockAdd(ERuntime runtime,
         string addScript, string handleInvalidScript, string invalidConditionScript,
-        IEnumerable<string> imports, IEnumerable<Assembly> assemblies)
+        IEnumerable<string> imports, IEnumerable<string> assemblies)
     {
         var bAdd = new FunctionBlock(id: "Add", name: "Add X + Y");
 
-        var iX = new Variable("X", EDataType.Numeric, EBindingType.Input);
-        var iY = new Variable("Y", EDataType.Numeric, EBindingType.Input);
-        var oResult = new Variable("Result", EDataType.Numeric, EBindingType.Output);
+        var iX = new Variable("X", EDataType.Numeric, EVariableType.Input);
+        var iY = new Variable("Y", EDataType.Numeric, EVariableType.Input);
+        var oResult = new Variable("Result", EDataType.Numeric, EVariableType.Output);
         bAdd.Variables = new[] { iX, iY, oResult };
 
         var eRun = new BlockEvent(isInput: true, name: "Run", variableNames: new[] { iX.Name, iY.Name });
@@ -404,11 +423,11 @@ static class PredefinedBlocks
     }
 
     private static FunctionBlock CreateBlockRandom(ERuntime runtime,
-        string randomScript, IEnumerable<string> imports, IEnumerable<Assembly> assemblies)
+        string randomScript, IEnumerable<string> imports, IEnumerable<string> assemblies)
     {
         var bRandom = new FunctionBlock(id: "RandomDouble", name: "Random double");
 
-        var oResult = new Variable("Result", EDataType.Numeric, EBindingType.Output);
+        var oResult = new Variable("Result", EDataType.Numeric, EVariableType.Output);
         bRandom.Variables = new[] { oResult };
 
         var eRun = new BlockEvent(isInput: true, name: "Run", variableNames: Array.Empty<string>());
@@ -493,11 +512,11 @@ static class PredefinedBlocks
     }
 
     private static FunctionBlock CreateBlockDelay(ERuntime runtime,
-        string delayScript, IEnumerable<string> imports, IEnumerable<Assembly> assemblies)
+        string delayScript, IEnumerable<string> imports, IEnumerable<string> assemblies)
     {
         var bDelay = new FunctionBlock(id: "Delay", name: "Delay");
 
-        var iMs = new Variable("Ms", EDataType.Int, EBindingType.Input);
+        var iMs = new Variable("Ms", EDataType.Int, EVariableType.Input);
         bDelay.Variables = new[] { iMs };
 
         var eRun = new BlockEvent(isInput: true, name: "Run", variableNames: new[] { iMs.Name });
@@ -546,9 +565,9 @@ static class PredefinedBlocks
         var assemblies = new[] { AppFrameworkAssembly };
         var bFactorial = new FunctionBlock(id: "Factorial", name: "Factorial n!");
 
-        var iN = new Variable("N", EDataType.Int, EBindingType.Input);
-        var oResult = new Variable("Result", EDataType.Numeric, EBindingType.Output);
-        var itnState = new Variable("State", EDataType.Object, EBindingType.Internal);
+        var iN = new Variable("N", EDataType.Int, EVariableType.Input);
+        var oResult = new Variable("Result", EDataType.Numeric, EVariableType.Output);
+        var itnState = new Variable("State", EDataType.Object, EVariableType.Internal);
         bFactorial.Variables = new[] { iN, oResult, itnState };
 
         var eRun = new BlockEvent(isInput: true, name: "Run", variableNames: new[] { iN.Name });

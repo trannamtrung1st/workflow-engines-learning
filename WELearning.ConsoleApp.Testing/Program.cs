@@ -23,6 +23,7 @@ var serviceCollection = new ServiceCollection()
     .AddDefaultLogicRunner<AppFramework>()
     .AddBlockFrameworkFactory<AppFramework, AppFrameworkFactory>()
     .AddDefaultRuntimeEngineFactory()
+    .AddDefaultTypeProvider()
     .AddCSharpCompiledEngine()
     .AddCSharpScriptEngine()
     // For JS engines, first found engine will be used
@@ -300,8 +301,8 @@ static class TestFunctionBlocks
     public static async Task<double> RunComplexProcess(IProcessRunner processRunner, Func<IProcessExecutionControl> CreateControl, CancellationToken cancellationToken)
     {
         var bindings = new HashSet<ProcessVariableBinding>();
-        bindings.Add(new(blockId: "Add1", binding: new(variableName: "X", value: 5, type: EBindingType.Input)));
-        bindings.Add(new(blockId: "Add1", binding: new(variableName: "Y", value: 10, type: EBindingType.Input)));
+        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "Add1X", value: 5, type: EBindingType.Output)));
+        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "Add1Y", value: 10, type: EBindingType.Output)));
         var processControl = CreateControl();
         var runRequest = new RunProcessRequest(process: processControl.Process, bindings);
         await processRunner.Run(runRequest, processControl, cancellationToken);
@@ -311,8 +312,8 @@ static class TestFunctionBlocks
         processControl.Failed += (o, e) => tcs.SetException(e);
         await tcs.Task;
 
-        if (!processControl.TryGetBlockControl("Add2", out var blockControl)) throw new Exception("Control not found");
-        var finalResult = blockControl.GetOutput("Result");
+        if (!processControl.TryGetBlockControl("Outputs", out var blockControl)) throw new Exception("Control not found");
+        var finalResult = blockControl.GetInput("Result");
         return (double)finalResult.Value;
     }
 
@@ -395,9 +396,8 @@ static class TestFunctionBlocks
     public static async Task RunRectangleArea(IProcessRunner processRunner, Func<IProcessExecutionControl> CreateControl, CancellationToken cancellationToken)
     {
         var bindings = new HashSet<ProcessVariableBinding>();
-        var arguments = (Length: 5, Width: 2);
-        bindings.Add(new(blockId: "Multiply", binding: new(variableName: "X", value: arguments.Length, type: EBindingType.Input)));
-        bindings.Add(new(blockId: "Multiply", binding: new(variableName: "Y", value: arguments.Width, type: EBindingType.Input)));
+        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "Length", value: 5, type: EBindingType.Output)));
+        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "Width", value: 2, type: EBindingType.Output)));
         var processControl = CreateControl();
         var runRequest = new RunProcessRequest(process: processControl.Process, bindings: bindings);
         await processRunner.Run(runRequest, processControl, cancellationToken);
@@ -407,17 +407,16 @@ static class TestFunctionBlocks
         processControl.Failed += (o, e) => tcs.SetException(e);
         await tcs.Task;
 
-        if (!processControl.TryGetBlockControl("Multiply", out var blockControl)) throw new Exception("Control not found");
-        var finalResult = blockControl.GetOutput("Result");
+        if (!processControl.TryGetBlockControl("Outputs", out var blockControl)) throw new Exception("Control not found");
+        var finalResult = blockControl.GetInput("Result");
         Console.WriteLine(finalResult);
     }
 
     public static async Task RunRectanglePerimeter(IProcessRunner processRunner, Func<IProcessExecutionControl> CreateControl, CancellationToken cancellationToken)
     {
         var bindings = new HashSet<ProcessVariableBinding>();
-        var arguments = (Length: 5, Width: 2);
-        bindings.Add(new(blockId: "Add", binding: new(variableName: "X", value: arguments.Length, type: EBindingType.Input)));
-        bindings.Add(new(blockId: "Add", binding: new(variableName: "Y", value: arguments.Width, type: EBindingType.Input)));
+        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "Length", value: 5, type: EBindingType.Output)));
+        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "Width", value: 2, type: EBindingType.Output)));
         var processControl = CreateControl();
         var runRequest = new RunProcessRequest(process: processControl.Process, bindings);
         await processRunner.Run(runRequest, processControl, cancellationToken);
@@ -427,15 +426,15 @@ static class TestFunctionBlocks
         processControl.Failed += (o, e) => tcs.SetException(e);
         await tcs.Task;
 
-        if (!processControl.TryGetBlockControl("Multiply", out var blockControl)) throw new Exception("Control not found");
-        var finalResult = blockControl.GetOutput("Result");
+        if (!processControl.TryGetBlockControl("Outputs", out var blockControl)) throw new Exception("Control not found");
+        var finalResult = blockControl.GetInput("Result");
         Console.WriteLine(finalResult);
     }
 
     public static async Task RunLoopProcess(IProcessRunner processRunner, Func<IProcessExecutionControl> CreateControl, CancellationToken cancellationToken)
     {
         var bindings = new HashSet<ProcessVariableBinding>();
-        bindings.Add(new(blockId: "LoopController", binding: new(variableName: "N", value: 1000, type: EBindingType.Input)));
+        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "N", value: 1000, type: EBindingType.Output)));
         var processControl = CreateControl();
         var runRequest = new RunProcessRequest(process: processControl.Process, bindings);
         await processRunner.Run(runRequest, processControl, cancellationToken);
@@ -445,19 +444,19 @@ static class TestFunctionBlocks
         processControl.Failed += (o, e) => tcs.SetException(e);
         await tcs.Task;
 
-        if (!processControl.TryGetBlockControl("LoopController", out var blockControl)) throw new Exception("Control not found");
-        var finalResult = blockControl.GetOutput("Result");
+        if (!processControl.TryGetBlockControl("Outputs", out var blockControl)) throw new Exception("Control not found");
+        var finalResult = blockControl.GetInput("Result");
         Console.WriteLine(finalResult);
     }
 
     public static async Task RunDependencyWait(IProcessRunner processRunner, Func<IProcessExecutionControl> CreateControl, CancellationToken cancellationToken)
     {
         var bindings = new HashSet<ProcessVariableBinding>();
-        bindings.Add(new(blockId: "Delay", binding: new(variableName: "Ms", value: 3000, type: EBindingType.Input)));
-        bindings.Add(new(blockId: "Add1", binding: new(variableName: "X", value: 1, type: EBindingType.Input)));
-        bindings.Add(new(blockId: "Add1", binding: new(variableName: "Y", value: 2, type: EBindingType.Input)));
-        bindings.Add(new(blockId: "Add2", binding: new(variableName: "X", value: 3, type: EBindingType.Input)));
-        bindings.Add(new(blockId: "Add2", binding: new(variableName: "Y", value: 4, type: EBindingType.Input)));
+        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "DelayMs", value: 3000, type: EBindingType.Output)));
+        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "Add1X", value: 1, type: EBindingType.Output)));
+        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "Add1Y", value: 2, type: EBindingType.Output)));
+        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "Add2X", value: 3, type: EBindingType.Output)));
+        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "Add2Y", value: 4, type: EBindingType.Output)));
         var processControl = CreateControl();
         var runRequest = new RunProcessRequest(process: processControl.Process, bindings);
         await processRunner.Run(runRequest, processControl, cancellationToken);
@@ -467,8 +466,8 @@ static class TestFunctionBlocks
         processControl.Failed += (o, e) => tcs.SetException(e);
         await tcs.Task;
 
-        if (!processControl.TryGetBlockControl("Add3", out var blockControl)) throw new Exception("Control not found");
-        var finalResult = blockControl.GetOutput("Result");
+        if (!processControl.TryGetBlockControl("Outputs", out var blockControl)) throw new Exception("Control not found");
+        var finalResult = blockControl.GetInput("Result");
         Console.WriteLine(finalResult);
     }
 }

@@ -9,12 +9,18 @@ public static class RectanglePerimeterProcess
     public static FunctionBlockProcess Build(FunctionBlockInstance bAdd, FunctionBlockInstance bMultiply)
     {
         var process = new FunctionBlockProcess(id: "RectanglePerimeter", name: "Calculate perimeter of rectangle");
-        var bInputs = new FunctionBlockInstance(definition: PredefinedBlocks.CreateInOutBlock(
-            new Variable(name: "MulY", dataType: EDataType.Int, bindingType: EBindingType.InOut, defaultValue: 2)
+        var bInputs = new FunctionBlockInstance(definition: PredefinedBlocks.CreateInputBlock(
+            new Variable(name: "Length", dataType: EDataType.Numeric, variableType: EVariableType.Output),
+            new Variable(name: "Width", dataType: EDataType.Numeric, variableType: EVariableType.Output),
+            new Variable(name: "MulY", dataType: EDataType.Int, variableType: EVariableType.Output, defaultValue: 2)
         ), id: "Inputs");
 
+        var bOutputs = new FunctionBlockInstance(definition: PredefinedBlocks.CreateOutputBlock(
+            new Variable(name: "Result", dataType: EDataType.Numeric, variableType: EVariableType.Input)
+        ), id: "Outputs");
+
         {
-            var blocks = new List<FunctionBlockInstance> { bAdd, bMultiply, bInputs };
+            var blocks = new List<FunctionBlockInstance> { bAdd, bMultiply, bInputs, bOutputs };
             process.Blocks = blocks;
             process.DefaultBlockIds = new[] { bAdd.Id };
         }
@@ -27,22 +33,40 @@ public static class RectanglePerimeterProcess
                 SourceBlockId = bAdd.Id,
                 SourceEventName = "Completed"
             });
+            eventConnections.Add(new(blockId: bOutputs.Id, eventName: "Run", source: EEventSource.Internal)
+            {
+                SourceBlockId = bMultiply.Id,
+                SourceEventName = "Completed"
+            });
             process.EventConnections = eventConnections;
         }
 
         {
             var dataConnections = new List<BlockDataConnection>();
-            dataConnections.Add(new(blockId: bAdd.Id, variableName: "X", displayName: "Length", variableType: EBindingType.Input, source: EDataSource.External));
-            dataConnections.Add(new(blockId: bAdd.Id, variableName: "Y", displayName: "Width", variableType: EBindingType.Input, source: EDataSource.External));
-            dataConnections.Add(new(blockId: bMultiply.Id, variableName: "X", displayName: null, variableType: EBindingType.Input, source: EDataSource.Internal)
+            dataConnections.Add(new(blockId: bAdd.Id, variableName: "X", displayName: "Length")
+            {
+                SourceBlockId = bInputs.Id,
+                SourceVariableName = "Length"
+            });
+            dataConnections.Add(new(blockId: bAdd.Id, variableName: "Y", displayName: "Width")
+            {
+                SourceBlockId = bInputs.Id,
+                SourceVariableName = "Width"
+            });
+            dataConnections.Add(new(blockId: bMultiply.Id, variableName: "X", displayName: null)
             {
                 SourceBlockId = bAdd.Id,
                 SourceVariableName = "Result"
             });
-            dataConnections.Add(new(blockId: bMultiply.Id, variableName: "Y", displayName: null, variableType: EBindingType.Input, source: EDataSource.Internal)
+            dataConnections.Add(new(blockId: bMultiply.Id, variableName: "Y", displayName: null)
             {
                 SourceBlockId = bInputs.Id,
                 SourceVariableName = "MulY"
+            });
+            dataConnections.Add(new(blockId: bOutputs.Id, variableName: "Result", displayName: null)
+            {
+                SourceBlockId = bMultiply.Id,
+                SourceVariableName = "Result"
             });
             process.DataConnections = dataConnections;
         }

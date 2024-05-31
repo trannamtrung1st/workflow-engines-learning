@@ -1,5 +1,6 @@
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Constants;
+using WELearning.Core.Constants;
 
 namespace WELearning.ConsoleApp.Testing.Processes;
 
@@ -13,9 +14,20 @@ public static class DependencyWaitProcess
         var bAdd2 = new FunctionBlockInstance(PredefinedBlocks.AddCsScript, id: "Add2", displayName: "Add 2");
         var bAdd3 = new FunctionBlockInstance(PredefinedBlocks.AddJs, id: "Add3", displayName: "Add 3");
         var bDelay = new FunctionBlockInstance(definition: PredefinedBlocks.DelayCsScript);
+        var bInputs = new FunctionBlockInstance(definition: PredefinedBlocks.CreateInputBlock(
+            new Variable(name: "DelayMs", dataType: EDataType.Numeric, variableType: EVariableType.Output),
+            new Variable(name: "Add1X", dataType: EDataType.Numeric, variableType: EVariableType.Output),
+            new Variable(name: "Add1Y", dataType: EDataType.Numeric, variableType: EVariableType.Output),
+            new Variable(name: "Add2X", dataType: EDataType.Numeric, variableType: EVariableType.Output),
+            new Variable(name: "Add2Y", dataType: EDataType.Numeric, variableType: EVariableType.Output)
+        ), id: "Inputs");
+
+        var bOutputs = new FunctionBlockInstance(definition: PredefinedBlocks.CreateOutputBlock(
+            new Variable(name: "Result", dataType: EDataType.Numeric, variableType: EVariableType.Input)
+        ), id: "Outputs");
 
         {
-            var blocks = new List<FunctionBlockInstance> { bAdd1, bAdd2, bAdd3, bDelay };
+            var blocks = new List<FunctionBlockInstance> { bAdd1, bAdd2, bAdd3, bDelay, bInputs, bOutputs };
             process.Blocks = blocks;
             process.DefaultBlockIds = new[] { bAdd1.Id, bDelay.Id };
         }
@@ -34,24 +46,54 @@ public static class DependencyWaitProcess
                 SourceBlockId = bAdd1.Id,
                 SourceEventName = "Completed"
             });
+            eventConnections.Add(new(blockId: bOutputs.Id, eventName: "Run", source: EEventSource.Internal)
+            {
+                SourceBlockId = bAdd3.Id,
+                SourceEventName = "Completed"
+            });
             process.EventConnections = eventConnections;
         }
 
         {
             var dataConnections = new List<BlockDataConnection>();
-            dataConnections.Add(new(blockId: bDelay.Id, variableName: "Ms", displayName: "Delay ms", variableType: EBindingType.Input, source: EDataSource.External));
-            dataConnections.Add(new(blockId: bAdd1.Id, variableName: "X", displayName: null, variableType: EBindingType.Input, source: EDataSource.External));
-            dataConnections.Add(new(blockId: bAdd1.Id, variableName: "Y", displayName: null, variableType: EBindingType.Input, source: EDataSource.External));
-            dataConnections.Add(new(blockId: bAdd2.Id, variableName: "X", displayName: null, variableType: EBindingType.Input, source: EDataSource.External));
-            dataConnections.Add(new(blockId: bAdd2.Id, variableName: "Y", displayName: null, variableType: EBindingType.Input, source: EDataSource.External));
-            dataConnections.Add(new(blockId: bAdd3.Id, variableName: "X", displayName: null, variableType: EBindingType.Input, source: EDataSource.Internal)
+            dataConnections.Add(new(blockId: bDelay.Id, variableName: "Ms", displayName: "Delay ms")
+            {
+                SourceBlockId = bInputs.Id,
+                SourceVariableName = "DelayMs"
+            });
+            dataConnections.Add(new(blockId: bAdd1.Id, variableName: "X", displayName: null)
+            {
+                SourceBlockId = bInputs.Id,
+                SourceVariableName = "Add1X"
+            });
+            dataConnections.Add(new(blockId: bAdd1.Id, variableName: "Y", displayName: null)
+            {
+                SourceBlockId = bInputs.Id,
+                SourceVariableName = "Add1Y"
+            });
+            dataConnections.Add(new(blockId: bAdd2.Id, variableName: "X", displayName: null)
+            {
+                SourceBlockId = bInputs.Id,
+                SourceVariableName = "Add2X"
+            });
+            dataConnections.Add(new(blockId: bAdd2.Id, variableName: "Y", displayName: null)
+            {
+                SourceBlockId = bInputs.Id,
+                SourceVariableName = "Add2Y"
+            });
+            dataConnections.Add(new(blockId: bAdd3.Id, variableName: "X", displayName: null)
             {
                 SourceBlockId = bAdd1.Id,
                 SourceVariableName = "Result"
             });
-            dataConnections.Add(new(blockId: bAdd3.Id, variableName: "Y", displayName: null, variableType: EBindingType.Input, source: EDataSource.Internal)
+            dataConnections.Add(new(blockId: bAdd3.Id, variableName: "Y", displayName: null)
             {
                 SourceBlockId = bAdd2.Id,
+                SourceVariableName = "Result"
+            });
+            dataConnections.Add(new(blockId: bOutputs.Id, variableName: "Result", displayName: null)
+            {
+                SourceBlockId = bAdd3.Id,
                 SourceVariableName = "Result"
             });
             process.DataConnections = dataConnections;

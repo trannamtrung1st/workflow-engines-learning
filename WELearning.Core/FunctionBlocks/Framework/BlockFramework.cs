@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Collections.Immutable;
 using WELearning.Core.FunctionBlocks.Abstracts;
 
 namespace WELearning.Core.FunctionBlocks.Framework;
@@ -17,7 +16,7 @@ public class BlockFramework : IBlockFramework
     }
 
     private readonly HashSet<string> _outputEvents;
-    public IImmutableSet<string> OutputEvents => _outputEvents.ToImmutableHashSet();
+    public IEnumerable<string> OutputEvents => _outputEvents;
 
     public Task DelayAsync(int ms) => Task.Delay(ms);
     public void Delay(int ms) => Task.Delay(ms).Wait();

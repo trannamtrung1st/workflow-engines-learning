@@ -13,12 +13,17 @@ public static class LoopProcess
 
         var bAdd = new FunctionBlockInstance(definition: PredefinedBlocks.AddCsScript);
         var bLoopController = new FunctionBlockInstance(definition: CreateLoopControllerBlock());
-        var bInputs = new FunctionBlockInstance(definition: PredefinedBlocks.CreateInOutBlock(
-            new Variable(name: "One", dataType: EDataType.Int, bindingType: EBindingType.InOut, defaultValue: 1)
+        var bInputs = new FunctionBlockInstance(definition: PredefinedBlocks.CreateInputBlock(
+            new Variable(name: "N", dataType: EDataType.Int, variableType: EVariableType.Output),
+            new Variable(name: "Inc", dataType: EDataType.Int, variableType: EVariableType.Output, defaultValue: 1)
         ), id: "Inputs");
 
+        var bOutputs = new FunctionBlockInstance(definition: PredefinedBlocks.CreateOutputBlock(
+            new Variable(name: "Result", dataType: EDataType.Int, variableType: EVariableType.Input)
+        ), id: "Outputs");
+
         {
-            var blocks = new List<FunctionBlockInstance> { bAdd, bLoopController, bInputs };
+            var blocks = new List<FunctionBlockInstance> { bAdd, bLoopController, bInputs, bOutputs };
             process.Blocks = blocks;
             process.DefaultBlockIds = new[] { bLoopController.Id };
         }
@@ -36,26 +41,40 @@ public static class LoopProcess
                 SourceBlockId = bLoopController.Id,
                 SourceEventName = "Loop"
             });
+            eventConnections.Add(new(blockId: bOutputs.Id, eventName: "Run", source: EEventSource.Internal)
+            {
+                SourceBlockId = bLoopController.Id,
+                SourceEventName = "Completed"
+            });
             process.EventConnections = eventConnections;
         }
 
         {
             var dataConnections = new List<BlockDataConnection>();
-            dataConnections.Add(new(blockId: bLoopController.Id, variableName: "N", displayName: "Loop count", variableType: EBindingType.Input, source: EDataSource.External));
-            dataConnections.Add(new(blockId: bLoopController.Id, variableName: "Result", displayName: "Loop result", variableType: EBindingType.Input, source: EDataSource.Internal)
+            dataConnections.Add(new(blockId: bLoopController.Id, variableName: "N", displayName: "Loop count")
+            {
+                SourceBlockId = bInputs.Id,
+                SourceVariableName = "N"
+            });
+            dataConnections.Add(new(blockId: bLoopController.Id, variableName: "Result", displayName: "Loop result")
             {
                 SourceBlockId = bAdd.Id,
                 SourceVariableName = "Result"
             });
-            dataConnections.Add(new(blockId: bAdd.Id, variableName: "X", displayName: null, variableType: EBindingType.Input, source: EDataSource.Internal)
+            dataConnections.Add(new(blockId: bAdd.Id, variableName: "X", displayName: null)
             {
                 SourceBlockId = bLoopController.Id,
                 SourceVariableName = "Result"
             });
-            dataConnections.Add(new(blockId: bAdd.Id, variableName: "Y", displayName: null, variableType: EBindingType.Input, source: EDataSource.Internal)
+            dataConnections.Add(new(blockId: bAdd.Id, variableName: "Y", displayName: null)
             {
                 SourceBlockId = bInputs.Id,
-                SourceVariableName = "One"
+                SourceVariableName = "Inc"
+            });
+            dataConnections.Add(new(blockId: bOutputs.Id, variableName: "Result", displayName: null)
+            {
+                SourceBlockId = bLoopController.Id,
+                SourceVariableName = "Result"
             });
             process.DataConnections = dataConnections;
         }
@@ -65,11 +84,11 @@ public static class LoopProcess
 
     static FunctionBlock CreateLoopControllerBlock()
     {
-        var assemblies = new[] { typeof(AppFramework).Assembly };
+        var assemblies = new[] { typeof(AppFramework).Assembly.FullName };
         var bLoopController = new FunctionBlock(id: "LoopController", name: "Loop controller");
 
-        var iN = new Variable("N", EDataType.Int, EBindingType.Input);
-        var ioResult = new Variable("Result", EDataType.Numeric, EBindingType.InOut);
+        var iN = new Variable("N", EDataType.Int, EVariableType.Input);
+        var ioResult = new Variable("Result", EDataType.Numeric, EVariableType.InOut);
         bLoopController.Variables = new[] { iN, ioResult };
 
         var eRun = new BlockEvent(isInput: true, name: "Run", variableNames: new[] { iN.Name });

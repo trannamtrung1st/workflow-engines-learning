@@ -10,5 +10,5 @@ public interface IBlockFramework
     IOutputBinding Out(string name);
     IReadWriteBinding Internal(string name);
     Task Publish(string eventName);
-    IImmutableSet<string> OutputEvents { get; }
+    IEnumerable<string> OutputEvents { get; }
 }

@@ -16,7 +16,7 @@ public interface IBlockExecutionControl
     Exception Exception { get; }
     EBlockExecutionStatus Status { get; }
 
-    ValueObject GetValueObject(string key, EBindingType type);
+    ValueObject GetValueObject(string key, EVariableType type);
     ValueObject GetInOut(string key);
     ValueObject GetInput(string key);
     ValueObject GetOutput(string key);

@@ -11,5 +11,7 @@ public class FunctionBlockInstance
 
     public string Id { get; set; }
     public string DisplayName { get; set; }
+
+    // [TODO] refactor definition
     public FunctionBlock Definition { get; set; }
 }

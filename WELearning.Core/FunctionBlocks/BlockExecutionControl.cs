@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
+using WELearning.Core.FunctionBlocks.Extensions;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
 
@@ -34,11 +35,11 @@ public class BlockExecutionControl<TFramework> : IBlockExecutionControl, IDispos
     public event EventHandler<Exception> Failed;
     public event EventHandler<BlockExecutionResult> Completed;
 
-    public virtual ValueObject GetInOut(string key) => GetValueObject(key, EBindingType.InOut);
-    public virtual ValueObject GetInput(string key) => GetValueObject(key, EBindingType.Input);
-    public virtual ValueObject GetOutput(string key) => GetValueObject(key, EBindingType.Output);
-    public virtual ValueObject GetInternalData(string key) => GetValueObject(key, EBindingType.Internal);
-    public virtual ValueObject GetValueObject(string name, EBindingType type)
+    public virtual ValueObject GetInOut(string key) => GetValueObject(key, EVariableType.InOut);
+    public virtual ValueObject GetInput(string key) => GetValueObject(key, EVariableType.Input);
+    public virtual ValueObject GetOutput(string key) => GetValueObject(key, EVariableType.Output);
+    public virtual ValueObject GetInternalData(string key) => GetValueObject(key, EVariableType.Internal);
+    public virtual ValueObject GetValueObject(string name, EVariableType type)
     {
         var variable = ValidateBinding(name, type);
         return _valueMap.GetOrAdd(variable, (variable) => new ValueObject(variable));
@@ -70,54 +71,62 @@ public class BlockExecutionControl<TFramework> : IBlockExecutionControl, IDispos
             if (!IsIdle) throw new InvalidOperationException("Not ready for execute!");
             _idleWait.Reset();
         }
-        var optimizationScopes = new HashSet<IDisposable>();
+        HashSet<IDisposable> optimizationScopes = null;
         try
         {
+            var transitionResults = new List<BlockTransitionResult>();
+            IEnumerable<string> outputEvents = Array.Empty<string>();
             Status = EBlockExecutionStatus.Running;
             Running?.Invoke(this, EventArgs.Empty);
-            optimizationScopeId ??= Guid.NewGuid();
-            var blockFramework = _blockFrameworkFactory.Create(this);
-            var globalObject = new BlockGlobalObject<TFramework>(blockFramework);
-
-            async Task<bool> Evaluate(Logic condition, CancellationToken cancellationToken)
-            {
-                var (result, optimizationScope) = await _logicRunner.Run<bool>(condition, globalObject: globalObject, optimizationScopeId.Value, cancellationToken);
-                if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
-                return result;
-            }
-
-            async Task RunAction(Logic actionLogic, CancellationToken cancellationToken)
-            {
-                var optimizationScope = await _logicRunner.Run(actionLogic, globalObject, optimizationScopeId.Value, cancellationToken);
-                if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
-            }
-
             PrepareStates(bindings);
-            triggerEvent ??= Block.Definition.DefaultTriggerEvent;
-            var transitionResults = new List<BlockTransitionResult>();
-            var transition = await FindTransition(triggerEvent, Evaluate, cancellationToken);
-            if (transition == null) throw new KeyNotFoundException($"Transition for event {triggerEvent} not found!");
-            do
+
+            if (Block.Definition.ExecutionControlChart != null)
             {
-                var fromState = CurrentState;
-                var toState = transition.ToState;
-                CurrentState = transition.ToState;
-                if (transition.ActionLogicIds?.Any() == true)
+                optimizationScopes = new HashSet<IDisposable>();
+                optimizationScopeId ??= Guid.NewGuid();
+                var blockFramework = _blockFrameworkFactory.Create(this);
+                var globalObject = new BlockGlobalObject<TFramework>(blockFramework);
+                triggerEvent ??= Block.Definition.DefaultTriggerEvent;
+
+                async Task<bool> Evaluate(Logic condition, CancellationToken cancellationToken)
                 {
-                    var tasks = new List<Task>();
-                    foreach (var actionLogicId in transition.ActionLogicIds)
-                    {
-                        var actionLogic = Block.Definition.Logics.FirstOrDefault(l => l.Id == actionLogicId);
-                        if (actionLogic == null) throw new KeyNotFoundException($"Action logic {actionLogic} not found!");
-                        tasks.Add(RunAction(actionLogic, cancellationToken));
-                    }
-                    await Task.WhenAll(tasks);
+                    var (result, optimizationScope) = await _logicRunner.Run<bool>(condition, globalObject: globalObject, optimizationScopeId.Value, cancellationToken);
+                    if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
+                    return result;
                 }
-                transitionResults.Add(new(fromState, toState));
-                transition = await FindTransition(BlockStateTransition.DirectTransitionEvent, Evaluate, cancellationToken);
-            } while (transition != null);
+
+                async Task RunAction(Logic actionLogic, CancellationToken cancellationToken)
+                {
+                    var optimizationScope = await _logicRunner.Run(actionLogic, globalObject, optimizationScopeId.Value, cancellationToken);
+                    if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
+                }
+
+                var transition = await FindTransition(triggerEvent, Evaluate, cancellationToken);
+                if (transition == null) throw new KeyNotFoundException($"Transition for event {triggerEvent} not found!");
+                do
+                {
+                    var fromState = CurrentState;
+                    var toState = transition.ToState;
+                    CurrentState = transition.ToState;
+                    if (transition.ActionLogicIds?.Any() == true)
+                    {
+                        var tasks = new List<Task>();
+                        foreach (var actionLogicId in transition.ActionLogicIds)
+                        {
+                            var actionLogic = Block.Definition.Logics.FirstOrDefault(l => l.Id == actionLogicId);
+                            if (actionLogic == null) throw new KeyNotFoundException($"Action logic {actionLogic} not found!");
+                            tasks.Add(RunAction(actionLogic, cancellationToken));
+                        }
+                        await Task.WhenAll(tasks);
+                    }
+                    transitionResults.Add(new(fromState, toState));
+                    transition = await FindTransition(BlockStateTransition.DirectTransitionEvent, Evaluate, cancellationToken);
+                } while (transition != null);
+                outputEvents = blockFramework.OutputEvents;
+            }
+
             Status = EBlockExecutionStatus.Completed;
-            var executionResult = new BlockExecutionResult(transitionResults, outputEvents: blockFramework.OutputEvents);
+            var executionResult = new BlockExecutionResult(transitionResults, outputEvents: outputEvents);
             Completed?.Invoke(this, executionResult);
             return executionResult;
         }
@@ -131,8 +140,9 @@ public class BlockExecutionControl<TFramework> : IBlockExecutionControl, IDispos
         finally
         {
             _idleWait.Set();
-            foreach (var optimizationScope in optimizationScopes)
-                optimizationScope.Dispose();
+            if (optimizationScopes != null)
+                foreach (var optimizationScope in optimizationScopes)
+                    optimizationScope.Dispose();
         }
     }
 
@@ -149,18 +159,18 @@ public class BlockExecutionControl<TFramework> : IBlockExecutionControl, IDispos
     {
         foreach (var binding in bindings)
         {
-            var valueObject = GetValueObject(binding.VariableName, binding.Type);
+            var valueObject = GetValueObject(binding.VariableName, binding.Type.ToVariableType());
             valueObject.Value = binding.Value;
         }
     }
 
-    private Variable ValidateBinding(string name, EBindingType type)
+    private Variable ValidateBinding(string name, EVariableType type)
     {
-        var isInOrOut = type == EBindingType.Input || type == EBindingType.Output || type == EBindingType.InOut;
+        var isInOrOut = type == EVariableType.Input || type == EVariableType.Output || type == EVariableType.InOut;
         var variable = Block.Definition.Variables.FirstOrDefault(v => v.Name == name
             && (
-                v.BindingType == type
-                || (v.BindingType == EBindingType.InOut && isInOrOut)
+                v.VariableType == type
+                || (v.VariableType == EVariableType.InOut && isInOrOut)
             ));
         return variable ?? throw new KeyNotFoundException(name);
     }

@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
+using WELearning.Core.FunctionBlocks.Extensions;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
 
@@ -100,6 +101,7 @@ public class ProcessExecutionControl<TFramework> : IProcessExecutionControl, IDi
         {
             Status = EProcessExecutionStatus.Running;
             Running?.Invoke(this, EventArgs.Empty);
+            PrepareStates(bindings);
             var startingBlockTriggers = triggers
                 ?? Process.DefaultBlockIds.Select(bId => new BlockTrigger(blockId: bId, triggerEvent: null));
             TriggerBlocks(blockTriggers: startingBlockTriggers, processBindings: bindings, cancellationToken);
@@ -150,6 +152,18 @@ public class ProcessExecutionControl<TFramework> : IProcessExecutionControl, IDi
         return blockResult;
     }
 
+    protected virtual void PrepareStates(IEnumerable<ProcessVariableBinding> processBindings)
+    {
+        foreach (var binding in processBindings)
+        {
+            var block = Process.Blocks.FirstOrDefault(b => b.Id == binding.BlockId);
+            var blockControl = GetOrInitBlockControl(block);
+            var blockBinding = binding.Binding;
+            var valueObject = blockControl.GetValueObject(key: blockBinding.VariableName, type: blockBinding.Type.ToVariableType());
+            valueObject.Value = blockBinding.Value;
+        }
+    }
+
     protected virtual IEnumerable<VariableBinding> PrepareBindings(string triggerEvent,
         IEnumerable<ProcessVariableBinding> processBindings,
         FunctionBlockInstance block, CancellationToken cancellationToken)
@@ -158,42 +172,24 @@ public class ProcessExecutionControl<TFramework> : IProcessExecutionControl, IDi
         var inputEvent = block.Definition.Events.FirstOrDefault(ev => ev.Name == triggerEvent && ev.IsInput);
         if (inputEvent == null) throw new KeyNotFoundException($"Trigger event {triggerEvent} not found!");
         var usingDataConnections = Process.DataConnections
-            .Where(c => c.BlockId == block.Id
-                && ((c.VariableType == EBindingType.Input && inputEvent.VariableNames.Contains(c.VariableName))
-                    || c.VariableType == EBindingType.Output))
+            .Where(c => c.BlockId == block.Id && inputEvent.VariableNames.Contains(c.VariableName))
             .ToArray();
         var externalBindings = processBindings.Where(b => b.BlockId == block.Id).ToArray();
         var blockBindings = new List<VariableBinding>();
         foreach (var connection in usingDataConnections)
         {
-            switch (connection.Source)
-            {
-                case EDataSource.External:
-                    {
-                        var binding = externalBindings
-                            .Where(b => b.Binding.Type == connection.VariableType && b.Binding.VariableName == connection.VariableName)
-                            .FirstOrDefault() ?? throw new KeyNotFoundException($"Binding for {connection.VariableName} not found!");
-                        blockBindings.Add(binding.Binding);
-                        break;
-                    }
-
-                case EDataSource.Internal:
-                    {
-                        if (connection.SourceBlockId == null || connection.SourceVariableName == null)
-                            throw new ArgumentException("Invalid internal connection!");
-                        var sourceBlock = Process.Blocks.FirstOrDefault(b => b.Id == connection.SourceBlockId)
-                            ?? throw new KeyNotFoundException(connection.SourceBlockId);
-                        var sourceBlockControl = GetOrInitBlockControl(sourceBlock);
-                        sourceBlockControl.WaitForIdle(cancellationToken);
-                        var outputValue = sourceBlockControl.GetOutput(connection.SourceVariableName);
-                        outputValue.WaitValueSet(cancellationToken);
-                        blockBindings.Add(new(
-                            variableName: connection.VariableName,
-                            value: outputValue.Value,
-                            type: connection.VariableType));
-                        break;
-                    }
-            }
+            if (connection.SourceBlockId == null || connection.SourceVariableName == null)
+                throw new ArgumentException("Invalid connection!");
+            var sourceBlock = Process.Blocks.FirstOrDefault(b => b.Id == connection.SourceBlockId)
+                ?? throw new KeyNotFoundException(connection.SourceBlockId);
+            var sourceBlockControl = GetOrInitBlockControl(sourceBlock);
+            sourceBlockControl.WaitForIdle(cancellationToken);
+            var outputValue = sourceBlockControl.GetOutput(connection.SourceVariableName);
+            outputValue.WaitValueSet(cancellationToken);
+            blockBindings.Add(new(
+                variableName: connection.VariableName,
+                value: outputValue.Value,
+                type: EBindingType.Input));
         }
         return blockBindings;
     }

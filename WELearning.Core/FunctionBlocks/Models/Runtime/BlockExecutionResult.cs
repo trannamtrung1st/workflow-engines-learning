@@ -5,10 +5,13 @@ public class BlockExecutionResult
     public BlockExecutionResult(IEnumerable<BlockTransitionResult> transitionResults, IEnumerable<string> outputEvents)
     {
         TransitionResults = transitionResults;
-        var first = transitionResults.First();
-        var last = transitionResults.Last();
-        FromState = first.FromState;
-        FinalState = last.ToState;
+        if (transitionResults.Any())
+        {
+            var first = transitionResults.First();
+            var last = transitionResults.Last();
+            FromState = first.FromState;
+            FinalState = last.ToState;
+        }
         OutputEvents = outputEvents;
     }
 

@@ -26,4 +26,9 @@ public static class ServiceCollectionExtensions
     {
         return services.AddTransient<IBlockFrameworkFactory<TFramework>, TBlockFrameworkFactory>();
     }
+
+    public static IServiceCollection AddDefaultTypeProvider(this IServiceCollection services)
+    {
+        return services.AddTransient<ITypeProvider, TypeProvider>();
+    }
 }
