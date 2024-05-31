@@ -11,21 +11,24 @@ public static class ComplexProcess
         FunctionBlock bRandomDef, FunctionBlock bDelayDef)
     {
         var process = new FunctionBlockProcess(id: "Complex", name: "A complex process");
-        var bAdd1 = new FunctionBlockInstance(bAddDef, id: "Add1");
-        var bMul = new FunctionBlockInstance(bMultiplyDef, id: "Mul");
-        var bDelay = new FunctionBlockInstance(bDelayDef, id: "Delay");
-        var bRandom = new FunctionBlockInstance(bRandomDef, id: "Random");
-        var bAdd2 = new FunctionBlockInstance(bAddDef, id: "Add2");
-        var bInputs = new FunctionBlockInstance(definition: PredefinedBlocks.CreateInputBlock(
+        var bAdd1 = new FunctionBlockInstance(bAddDef.Id, id: "Add1");
+        var bMul = new FunctionBlockInstance(bMultiplyDef.Id, id: "Mul");
+        var bDelay = new FunctionBlockInstance(bDelayDef.Id, id: "Delay");
+        var bRandom = new FunctionBlockInstance(bRandomDef.Id, id: "Random");
+        var bAdd2 = new FunctionBlockInstance(bAddDef.Id, id: "Add2");
+
+        var bInputsDef = PredefinedBlocks.CreateInputBlock(
             new Variable(name: "Add1X", dataType: EDataType.Numeric, variableType: EVariableType.Output),
             new Variable(name: "Add1Y", dataType: EDataType.Numeric, variableType: EVariableType.Output),
             new Variable(name: "MulY", dataType: EDataType.Int, variableType: EVariableType.Output, defaultValue: 2),
             new Variable(name: "DelayMs", dataType: EDataType.Int, variableType: EVariableType.Output, defaultValue: 10)
-        ), id: "Inputs");
+        );
+        var bInputs = new FunctionBlockInstance(bInputsDef.Id, id: "Inputs");
 
-        var bOutputs = new FunctionBlockInstance(definition: PredefinedBlocks.CreateOutputBlock(
+        var bOutputsDef = PredefinedBlocks.CreateOutputBlock(
             new Variable(name: "Result", dataType: EDataType.Int, variableType: EVariableType.Input)
-        ), id: "Outputs");
+        );
+        var bOutputs = new FunctionBlockInstance(bOutputsDef.Id, id: "Outputs");
 
         {
             var blocks = new List<FunctionBlockInstance> { bAdd1, bMul, bDelay, bRandom, bAdd2, bInputs, bOutputs };
@@ -109,6 +112,7 @@ public static class ComplexProcess
             process.DataConnections = dataConnections;
         }
 
+        process.MapDefinitions(new[] { bAddDef, bMultiplyDef, bRandomDef, bDelayDef, bInputsDef, bOutputsDef });
         return process;
     }
 }

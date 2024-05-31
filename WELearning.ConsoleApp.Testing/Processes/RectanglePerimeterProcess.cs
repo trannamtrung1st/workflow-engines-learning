@@ -6,21 +6,25 @@ namespace WELearning.ConsoleApp.Testing.Processes;
 
 public static class RectanglePerimeterProcess
 {
-    public static FunctionBlockProcess Build(FunctionBlockInstance bAdd, FunctionBlockInstance bMultiply)
+    public static FunctionBlockProcess Build(FunctionBlock bAddDef, FunctionBlock bMultiplyDef)
     {
         var process = new FunctionBlockProcess(id: "RectanglePerimeter", name: "Calculate perimeter of rectangle");
-        var bInputs = new FunctionBlockInstance(definition: PredefinedBlocks.CreateInputBlock(
+        var bAdd = new FunctionBlockInstance(bAddDef.Id);
+        var bMultiply = new FunctionBlockInstance(bMultiplyDef.Id);
+        var bInputsDef = PredefinedBlocks.CreateInputBlock(
             new Variable(name: "Length", dataType: EDataType.Numeric, variableType: EVariableType.Output),
             new Variable(name: "Width", dataType: EDataType.Numeric, variableType: EVariableType.Output),
             new Variable(name: "MulY", dataType: EDataType.Int, variableType: EVariableType.Output, defaultValue: 2)
-        ), id: "Inputs");
+        );
+        var bInputs = new FunctionBlockInstance(definitionId: bInputsDef.Id, id: "Inputs");
 
-        var bOutputs = new FunctionBlockInstance(definition: PredefinedBlocks.CreateOutputBlock(
+        var bOutputsDef = PredefinedBlocks.CreateOutputBlock(
             new Variable(name: "Result", dataType: EDataType.Numeric, variableType: EVariableType.Input)
-        ), id: "Outputs");
+        );
+        var bOutputs = new FunctionBlockInstance(definitionId: bOutputsDef.Id, id: "Outputs");
 
         {
-            var blocks = new List<FunctionBlockInstance> { bAdd, bMultiply, bInputs, bOutputs };
+            var blocks = new List<FunctionBlockInstance> { new(bAdd.Id), new(bMultiply.Id), bInputs, bOutputs };
             process.Blocks = blocks;
             process.DefaultBlockIds = new[] { bAdd.Id };
         }
@@ -71,6 +75,7 @@ public static class RectanglePerimeterProcess
             process.DataConnections = dataConnections;
         }
 
+        process.MapDefinitions(new[] { bAddDef, bMultiplyDef, bInputsDef, bOutputsDef });
         return process;
     }
 }

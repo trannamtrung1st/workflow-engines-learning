@@ -10,21 +10,23 @@ public static class DependencyWaitProcess
     {
         var process = new FunctionBlockProcess(id: "DependencyWait", name: "Sample dependency wait process");
 
-        var bAdd1 = new FunctionBlockInstance(PredefinedBlocks.AddJs, id: "Add1", displayName: "Add 1");
-        var bAdd2 = new FunctionBlockInstance(PredefinedBlocks.AddCsScript, id: "Add2", displayName: "Add 2");
-        var bAdd3 = new FunctionBlockInstance(PredefinedBlocks.AddJs, id: "Add3", displayName: "Add 3");
-        var bDelay = new FunctionBlockInstance(definition: PredefinedBlocks.DelayCsScript);
-        var bInputs = new FunctionBlockInstance(definition: PredefinedBlocks.CreateInputBlock(
+        var bAdd1 = new FunctionBlockInstance(PredefinedBlocks.AddJs.Id, id: "Add1", displayName: "Add 1");
+        var bAdd2 = new FunctionBlockInstance(PredefinedBlocks.AddCsScript.Id, id: "Add2", displayName: "Add 2");
+        var bAdd3 = new FunctionBlockInstance(PredefinedBlocks.AddJs.Id, id: "Add3", displayName: "Add 3");
+        var bDelay = new FunctionBlockInstance(PredefinedBlocks.DelayCsScript.Id);
+        var bInputsDef = PredefinedBlocks.CreateInputBlock(
             new Variable(name: "DelayMs", dataType: EDataType.Numeric, variableType: EVariableType.Output),
             new Variable(name: "Add1X", dataType: EDataType.Numeric, variableType: EVariableType.Output),
             new Variable(name: "Add1Y", dataType: EDataType.Numeric, variableType: EVariableType.Output),
             new Variable(name: "Add2X", dataType: EDataType.Numeric, variableType: EVariableType.Output),
             new Variable(name: "Add2Y", dataType: EDataType.Numeric, variableType: EVariableType.Output)
-        ), id: "Inputs");
+        );
+        var bInputs = new FunctionBlockInstance(definitionId: bInputsDef.Id, id: "Inputs");
 
-        var bOutputs = new FunctionBlockInstance(definition: PredefinedBlocks.CreateOutputBlock(
+        var bOutputsDef = PredefinedBlocks.CreateOutputBlock(
             new Variable(name: "Result", dataType: EDataType.Numeric, variableType: EVariableType.Input)
-        ), id: "Outputs");
+        );
+        var bOutputs = new FunctionBlockInstance(definitionId: bOutputsDef.Id, id: "Outputs");
 
         {
             var blocks = new List<FunctionBlockInstance> { bAdd1, bAdd2, bAdd3, bDelay, bInputs, bOutputs };
@@ -99,6 +101,7 @@ public static class DependencyWaitProcess
             process.DataConnections = dataConnections;
         }
 
+        process.MapDefinitions(new[] { PredefinedBlocks.AddJs, PredefinedBlocks.AddCsScript, PredefinedBlocks.DelayCsScript, bInputsDef, bOutputsDef });
         return process;
     }
 

@@ -14,7 +14,11 @@ public class BlockExecutionControl<TFramework> : IBlockExecutionControl, IDispos
     private readonly ManualResetEventSlim _idleWait;
     private readonly ILogicRunner<TFramework> _logicRunner;
     private readonly IBlockFrameworkFactory<TFramework> _blockFrameworkFactory;
-    public BlockExecutionControl(FunctionBlockInstance block, ILogicRunner<TFramework> logicRunner, IBlockFrameworkFactory<TFramework> blockFrameworkFactory)
+    public BlockExecutionControl(
+        FunctionBlockInstance block,
+        FunctionBlock definition,
+        ILogicRunner<TFramework> logicRunner,
+        IBlockFrameworkFactory<TFramework> blockFrameworkFactory)
     {
         _logicRunner = logicRunner;
         _blockFrameworkFactory = blockFrameworkFactory;
@@ -22,9 +26,11 @@ public class BlockExecutionControl<TFramework> : IBlockExecutionControl, IDispos
         _idleWait = new(initialState: true);
         _mutexLock = new(1);
         Block = block;
-        CurrentState = block.Definition.ExecutionControlChart?.InitialState;
+        Definition = definition;
+        CurrentState = Definition.ExecutionControlChart?.InitialState;
     }
 
+    public FunctionBlock Definition { get; }
     public FunctionBlockInstance Block { get; }
     public virtual string CurrentState { get; protected set; }
     public virtual Exception Exception { get; protected set; }
@@ -48,7 +54,7 @@ public class BlockExecutionControl<TFramework> : IBlockExecutionControl, IDispos
     public virtual async Task<BlockStateTransition> FindTransition(
         string triggerEvent, Func<Logic, CancellationToken, Task<bool>> Evaluate, CancellationToken cancellationToken)
     {
-        foreach (var transition in Block.Definition.ExecutionControlChart.StateTransitions)
+        foreach (var transition in Definition.ExecutionControlChart.StateTransitions)
         {
             if (transition.FromState == CurrentState
                 && transition.TriggerEventName == triggerEvent
@@ -80,13 +86,13 @@ public class BlockExecutionControl<TFramework> : IBlockExecutionControl, IDispos
             Running?.Invoke(this, EventArgs.Empty);
             PrepareStates(bindings);
 
-            if (Block.Definition.ExecutionControlChart != null)
+            if (Definition.ExecutionControlChart != null)
             {
                 optimizationScopes = new HashSet<IDisposable>();
                 optimizationScopeId ??= Guid.NewGuid();
                 var blockFramework = _blockFrameworkFactory.Create(this);
                 var globalObject = new BlockGlobalObject<TFramework>(blockFramework);
-                triggerEvent ??= Block.Definition.DefaultTriggerEvent;
+                triggerEvent ??= Definition.DefaultTriggerEvent;
 
                 async Task<bool> Evaluate(Logic condition, CancellationToken cancellationToken)
                 {
@@ -113,7 +119,7 @@ public class BlockExecutionControl<TFramework> : IBlockExecutionControl, IDispos
                         var tasks = new List<Task>();
                         foreach (var actionLogicId in transition.ActionLogicIds)
                         {
-                            var actionLogic = Block.Definition.Logics.FirstOrDefault(l => l.Id == actionLogicId);
+                            var actionLogic = Definition.Logics.FirstOrDefault(l => l.Id == actionLogicId);
                             if (actionLogic == null) throw new KeyNotFoundException($"Action logic {actionLogic} not found!");
                             tasks.Add(RunAction(actionLogic, cancellationToken));
                         }
@@ -167,7 +173,7 @@ public class BlockExecutionControl<TFramework> : IBlockExecutionControl, IDispos
     private Variable ValidateBinding(string name, EVariableType type)
     {
         var isInOrOut = type == EVariableType.Input || type == EVariableType.Output || type == EVariableType.InOut;
-        var variable = Block.Definition.Variables.FirstOrDefault(v => v.Name == name
+        var variable = Definition.Variables.FirstOrDefault(v => v.Name == name
             && (
                 v.VariableType == type
                 || (v.VariableType == EVariableType.InOut && isInOrOut)

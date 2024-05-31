@@ -326,30 +326,30 @@ static class TestFunctionBlocks
         var blockFrameworkFactory = serviceProvider.GetService<IBlockFrameworkFactory<AppFramework>>();
         const int DelayMs = 5000;
         IProcessExecutionControl CreateProcessControl(FunctionBlockProcess process) => new ProcessExecutionControl<AppFramework>(process, blockRunner, logicRunner, blockFrameworkFactory);
-        IBlockExecutionControl CreateBlockControl(FunctionBlockInstance block) => new BlockExecutionControl<AppFramework>(block: block, logicRunner, blockFrameworkFactory);
+        IBlockExecutionControl CreateBlockControl(FunctionBlock blockDef) => new BlockExecutionControl<AppFramework>(block: new(blockDef.Id), blockDef, logicRunner, blockFrameworkFactory);
 
         Console.WriteLine("DelayJS {0} ms", DelayMs);
         await RunBlockDelay(
-            blockRunner, CreateControl: () => CreateBlockControl(block: new(PredefinedBlocks.DelayJs)),
+            blockRunner, CreateControl: () => CreateBlockControl(blockDef: PredefinedBlocks.DelayJs),
             delayMs: DelayMs, cancellationToken: timeoutTokenProvider());
 
-        await RunBlockRandomDouble(blockRunner, CreateControl: () => CreateBlockControl(block: new(PredefinedBlocks.RandomCsScript)), cancellationToken: timeoutTokenProvider());
+        await RunBlockRandomDouble(blockRunner, CreateControl: () => CreateBlockControl(blockDef: PredefinedBlocks.RandomCsScript), cancellationToken: timeoutTokenProvider());
 
-        await RunBlockFactorial(blockRunner, CreateControl: () => CreateBlockControl(block: new(PredefinedBlocks.FactorialCsScript)), cancellationToken: timeoutTokenProvider());
+        await RunBlockFactorial(blockRunner, CreateControl: () => CreateBlockControl(blockDef: PredefinedBlocks.FactorialCsScript), cancellationToken: timeoutTokenProvider());
 
         var rectangleAreaProcess = RectangleAreaProcess.Build(
-            bMultiply: new(PredefinedBlocks.MultiplyCsScript)
+            bMultiplyDef: PredefinedBlocks.MultiplyCsScript
         );
         await RunRectangleArea(processRunner, CreateControl: () => CreateProcessControl(process: rectangleAreaProcess), cancellationToken: timeoutTokenProvider());
 
         await RunRectanglePerimeter(processRunner,
             CreateControl: () => CreateProcessControl(process: RectanglePerimeterProcess.Build(
-                bAdd: new(PredefinedBlocks.AddCsScript), bMultiply: new(PredefinedBlocks.MultiplyCsCompiled)
+                bAddDef: PredefinedBlocks.AddCsScript, bMultiplyDef: PredefinedBlocks.MultiplyCsCompiled
             )),
             cancellationToken: timeoutTokenProvider());
 
         var rectanglePerimeterJs = RectanglePerimeterProcess.Build(
-            bAdd: new(PredefinedBlocks.AddJs), bMultiply: new(PredefinedBlocks.MultiplyCsCompiled)
+            bAddDef: PredefinedBlocks.AddJs, bMultiplyDef: PredefinedBlocks.MultiplyCsCompiled
         );
         await RunRectanglePerimeter(processRunner, CreateControl: () => CreateProcessControl(process: rectanglePerimeterJs), cancellationToken: timeoutTokenProvider());
         Console.WriteLine("\n{0}\n", JsonSerializer.Serialize(rectanglePerimeterJs, Program.DefaultJsonOpts));

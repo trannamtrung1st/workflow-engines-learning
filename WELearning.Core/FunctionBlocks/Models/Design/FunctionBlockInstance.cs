@@ -2,16 +2,14 @@ namespace WELearning.Core.FunctionBlocks.Models.Design;
 
 public class FunctionBlockInstance
 {
-    public FunctionBlockInstance(FunctionBlock definition, string id = null, string displayName = null)
+    public FunctionBlockInstance(string definitionId, string id = null, string displayName = null)
     {
-        Id = id ?? definition.Id;
-        DisplayName = displayName ?? id ?? definition.Name;
-        Definition = definition;
+        Id = id ?? definitionId;
+        DisplayName = displayName ?? Id;
+        DefinitionId = definitionId;
     }
 
     public string Id { get; set; }
     public string DisplayName { get; set; }
-
-    // [TODO] refactor definition
-    public FunctionBlock Definition { get; set; }
+    public string DefinitionId { get; set; }
 }

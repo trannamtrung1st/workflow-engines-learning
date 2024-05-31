@@ -6,17 +6,21 @@ namespace WELearning.ConsoleApp.Testing.Processes;
 
 public static class RectangleAreaProcess
 {
-    public static FunctionBlockProcess Build(FunctionBlockInstance bMultiply)
+    public static FunctionBlockProcess Build(FunctionBlock bMultiplyDef)
     {
         var process = new FunctionBlockProcess(id: "RectangleArea", name: "Calculate area of rectangle");
-        var bInputs = new FunctionBlockInstance(definition: PredefinedBlocks.CreateInputBlock(
+        var bMultiply = new FunctionBlockInstance(bMultiplyDef.Id);
+
+        var bInputsDef = PredefinedBlocks.CreateInputBlock(
             new Variable(name: "Length", dataType: EDataType.Numeric, variableType: EVariableType.Output),
             new Variable(name: "Width", dataType: EDataType.Numeric, variableType: EVariableType.Output)
-        ), id: "Inputs");
+        );
+        var bInputs = new FunctionBlockInstance(definitionId: bInputsDef.Id, id: "Inputs");
 
-        var bOutputs = new FunctionBlockInstance(definition: PredefinedBlocks.CreateOutputBlock(
+        var bOutputsDef = PredefinedBlocks.CreateOutputBlock(
             new Variable(name: "Result", dataType: EDataType.Numeric, variableType: EVariableType.Input)
-        ), id: "Outputs");
+        );
+        var bOutputs = new FunctionBlockInstance(definitionId: bOutputsDef.Id, id: "Outputs");
 
         {
             var blocks = new List<FunctionBlockInstance> { bMultiply, bInputs, bOutputs };
@@ -55,6 +59,7 @@ public static class RectangleAreaProcess
             process.DataConnections = dataConnections;
         }
 
+        process.MapDefinitions(new[] { bMultiplyDef, bInputsDef, bOutputsDef });
         return process;
     }
 }

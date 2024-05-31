@@ -77,7 +77,8 @@ public class ProcessExecutionControl<TFramework> : IProcessExecutionControl, IDi
     }
 
     public virtual IBlockExecutionControl GetOrInitBlockControl(FunctionBlockInstance block)
-        => _blockExecutionControlMap.GetOrAdd(block.Id, (key) => new BlockExecutionControl<TFramework>(block, _logicRunner, _blockFrameworkFactory));
+        => _blockExecutionControlMap.GetOrAdd(block.Id, (key)
+            => new BlockExecutionControl<TFramework>(block, definition: Process.GetDefinition(block.DefinitionId), _logicRunner, _blockFrameworkFactory));
 
     protected Task RunTaskAsync(Func<CancellationToken, Task> func, CancellationToken cancellationToken)
     {
@@ -131,7 +132,7 @@ public class ProcessExecutionControl<TFramework> : IProcessExecutionControl, IDi
             _ = RunTaskAsync(async (cancellationToken) =>
             {
                 var blockControl = GetOrInitBlockControl(block);
-                var triggerEvent = trigger.TriggerEvent ?? block.Definition.DefaultTriggerEvent;
+                var triggerEvent = trigger.TriggerEvent ?? Process.GetDefinition(block.DefinitionId).DefaultTriggerEvent;
                 var blockBindings = PrepareBindings(triggerEvent, processBindings, block, cancellationToken);
                 var runRequest = new RunBlockRequest(block, blockBindings, triggerEvent);
                 var blockResult = await ProcessBlock(runRequest, blockControl, cancellationToken);
@@ -169,7 +170,7 @@ public class ProcessExecutionControl<TFramework> : IProcessExecutionControl, IDi
         FunctionBlockInstance block, CancellationToken cancellationToken)
     {
         var bindings = new List<VariableBinding>();
-        var inputEvent = block.Definition.Events.FirstOrDefault(ev => ev.Name == triggerEvent && ev.IsInput);
+        var inputEvent = Process.GetDefinition(block.DefinitionId).Events.FirstOrDefault(ev => ev.Name == triggerEvent && ev.IsInput);
         if (inputEvent == null) throw new KeyNotFoundException($"Trigger event {triggerEvent} not found!");
         var usingDataConnections = Process.DataConnections
             .Where(c => c.BlockId == block.Id && inputEvent.VariableNames.Contains(c.VariableName))

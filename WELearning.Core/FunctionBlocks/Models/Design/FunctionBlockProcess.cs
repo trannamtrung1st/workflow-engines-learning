@@ -5,6 +5,7 @@ namespace WELearning.Core.FunctionBlocks.Models.Design;
 
 public class FunctionBlockProcess
 {
+    private Dictionary<string, FunctionBlock> _definitionMap;
     public FunctionBlockProcess(string id, string name)
     {
         Id = id;
@@ -16,9 +17,17 @@ public class FunctionBlockProcess
 
     public IEnumerable<string> DefaultBlockIds { get; set; }
     public IEnumerable<FunctionBlockInstance> Blocks { get; set; }
-
     public IEnumerable<BlockEventConnection> EventConnections { get; set; }
     public IEnumerable<BlockDataConnection> DataConnections { get; set; }
+
+    public FunctionBlock GetDefinition(string definitionId)
+    {
+        if (_definitionMap == null) throw new InvalidOperationException("Defintions are not yet mapped!");
+        return _definitionMap[definitionId];
+    }
+
+    public void MapDefinitions(IEnumerable<FunctionBlock> definitions)
+        => _definitionMap = definitions.ToDictionary(x => x.Id, x => x);
 
     public virtual IEnumerable<BlockTrigger> FindNextBlocks(
         string sourceBlockId,

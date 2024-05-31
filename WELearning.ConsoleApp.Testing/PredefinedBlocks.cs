@@ -71,21 +71,21 @@ static class PredefinedBlocks
     {
         if (variables.Any(v => v.VariableType != EVariableType.InOut))
             throw new ArgumentException("Invalid binding type!");
-        return new FunctionBlock(id: "InOut", name: "InOut block") { Variables = variables };
+        return new FunctionBlock(id: $"InOut-{Guid.NewGuid()}", name: "InOut block") { Variables = variables };
     }
 
     public static FunctionBlock CreateInputBlock(params Variable[] variables)
     {
         if (variables.Any(v => v.VariableType != EVariableType.Output))
             throw new ArgumentException("Invalid binding type!");
-        return new FunctionBlock(id: "Input", name: "Input block") { Variables = variables };
+        return new FunctionBlock(id: $"Input-{Guid.NewGuid()}", name: "Input block") { Variables = variables };
     }
 
     public static FunctionBlock CreateOutputBlock(params Variable[] variables)
     {
         if (variables.Any(v => v.VariableType != EVariableType.Input))
             throw new ArgumentException("Invalid binding type!");
-        var bOutput = new FunctionBlock(id: "Output", name: "Output block");
+        var bOutput = new FunctionBlock(id: $"Output-{Guid.NewGuid()}", name: "Output block");
         bOutput.Variables = variables;
         var eRun = new BlockEvent(isInput: true, name: "Run", variableNames: variables.Select(v => v.Name).ToArray());
         bOutput.Events = new[] { eRun };
@@ -174,7 +174,7 @@ static class PredefinedBlocks
         IEnumerable<string> imports,
         IEnumerable<string> assemblies)
     {
-        var bMultiply = new FunctionBlock(id: "Multiply", name: "Multiply X * Y");
+        var bMultiply = new FunctionBlock(id: $"Multiply{runtime}", name: $"Multiply X * Y ({runtime})");
 
         var iX = new Variable("X", EDataType.Numeric, EVariableType.Input);
         var iY = new Variable("Y", EDataType.Numeric, EVariableType.Input);
@@ -316,7 +316,7 @@ static class PredefinedBlocks
         string addScript, string handleInvalidScript, string invalidConditionScript,
         IEnumerable<string> imports, IEnumerable<string> assemblies)
     {
-        var bAdd = new FunctionBlock(id: "Add", name: "Add X + Y");
+        var bAdd = new FunctionBlock(id: $"Add{runtime}", name: $"Add X + Y ({runtime})");
 
         var iX = new Variable("X", EDataType.Numeric, EVariableType.Input);
         var iY = new Variable("Y", EDataType.Numeric, EVariableType.Input);
@@ -425,7 +425,7 @@ static class PredefinedBlocks
     private static FunctionBlock CreateBlockRandom(ERuntime runtime,
         string randomScript, IEnumerable<string> imports, IEnumerable<string> assemblies)
     {
-        var bRandom = new FunctionBlock(id: "RandomDouble", name: "Random double");
+        var bRandom = new FunctionBlock(id: $"RandomDouble{runtime}", name: $"Random double ({runtime})");
 
         var oResult = new Variable("Result", EDataType.Numeric, EVariableType.Output);
         bRandom.Variables = new[] { oResult };
@@ -514,7 +514,7 @@ static class PredefinedBlocks
     private static FunctionBlock CreateBlockDelay(ERuntime runtime,
         string delayScript, IEnumerable<string> imports, IEnumerable<string> assemblies)
     {
-        var bDelay = new FunctionBlock(id: "Delay", name: "Delay");
+        var bDelay = new FunctionBlock(id: $"Delay{runtime}", name: $"Delay ({runtime})");
 
         var iMs = new Variable("Ms", EDataType.Int, EVariableType.Input);
         bDelay.Variables = new[] { iMs };
@@ -562,8 +562,9 @@ static class PredefinedBlocks
 
     private static FunctionBlock CreateBlockFactorialCsScript()
     {
+        var runtime = ERuntime.CSharpScript;
         var assemblies = new[] { AppFrameworkAssembly };
-        var bFactorial = new FunctionBlock(id: "Factorial", name: "Factorial n!");
+        var bFactorial = new FunctionBlock(id: $"Factorial{runtime}", name: $"Factorial n! ({runtime})");
 
         var iN = new Variable("N", EDataType.Int, EVariableType.Input);
         var oResult = new Variable("Result", EDataType.Numeric, EVariableType.Output);

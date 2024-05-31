@@ -11,16 +11,21 @@ public static class LoopProcess
     {
         var process = new FunctionBlockProcess(id: "Loop", name: "Sample loop process");
 
-        var bAdd = new FunctionBlockInstance(definition: PredefinedBlocks.AddCsScript);
-        var bLoopController = new FunctionBlockInstance(definition: CreateLoopControllerBlock());
-        var bInputs = new FunctionBlockInstance(definition: PredefinedBlocks.CreateInputBlock(
+        var bAddDef = PredefinedBlocks.AddCsScript;
+        var bAdd = new FunctionBlockInstance(definitionId: bAddDef.Id);
+        var bLoopControllerDef = CreateLoopControllerBlock();
+        var bLoopController = new FunctionBlockInstance(definitionId: bLoopControllerDef.Id);
+
+        var bInputsDef = PredefinedBlocks.CreateInputBlock(
             new Variable(name: "N", dataType: EDataType.Int, variableType: EVariableType.Output),
             new Variable(name: "Inc", dataType: EDataType.Int, variableType: EVariableType.Output, defaultValue: 1)
-        ), id: "Inputs");
+        );
+        var bInputs = new FunctionBlockInstance(definitionId: bInputsDef.Id, id: "Inputs");
 
-        var bOutputs = new FunctionBlockInstance(definition: PredefinedBlocks.CreateOutputBlock(
+        var bOutputsDef = PredefinedBlocks.CreateOutputBlock(
             new Variable(name: "Result", dataType: EDataType.Int, variableType: EVariableType.Input)
-        ), id: "Outputs");
+        );
+        var bOutputs = new FunctionBlockInstance(definitionId: bOutputsDef.Id, id: "Outputs");
 
         {
             var blocks = new List<FunctionBlockInstance> { bAdd, bLoopController, bInputs, bOutputs };
@@ -79,13 +84,14 @@ public static class LoopProcess
             process.DataConnections = dataConnections;
         }
 
+        process.MapDefinitions(new[] { bAddDef, bLoopControllerDef, bInputsDef, bOutputsDef });
         return process;
     }
 
     static FunctionBlock CreateLoopControllerBlock()
     {
         var assemblies = new[] { typeof(AppFramework).Assembly.FullName };
-        var bLoopController = new FunctionBlock(id: "LoopController", name: "Loop controller");
+        var bLoopController = new FunctionBlock(id: $"{nameof(LoopProcess)}_LoopController", name: "Loop controller");
 
         var iN = new Variable("N", EDataType.Int, EVariableType.Input);
         var ioResult = new Variable("Result", EDataType.Numeric, EVariableType.InOut);
