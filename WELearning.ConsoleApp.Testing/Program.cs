@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using WELearning.ConsoleApp.Testing.CompositeBlocks;
+using WELearning.ConsoleApp.Testing.ValueObjects;
 using WELearning.Core.FunctionBlocks;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
@@ -111,7 +112,7 @@ static class TestEngines
                     {{
                         return Task.FromResult(arguments.X * 5);    
                     }}
-                }}", arguments: new LoopTestArgs { X = i },
+                }}", arguments: new LoopTestArgs { X = i }, flattenArguments: null,
                 imports: imports, assemblies: assemblies, types: null, cancellationToken);
         }
     }
@@ -121,7 +122,7 @@ static class TestEngines
         for (var i = 0; i < n; i++)
         {
             await runtimeEngine.Execute(
-                content: @$"X * 5", arguments: new LoopTestArgs { X = i },
+                content: @$"X * 5", arguments: new LoopTestArgs { X = i }, flattenArguments: null,
                 imports: null, assemblies: null, types: null, cancellationToken);
         }
     }
@@ -135,7 +136,8 @@ static class TestEngines
             for (var i = 0; i < n; i++)
             {
                 scope = await runtimeEngine.Execute(
-                    content: JavascriptHelper.WrapModuleFunction(@$"return _FB_.X * 5"), arguments: new LoopTestArgs { X = i },
+                    content: JavascriptHelper.WrapModuleFunction(@$"return _FB_.X * 5"),
+                    arguments: new LoopTestArgs { X = i }, flattenArguments: null,
                     imports: null, assemblies: null, types: null,
                     optimizationScopeId, cancellationToken);
             }
@@ -163,7 +165,7 @@ static class TestEngines
             import './lodash.min.js';
             import './axios.min.js';
         "),
-        arguments: new { TestAsync },
+        arguments: new { TestAsync }, flattenArguments: null,
         imports: new[] { "import './fetch.min.js'" },
         types: null,
         assemblies: null,
@@ -181,7 +183,7 @@ static class TestEngines
             import 'lodash.min.js';
             import 'axios.min.js';
         "),
-        arguments: new { TestAsync },
+        arguments: new { TestAsync }, flattenArguments: null,
         imports: new[] { "import { fetch } from 'fetch.min.js'" },
         types: null,
         assemblies: null,
@@ -293,6 +295,36 @@ static class TestFunctionBlocks
         await Task.WhenAll(waits.Select(w => w.Task));
     }
 
+    public static async Task RunEntryReport(
+        IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, CancellationToken cancellationToken)
+    {
+        var dataStore = new DataStore();
+        var temperatureEntry = dataStore.GetEntry("Temperature");
+        var humidityEntry = dataStore.GetEntry("Humidity");
+        var reportEntry = dataStore.GetEntry("Report");
+        var bindings = new HashSet<VariableBinding>();
+        var execControl = CreateControl();
+
+        var iInput1 = execControl.GetVariable("Input1", EVariableType.Input);
+        var iInput2 = execControl.GetVariable("Input2", EVariableType.Input);
+        var oResult = execControl.GetVariable("Result", EVariableType.Output);
+        bindings.Add(new(variableName: iInput1.Name, valueObject: new EntryValueObject(iInput1, temperatureEntry), type: EBindingType.Input));
+        bindings.Add(new(variableName: iInput2.Name, valueObject: new EntryValueObject(iInput2, humidityEntry), type: EBindingType.Input));
+        bindings.Add(new(variableName: oResult.Name, valueObject: new EntryValueObject(oResult, reportEntry), type: EBindingType.Output));
+
+        var runRequest = new RunBlockRequest(bindings);
+        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default, cancellationToken);
+
+        var tcs = new TaskCompletionSource();
+        execControl.Completed += (o, e) => tcs.SetResult();
+        execControl.Failed += (o, e) => tcs.SetException(e);
+        await tcs.Task;
+
+        var finalResult = execControl.GetOutput("Result") as EntryValueObject;
+        dataStore.UpdateEntry(finalResult.EntryKey, finalResult.Value);
+        Console.WriteLine("Result: {0} | {1}", finalResult, reportEntry);
+    }
+
     public static async Task<double> RunComplexCFB(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, CancellationToken cancellationToken)
     {
         var bindings = new HashSet<VariableBinding>();
@@ -350,6 +382,9 @@ static class TestFunctionBlocks
         await RunLoopCFB(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: LoopCFB.Build()), cancellationToken: timeoutTokenProvider());
 
         await RunDependencyWait(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: DependencyWaitCFB.Build()), cancellationToken: timeoutTokenProvider());
+
+        Console.WriteLine("Test run entry report: ");
+        await RunEntryReport(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: EntryReportCFB.Build()), cancellationToken: timeoutTokenProvider());
     }
 
     public static async Task RunBlockDelay(

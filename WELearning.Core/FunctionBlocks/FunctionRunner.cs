@@ -20,7 +20,9 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework>
         _typeProvider = typeProvider;
     }
 
-    public async Task<(TReturn Result, IDisposable OptimizationScope)> Run<TReturn>(Function function, BlockGlobalObject<TFramework> globalObject, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    public async Task<(TReturn Result, IDisposable OptimizationScope)> Run<TReturn>(
+        Function function, BlockGlobalObject<TFramework> globalObject, IEnumerable<(string Name, object Value)> flattenArguments,
+        Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         var engine = _engineFactory.CreateEngine(runtime: function.Runtime);
         var optEngine = engine as IOptimizableRuntimeEngine;
@@ -32,6 +34,7 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework>
             var result = await optEngine.Execute<TReturn, BlockGlobalObject<TFramework>>(
                 content: function.Content,
                 arguments: globalObject,
+                flattenArguments: flattenArguments,
                 imports: function.Imports,
                 assemblies, types,
                 optimizationScopeId: optimizationScopeId,
@@ -44,6 +47,7 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework>
             var result = await engine.Execute<TReturn, BlockGlobalObject<TFramework>>(
                 content: function.Content,
                 arguments: globalObject,
+                flattenArguments: flattenArguments,
                 imports: function.Imports,
                 assemblies, types,
                 cancellationToken: cancellationToken
@@ -52,7 +56,9 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework>
         }
     }
 
-    public async Task<IDisposable> Run(Function function, BlockGlobalObject<TFramework> globalObject, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    public async Task<IDisposable> Run(
+        Function function, BlockGlobalObject<TFramework> globalObject, IEnumerable<(string Name, object Value)> flattenArguments,
+        Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         var engine = _engineFactory.CreateEngine(runtime: function.Runtime);
         var optEngine = engine as IOptimizableRuntimeEngine;
@@ -64,6 +70,7 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework>
             var optimizationScope = await optEngine.Execute(
                 content: function.Content,
                 arguments: globalObject,
+                flattenArguments: flattenArguments,
                 imports: function.Imports,
                 assemblies, types,
                 optimizationScopeId: optimizationScopeId,
@@ -76,6 +83,7 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework>
             await engine.Execute(
                 content: function.Content,
                 arguments: globalObject,
+                flattenArguments: flattenArguments,
                 imports: function.Imports,
                 assemblies, types,
                 cancellationToken: cancellationToken

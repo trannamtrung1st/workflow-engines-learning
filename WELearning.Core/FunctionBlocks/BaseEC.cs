@@ -61,20 +61,17 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
 
     public virtual Variable GetVariable(string key, EVariableType type)
     {
-        var variable = Definition.Variables.FirstOrDefault(v => v.Name == key && v.VariableType == type);
-        return variable;
-    }
-
-    protected virtual Variable ValidateBinding(string name, EVariableType type)
-    {
         var isInOrOut = type == EVariableType.Input || type == EVariableType.Output || type == EVariableType.InOut;
-        var variable = Definition.Variables.FirstOrDefault(v => v.Name == name
+        var variable = Definition.Variables.FirstOrDefault(v => v.Name == key
             && (
                 v.VariableType == type
                 || (v.VariableType == EVariableType.InOut && isInOrOut)
             ));
-        return variable ?? throw new KeyNotFoundException(name);
+        return variable;
     }
+
+    protected virtual Variable ValidateBinding(string name, EVariableType type)
+        => GetVariable(name, type) ?? throw new KeyNotFoundException(name);
 
     protected virtual void PrepareStates(IEnumerable<VariableBinding> bindings)
     {
@@ -82,12 +79,29 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
         {
             if (binding.ValueObject != null)
                 SetValueObject(binding.VariableName, binding.Type.ToVariableType(), binding.ValueObject);
-            else
+            else if (binding.Type == EBindingType.Input)
             {
-                var valueObject = GetValueObject(binding.VariableName, binding.Type.ToVariableType());
+                var valueObject = GetValueObject(binding.VariableName, type: EVariableType.Input);
+                valueObject.Value = binding.Value;
+            }
+            else if (binding.Value != null)
+            {
+                var valueObject = GetValueObject(binding.VariableName, type: EVariableType.Output);
                 valueObject.Value = binding.Value;
             }
         }
+    }
+
+    protected virtual IEnumerable<(string Name, object Value)> FlattenInputs()
+    {
+        var flatten = new List<(string, object)>();
+        var inputVars = Definition.Variables.Where(v => v.CanInput());
+        foreach (var input in inputVars)
+        {
+            if (_valueMap.TryGetValue(input, out var value))
+                flatten.Add((input.Name, value));
+        }
+        return flatten;
     }
 
     public virtual void WaitForIdle(CancellationToken cancellationToken) => _idleWait.Wait(cancellationToken);

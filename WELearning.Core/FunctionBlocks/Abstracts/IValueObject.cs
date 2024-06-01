@@ -12,9 +12,12 @@ public interface IValueObject
     bool TempValueSet { get; }
     object TempValue { get; set; }
     bool IsNumeric { get; }
+    bool IsRaw { get; }
     double AsDouble();
     int AsInt();
+    bool AsBool();
     object As(EDataType dataType);
     void TryCommit();
     void WaitValueSet(CancellationToken cancellationToken);
+    IValueObject CloneFor(Variable variable);
 }

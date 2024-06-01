@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using WELearning.Core.Constants;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.FunctionBlocks.Extensions;
@@ -97,8 +98,11 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
         var bindings = new List<VariableBinding>();
         var inputEvent = Definition.GetDefinition(block.DefinitionId).Events.FirstOrDefault(ev => ev.Name == triggerEvent && ev.IsInput);
         if (inputEvent == null) throw new KeyNotFoundException($"Trigger event {triggerEvent} not found!");
+        var blockExecControl = GetOrInitExecutionControl(block);
         var usingDataConnections = Definition.DataConnections
-            .Where(c => c.BlockId == block.Id && inputEvent.VariableNames.Contains(c.VariableName) && c.BindingType == EBindingType.Input)
+            .Where(c => c.BlockId == block.Id
+                && ((c.BindingType == EBindingType.Input && inputEvent.VariableNames.Contains(c.VariableName))
+                    || c.BindingType == EBindingType.Output))
             .ToArray();
         var blockBindings = new List<VariableBinding>();
         foreach (var connection in usingDataConnections)
@@ -106,7 +110,10 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
             if (connection.SourceVariableName == null)
                 throw new ArgumentException("Invalid connection!");
 
-            object value;
+            var variableType = connection.BindingType.ToVariableType();
+            var bindingVariable = blockExecControl.GetVariable(key: connection.VariableName, type: variableType)
+                ?? throw new KeyNotFoundException($"Variable {connection.VariableName} not found!");
+            object value = null; IValueObject valueObject = null; IValueObject sourceValue;
             if (connection.SourceBlockId != null)
             {
                 var sourceBlock = Definition.Blocks.FirstOrDefault(b => b.Id == connection.SourceBlockId)
@@ -115,17 +122,21 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
                 sourceExecControl.WaitForIdle(cancellationToken);
                 var outputValue = sourceExecControl.GetOutput(connection.SourceVariableName);
                 outputValue.WaitValueSet(cancellationToken);
-                value = outputValue.Value;
+                sourceValue = outputValue;
             }
             else
             {
-                var valueObject = GetValueObject(connection.SourceVariableName, connection.BindingType.ToVariableType());
-                value = valueObject.Value;
+                sourceValue = GetValueObject(connection.SourceVariableName, variableType);
             }
+
+            if (bindingVariable.DataType == EDataType.Reference || bindingVariable.DataType == EDataType.Any)
+                valueObject = sourceValue.CloneFor(bindingVariable);
+            else value = sourceValue.Value;
 
             blockBindings.Add(new(
                 variableName: connection.VariableName,
                 value: value,
+                valueObject: valueObject,
                 type: connection.BindingType));
         }
         return blockBindings;
@@ -136,21 +147,22 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
         var outputEvents = Definition.Events.Where(e => !e.IsInput && _result.OutputEvents.Contains(e.Name));
         var allVariableNames = outputEvents.SelectMany(ev => ev.VariableNames);
         var usingDataConnections = Definition.DataConnections
-            .Where(c => allVariableNames.Contains(c.VariableName) && c.BindingType == EBindingType.Output)
+            .Where(c => c.SourceBlockId == null && allVariableNames.Contains(c.SourceVariableName) && c.BindingType == EBindingType.Output)
             .ToArray();
         var outputValues = new List<IValueObject>();
 
         foreach (var connection in usingDataConnections)
         {
-            if (connection.SourceBlockId == null || connection.SourceVariableName == null)
+            if (connection.BlockId == null || connection.VariableName == null)
                 throw new ArgumentException("Invalid connection!");
 
-            var sourceBlock = Definition.Blocks.FirstOrDefault(b => b.Id == connection.SourceBlockId)
-                ?? throw new KeyNotFoundException(connection.SourceBlockId);
+            var sourceBlock = Definition.Blocks.FirstOrDefault(b => b.Id == connection.BlockId)
+                ?? throw new KeyNotFoundException($"Source block {connection.BlockId} not found!");
             var sourceExecControl = GetOrInitExecutionControl(sourceBlock);
-            var outputValue = sourceExecControl.GetOutput(connection.SourceVariableName);
-            var valueObject = GetOutput(connection.VariableName);
-            valueObject.TempValue = outputValue.Value;
+            var sourceValue = sourceExecControl.GetOutput(connection.VariableName);
+
+            IValueObject valueObject = GetOutput(connection.SourceVariableName);
+            valueObject.TempValue = sourceValue.Value;
             outputValues.Add(valueObject);
         }
 

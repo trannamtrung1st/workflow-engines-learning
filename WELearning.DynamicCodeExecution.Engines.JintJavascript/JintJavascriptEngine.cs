@@ -38,14 +38,14 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.Javascript;
 
-    public async Task<TReturn> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
+    public async Task<TReturn> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
     {
-        var (result, _) = await Execute<TReturn, TArg>(content, arguments, imports, assemblies, types, optimizationScopeId: default, cancellationToken);
+        var (result, _) = await Execute<TReturn, TArg>(content, arguments, flattenArguments, imports, assemblies, types, optimizationScopeId: default, cancellationToken);
         return result;
     }
 
-    public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
-        => await Execute(content, arguments, imports, assemblies, types, optimizationScopeId: default, cancellationToken);
+    public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
+        => await Execute(content, arguments, flattenArguments, imports, assemblies, types, optimizationScopeId: default, cancellationToken);
 
     private async Task<ObjectInstance> GetScriptModule(Guid engineId, Engine engine, string content, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken)
     {
@@ -143,7 +143,7 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         _engineCache.Dispose();
     }
 
-    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         var combinedAssemblies = ReflectionHelper.CombineAssemblies(assemblies, types)?.ToArray();
         var (engineWrap, optimizationScope) = PrepareEngine(combinedAssemblies, types, optimizationScopeId, cancellationToken);
@@ -152,13 +152,16 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         {
             var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, imports, assemblies, cancellationToken);
             var exportedFunction = module.Get(ExportedFunctionName);
-            var result = exportedFunction.Call(arg1: JsValue.FromObjectWithType(engine, arguments, typeof(TArg)));
+            var finalArguments = new JsValue[] { JsValue.FromObjectWithType(engine, arguments, typeof(TArg)) };
+            if (flattenArguments?.Any() == true)
+                finalArguments = finalArguments.Concat(flattenArguments.Select(v => JsValue.FromObject(engine, v.Value))).ToArray();
+            var result = exportedFunction.Call(arguments: finalArguments);
             castResult = Cast<TReturn>(result.UnwrapIfPromise());
         }, cancellationToken);
         return (castResult, optimizationScope);
     }
 
-    public async Task<IDisposable> Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    public async Task<IDisposable> Execute<TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         var combinedAssemblies = ReflectionHelper.CombineAssemblies(assemblies, types)?.ToArray();
         var (engineWrap, optimizationScope) = PrepareEngine(combinedAssemblies, types, optimizationScopeId, cancellationToken);
@@ -166,7 +169,10 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         {
             var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, imports, assemblies, cancellationToken);
             var exportedFunction = module.Get(ExportedFunctionName);
-            var result = exportedFunction.Call(arg1: JsValue.FromObjectWithType(engine, arguments, typeof(TArg)));
+            var finalArguments = new JsValue[] { JsValue.FromObjectWithType(engine, arguments, typeof(TArg)) };
+            if (flattenArguments?.Any() == true)
+                finalArguments = finalArguments.Concat(flattenArguments.Select(v => JsValue.FromObject(engine, v.Value))).ToArray();
+            var result = exportedFunction.Call(arguments: finalArguments);
             result.UnwrapIfPromise();
         }, cancellationToken);
         return optimizationScope;

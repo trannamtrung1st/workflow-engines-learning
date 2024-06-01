@@ -19,6 +19,14 @@ public class VariableBinding
         Type = type;
     }
 
+    public VariableBinding(string variableName, object value, IValueObject valueObject, EBindingType type)
+    {
+        VariableName = variableName;
+        Value = value;
+        ValueObject = valueObject;
+        Type = type;
+    }
+
     public EBindingType Type { get; }
     public string VariableName { get; }
     public object Value { get; }

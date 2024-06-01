@@ -1,40 +1,42 @@
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.Constants;
+using WELearning.ConsoleApp.Testing.Entities;
 
 namespace WELearning.ConsoleApp.Testing.CompositeBlocks;
 
-public static class RectangleAreaCFB
+public static class EntryReportCFB
 {
-    public static CompositeBlockDef Build(BasicBlockDef bMultiplyDef)
+    public static CompositeBlockDef Build()
     {
-        var cfb = new CompositeBlockDef(id: "RectangleArea", name: "Calculate area of rectangle");
+        var cfb = new CompositeBlockDef(id: "EntryReport", name: "Entry Report: a sample process using external object reference");
 
-        var iLength = new Variable("Length", dataType: EDataType.Numeric, variableType: EVariableType.Input);
-        var iWidth = new Variable("Width", dataType: EDataType.Numeric, variableType: EVariableType.Input);
-        var oResult = new Variable("Result", dataType: EDataType.Numeric, variableType: EVariableType.Output);
-        cfb.Variables = new Variable[] { iLength, iWidth, oResult };
+        var i1 = new Variable("Input1", dataType: EDataType.Reference, variableType: EVariableType.Input);
+        var i2 = new Variable("Input2", dataType: EDataType.Reference, variableType: EVariableType.Input);
+        var oResult = new Variable("Result", dataType: EDataType.Reference, variableType: EVariableType.Output);
+        cfb.Variables = new Variable[] { i1, i2, oResult };
 
-        var eTrigger = new BlockEvent(isInput: true, name: "Trigger", variableNames: new[] { iLength.Name, iWidth.Name });
+        var eTrigger = new BlockEvent(isInput: true, name: "Trigger", variableNames: new[] { i1.Name, i2.Name });
         var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: new[] { oResult.Name });
         cfb.Events = new[] { eTrigger, eCompleted };
         cfb.DefaultTriggerEvent = eTrigger.Name;
 
-        var bMultiply = new BlockInstance(bMultiplyDef.Id);
+        var bConcatDef = PredefinedBFBs.ConcatTwoStringsJs;
+        var bConcat = new BlockInstance(bConcatDef.Id);
 
         var bInputsDef = PredefinedBFBs.CreateInOutBlock(
-            new Variable(name: "Length", dataType: EDataType.Numeric, variableType: EVariableType.InOut),
-            new Variable(name: "Width", dataType: EDataType.Numeric, variableType: EVariableType.InOut)
+            new Variable(name: "Input1", dataType: EDataType.Reference, variableType: EVariableType.InOut),
+            new Variable(name: "Input2", dataType: EDataType.Reference, variableType: EVariableType.InOut),
+            new Variable(name: "Delimiter", dataType: EDataType.String, variableType: EVariableType.InOut, defaultValue: " ")
         );
         var bInputs = new BlockInstance(definitionId: bInputsDef.Id, id: "Inputs");
 
-        var bOutputsDef = PredefinedBFBs.CreateInOutBlock(
-            new Variable(name: "Result", dataType: EDataType.Numeric, variableType: EVariableType.InOut)
-        );
+        var entryType = nameof(EntryEntity);
+        var bOutputsDef = PredefinedBFBs.CreatePassThroughBlock(passThroughVars: ("Result", entryType));
         var bOutputs = new BlockInstance(definitionId: bOutputsDef.Id, id: "Outputs");
 
         {
-            var blocks = new List<BlockInstance> { bMultiply, bInputs, bOutputs };
+            var blocks = new List<BlockInstance> { bConcat, bInputs, bOutputs };
             cfb.Blocks = blocks;
         }
 
@@ -47,14 +49,14 @@ public static class RectangleAreaCFB
                 SourceEventName = "Trigger"
             });
 
-            eventConnections.Add(new(blockId: bMultiply.Id, eventName: "Trigger")
+            eventConnections.Add(new(blockId: bConcat.Id, eventName: "Trigger")
             {
                 SourceBlockId = bInputs.Id,
                 SourceEventName = "Completed"
             });
             eventConnections.Add(new(blockId: bOutputs.Id, eventName: "Trigger")
             {
-                SourceBlockId = bMultiply.Id,
+                SourceBlockId = bConcat.Id,
                 SourceEventName = "Completed"
             });
 
@@ -80,19 +82,24 @@ public static class RectangleAreaCFB
                 });
             }
 
-            dataConnections.Add(new(blockId: bMultiply.Id, variableName: "X", displayName: "Length", bindingType: EBindingType.Input)
+            dataConnections.Add(new(blockId: bConcat.Id, variableName: "X", displayName: null, bindingType: EBindingType.Input)
             {
                 SourceBlockId = bInputs.Id,
-                SourceVariableName = "Length"
+                SourceVariableName = "Input1"
             });
-            dataConnections.Add(new(blockId: bMultiply.Id, variableName: "Y", displayName: "Width", bindingType: EBindingType.Input)
+            dataConnections.Add(new(blockId: bConcat.Id, variableName: "Y", displayName: null, bindingType: EBindingType.Input)
             {
                 SourceBlockId = bInputs.Id,
-                SourceVariableName = "Width"
+                SourceVariableName = "Input2"
+            });
+            dataConnections.Add(new(blockId: bConcat.Id, variableName: "Delimiter", displayName: null, bindingType: EBindingType.Input)
+            {
+                SourceBlockId = bInputs.Id,
+                SourceVariableName = "Delimiter"
             });
             dataConnections.Add(new(blockId: bOutputs.Id, variableName: "Result", displayName: null, bindingType: EBindingType.Input)
             {
-                SourceBlockId = bMultiply.Id,
+                SourceBlockId = bConcat.Id,
                 SourceVariableName = "Result"
             });
 
@@ -108,7 +115,8 @@ public static class RectangleAreaCFB
             cfb.DataConnections = dataConnections;
         }
 
-        cfb.MapDefinitions(new[] { bMultiplyDef, bInputsDef, bOutputsDef });
+        cfb.MapDefinitions(new[] { bConcatDef, bInputsDef, bOutputsDef });
         return cfb;
     }
+
 }

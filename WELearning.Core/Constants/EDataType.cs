@@ -2,7 +2,7 @@ namespace WELearning.Core.Constants;
 
 public enum EDataType
 {
-    Undefined = 0,
+    Any = 0,
     Reference = 1,
     Object = 2,
     Numeric = 3,

@@ -6,7 +6,7 @@ namespace WELearning.Core.FunctionBlocks;
 
 public class RawValueObject : IValueObject, IDisposable
 {
-    private readonly ManualResetEventSlim _valueSet;
+    protected readonly ManualResetEventSlim _valueSet;
 
     public RawValueObject(Variable variable)
     {
@@ -23,15 +23,15 @@ public class RawValueObject : IValueObject, IDisposable
     }
 
     public Variable Variable { get; }
-    public bool ValueChanged { get; private set; }
-    public bool ValueSet => _valueSet.IsSet;
+    public virtual bool ValueChanged { get; protected set; }
+    public virtual bool ValueSet => _valueSet.IsSet;
     private object _value;
-    public object Value
+    public virtual object Value
     {
         get => _value; set
         {
             ValueChanged = true;
-            _value = value;
+            SetCoreValue(value);
             _tempValue = null;
             _tempValueSet = false;
             _valueSet.Set();
@@ -39,9 +39,9 @@ public class RawValueObject : IValueObject, IDisposable
     }
 
     private bool _tempValueSet;
-    public bool TempValueSet => _tempValueSet;
+    public virtual bool TempValueSet => _tempValueSet;
     private object _tempValue;
-    public object TempValue
+    public virtual object TempValue
     {
         get => _tempValue; set
         {
@@ -50,13 +50,15 @@ public class RawValueObject : IValueObject, IDisposable
         }
     }
 
-    public void TryCommit()
+    public virtual void TryCommit()
     {
         if (_tempValueSet)
             Value = TempValue;
     }
 
-    public void WaitValueSet(CancellationToken cancellationToken) => _valueSet.Wait(cancellationToken);
+    protected virtual void SetCoreValue(object value) => _value = value;
+
+    public virtual void WaitValueSet(CancellationToken cancellationToken) => _valueSet.Wait(cancellationToken);
 
     // Reference: https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/integral-numeric-types
     public virtual bool IsNumeric => Value != null && (
@@ -66,23 +68,32 @@ public class RawValueObject : IValueObject, IDisposable
         || Value is float || Value is double || Value is decimal
     );
 
-    public double AsDouble()
+    public virtual bool IsRaw => true;
+
+    public virtual double AsDouble()
     {
         var value = Value?.ToString();
         if (value == null) throw new ArgumentNullException();
         return double.Parse(value);
     }
 
-    public int AsInt()
+    public virtual int AsInt()
     {
         var value = Value?.ToString();
         if (value == null) throw new ArgumentNullException();
         return int.Parse(value);
     }
 
+    public virtual bool AsBool()
+    {
+        var value = Value?.ToString();
+        if (value == null) throw new ArgumentNullException();
+        return bool.Parse(value);
+    }
+
     public override string ToString() => Value?.ToString();
 
-    public void Dispose()
+    public virtual void Dispose()
     {
         GC.SuppressFinalize(this);
         _valueSet.Dispose();
@@ -92,15 +103,17 @@ public class RawValueObject : IValueObject, IDisposable
     {
         switch (dataType)
         {
-            case EDataType.Bool: return (bool)Value;
-            case EDataType.Int: return (int)Value;
+            case EDataType.Bool: return AsBool();
+            case EDataType.Int: return AsInt();
             case EDataType.DateTime: return (DateTime)Value;
-            case EDataType.Double: return (double)Value;
-            case EDataType.Numeric: return (double)Value;
+            case EDataType.Double: return AsDouble();
+            case EDataType.Numeric: return AsDouble();
             case EDataType.Object: return Value;
             case EDataType.Reference: return this;
             case EDataType.String: return Value?.ToString();
             default: throw new NotSupportedException($"Data type {dataType} is not supported for this value!");
         }
     }
+
+    public virtual IValueObject CloneFor(Variable variable) => new RawValueObject(variable, value: Value);
 }

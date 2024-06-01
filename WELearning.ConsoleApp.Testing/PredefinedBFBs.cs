@@ -51,6 +51,7 @@ static class PredefinedBFBs
         DelayCsScript = CreateBlockDelayCsScript();
         DelayJs = CreateBlockDelayJs();
         FactorialCsScript = CreateBlockFactorialCsScript();
+        ConcatTwoStringsJs = CreateBlockConcatTwoStringsJs();
     }
 
     public static readonly BasicBlockDef MultiplyCsCompiled;
@@ -66,6 +67,7 @@ static class PredefinedBFBs
     public static readonly BasicBlockDef DelayCsScript;
     public static readonly BasicBlockDef DelayJs;
     public static readonly BasicBlockDef FactorialCsScript;
+    public static readonly BasicBlockDef ConcatTwoStringsJs;
 
     public static BasicBlockDef CreateInOutBlock(params Variable[] variables)
     {
@@ -106,6 +108,70 @@ static class PredefinedBFBs
         }
 
         return bInOut;
+    }
+
+    public static BasicBlockDef CreatePassThroughBlock(params (string Name, string DetailedType)[] passThroughVars)
+    {
+        var bPassThrough = new BasicBlockDef(id: $"PassThrough-{Guid.NewGuid()}", name: "Pass through block");
+        var inVariables = new List<string>();
+        var outVariables = new List<string>();
+        var allVariables = new List<Variable>();
+        foreach (var var in passThroughVars)
+        {
+            allVariables.Add(new(var.Name, EDataType.Any, EVariableType.Input, detailedType: var.DetailedType));
+            allVariables.Add(new(var.Name, EDataType.Any, EVariableType.Output, detailedType: var.DetailedType));
+            inVariables.Add(var.Name);
+            outVariables.Add(var.Name);
+        }
+        bPassThrough.Variables = allVariables;
+        var eTrigger = new BlockEvent(isInput: true, name: "Trigger", variableNames: inVariables);
+        var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: outVariables);
+        bPassThrough.Events = new[] { eTrigger, eCompleted };
+        bPassThrough.DefaultTriggerEvent = eTrigger.Name;
+
+        var fRun = new Function(
+            id: "Run",
+            name: "Run",
+            content: JavascriptHelper.WrapModuleFunction(
+                script: string.Join(
+                    separator: Environment.NewLine,
+                    values: passThroughVars.Select(p => @$"await FB.Out(""{p.Name}"").Write({p.Name});")),
+                inputVariables: JavascriptHelper.GetInputVariableNames(bPassThrough.Variables)
+            ),
+            runtime: ERuntime.Javascript,
+            imports: null, assemblies: null, types: null);
+        bPassThrough.Functions = new[] { fRun };
+
+        {
+            var execControl = new BlockECC();
+
+            var sInit = new BlockState("Init");
+            var sTriggered = new BlockState("Triggered");
+            var states = new[] { sInit, sTriggered };
+
+            var transitions = new List<BlockStateTransition>();
+            {
+                var tInit2Triggered = new BlockStateTransition(fromState: sInit.Name, toState: sTriggered.Name, triggerEventName: eTrigger.Name)
+                {
+                    DefaultOutputEvents = new[] { eCompleted.Name },
+                    ActionFunctionIds = new[] { fRun.Id }
+                };
+                var tTriggered2Triggered = new BlockStateTransition(fromState: sTriggered.Name, toState: sTriggered.Name, triggerEventName: eTrigger.Name)
+                {
+                    DefaultOutputEvents = new[] { eCompleted.Name },
+                    ActionFunctionIds = new[] { fRun.Id }
+                };
+                transitions.Add(tInit2Triggered);
+                transitions.Add(tTriggered2Triggered);
+            }
+
+            execControl.States = states;
+            execControl.StateTransitions = transitions;
+            execControl.InitialState = sInit.Name;
+            bPassThrough.ExecutionControlChart = execControl;
+        }
+
+        return bPassThrough;
     }
 
     #region Multiply
@@ -574,6 +640,62 @@ static class PredefinedBFBs
     }
 
     #endregion
+
+    private static BasicBlockDef CreateBlockConcatTwoStringsJs()
+    {
+        var bConcat = new BasicBlockDef(id: $"ConcatTwoStrings", name: $"Concat two strings");
+
+        var iX = new Variable("X", EDataType.String, EVariableType.Input);
+        var iY = new Variable("Y", EDataType.String, EVariableType.Input);
+        var iDeli = new Variable("Delimiter", EDataType.String, EVariableType.Input);
+        var oResult = new Variable("Result", EDataType.String, EVariableType.Output);
+        bConcat.Variables = new[] { iX, iY, iDeli, oResult };
+
+        var eTrigger = new BlockEvent(isInput: true, name: "Trigger", variableNames: new[] { iX.Name, iY.Name, iDeli.Name });
+        var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: new[] { oResult.Name });
+        bConcat.Events = new[] { eTrigger, eCompleted };
+        bConcat.DefaultTriggerEvent = eTrigger.Name;
+
+        var fRun = new Function(
+            id: "Run",
+            name: "Run",
+            content: JavascriptHelper.WrapModuleFunction(
+                script: @$"
+                var result = X + Delimiter + Y;
+                await FB.Out(""Result"").Write(result);
+                ",
+                inputVariables: JavascriptHelper.GetInputVariableNames(bConcat.Variables)
+            ),
+            runtime: ERuntime.Javascript,
+            imports: null, assemblies: null, types: null);
+        var functions = new[] { fRun };
+        bConcat.Functions = functions;
+
+        {
+            var execControl = new BlockECC();
+
+            var sIdle = new BlockState("Idle");
+            var sRunning = new BlockState("Running");
+            var states = new[] { sIdle, sRunning };
+
+            var transitions = new List<BlockStateTransition>();
+            {
+                var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eTrigger.Name);
+                tIdle2Running.ActionFunctionIds = new[] { fRun.Id };
+                tIdle2Running.DefaultOutputEvents = new[] { eCompleted.Name };
+
+                transitions.Add(tIdle2Running);
+                transitions.Add(new(fromState: sRunning.Name, toState: sIdle.Name));
+            }
+
+            execControl.States = states;
+            execControl.StateTransitions = transitions;
+            execControl.InitialState = sIdle.Name;
+            bConcat.ExecutionControlChart = execControl;
+        }
+
+        return bConcat;
+    }
 
     private static BasicBlockDef CreateBlockFactorialCsScript()
     {

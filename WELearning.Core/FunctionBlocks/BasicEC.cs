@@ -1,6 +1,5 @@
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
-using WELearning.Core.FunctionBlocks.Extensions;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
@@ -98,17 +97,20 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
         optimizationScopeId ??= Guid.NewGuid();
         var blockFramework = _blockFrameworkFactory.Create(this);
         var globalObject = new BlockGlobalObject<TFramework>(blockFramework);
+        var flattenArguments = FlattenInputs();
+        flattenArguments = new (string, object)[] { (nameof(BlockGlobalObject<TFramework>.FB), blockFramework) }
+            .Concat(flattenArguments);
 
         async Task<bool> Evaluate(Function condition, CancellationToken cancellationToken)
         {
-            var (result, optimizationScope) = await _functionRunner.Run<bool>(condition, globalObject: globalObject, optimizationScopeId.Value, cancellationToken);
+            var (result, optimizationScope) = await _functionRunner.Run<bool>(condition, globalObject: globalObject, flattenArguments, optimizationScopeId.Value, cancellationToken);
             if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
             return result;
         }
 
         async Task RunAction(Function actionFunction, CancellationToken cancellationToken)
         {
-            var optimizationScope = await _functionRunner.Run(actionFunction, globalObject, optimizationScopeId.Value, cancellationToken);
+            var optimizationScope = await _functionRunner.Run(actionFunction, globalObject, flattenArguments, optimizationScopeId.Value, cancellationToken);
             if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
         }
 

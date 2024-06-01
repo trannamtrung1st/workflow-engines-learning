@@ -41,14 +41,14 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.Javascript;
 
-    public async Task<TReturn> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
+    public async Task<TReturn> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
     {
-        var (result, _) = await Execute<TReturn, TArg>(content, arguments, imports, assemblies, types, optimizationScopeId: default, cancellationToken);
+        var (result, _) = await Execute<TReturn, TArg>(content, arguments, flattenArguments, imports, assemblies, types, optimizationScopeId: default, cancellationToken);
         return result;
     }
 
-    public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
-        => await Execute(content, arguments, imports, assemblies, types, optimizationScopeId: default, cancellationToken);
+    public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
+        => await Execute(content, arguments, flattenArguments, imports, assemblies, types, optimizationScopeId: default, cancellationToken);
 
     private static void TryAddArguments<TArg>(V8ScriptEngine engine, TArg arguments)
     {
@@ -170,7 +170,7 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
             item.Dispose();
     }
 
-    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         var combinedTypes = ReflectionHelper.CombineTypes(assemblies, types);
         var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, optimizationScopeId, cancellationToken);
@@ -185,7 +185,7 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         return (result, optimizationScope);
     }
 
-    public async Task<IDisposable> Execute<TArg>(string content, TArg arguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    public async Task<IDisposable> Execute<TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         var combinedTypes = ReflectionHelper.CombineTypes(assemblies, types);
         var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, optimizationScopeId, cancellationToken);
