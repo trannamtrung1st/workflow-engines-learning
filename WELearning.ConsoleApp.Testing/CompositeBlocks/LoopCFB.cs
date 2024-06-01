@@ -118,6 +118,17 @@ public static class LoopCFB
                 SourceBlockId = bLoopController.Id,
                 SourceVariableName = "Result"
             });
+
+            // [NOTE] CFB output data
+            foreach (var variable in cfb.Variables.Where(v => v.VariableType == EVariableType.Output || v.VariableType == EVariableType.InOut))
+            {
+                dataConnections.Add(new(blockId: null, variableName: variable.Name, displayName: null, bindingType: EBindingType.Output)
+                {
+                    SourceBlockId = bOutputs.Id,
+                    SourceVariableName = variable.Name
+                });
+            }
+
             cfb.DataConnections = dataConnections;
         }
 

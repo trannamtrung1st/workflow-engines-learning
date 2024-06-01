@@ -208,7 +208,7 @@ static class TestFunctionBlocks
             bMultiplyDef: PredefinedBFBs.MultiplyCsCompiled,
             bRandomDef: PredefinedBFBs.RandomCsCompiled,
             bDelayDef: PredefinedBFBs.DelayCsCompiled);
-        ICompositeEC CreateControl(CompositeBlockDef blockDef) => new CompositeEC<AppFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory);
+        IExecutionControl CreateControl(CompositeBlockDef blockDef) => new CompositeEC<AppFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory);
 
         Task<double> RunCsCompiled() => RunComplexCFB(
             blockRunner, CreateControl: () => CreateControl(blockDef: csCompiledCFB), cancellationToken: timeoutTokenProvider());
@@ -293,7 +293,7 @@ static class TestFunctionBlocks
         await Task.WhenAll(waits.Select(w => w.Task));
     }
 
-    public static async Task<double> RunComplexCFB(IBlockRunner blockRunner, Func<ICompositeEC> CreateControl, CancellationToken cancellationToken)
+    public static async Task<double> RunComplexCFB(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, CancellationToken cancellationToken)
     {
         var bindings = new HashSet<VariableBinding>();
         bindings.Add(new(variableName: "Add1X", value: 5, type: EBindingType.Input));
@@ -307,8 +307,7 @@ static class TestFunctionBlocks
         execControl.Failed += (o, e) => tcs.SetException(e);
         await tcs.Task;
 
-        if (!execControl.TryGetExecutionControl("Outputs", out var blockControl)) throw new Exception("Control not found");
-        var finalResult = blockControl.GetInput("Result");
+        var finalResult = execControl.GetOutput("Result");
         return (double)finalResult.Value;
     }
 
@@ -319,7 +318,7 @@ static class TestFunctionBlocks
         var functionRunner = serviceProvider.GetService<IFunctionRunner<AppFramework>>();
         var blockFrameworkFactory = serviceProvider.GetService<IBlockFrameworkFactory<AppFramework>>();
         const int DelayMs = 5000;
-        ICompositeEC CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory);
+        IExecutionControl CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory);
         IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFramework>(block: new(blockDef.Id), blockDef, functionRunner, blockFrameworkFactory);
 
         Console.WriteLine("DelayJS {0} ms", DelayMs);
@@ -387,7 +386,7 @@ static class TestFunctionBlocks
         Console.WriteLine(control.GetOutput("Result"));
     }
 
-    public static async Task RunRectangleArea(IBlockRunner blockRunner, Func<ICompositeEC> CreateControl, CancellationToken cancellationToken)
+    public static async Task RunRectangleArea(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, CancellationToken cancellationToken)
     {
         var bindings = new HashSet<VariableBinding>();
         bindings.Add(new(variableName: "Length", value: 5, type: EBindingType.Input));
@@ -401,12 +400,11 @@ static class TestFunctionBlocks
         execControl.Failed += (o, e) => tcs.SetException(e);
         await tcs.Task;
 
-        if (!execControl.TryGetExecutionControl("Outputs", out var blockControl)) throw new Exception("Control not found");
-        var finalResult = blockControl.GetInput("Result");
+        var finalResult = execControl.GetOutput("Result");
         Console.WriteLine(finalResult);
     }
 
-    public static async Task RunRectanglePerimeter(IBlockRunner blockRunner, Func<ICompositeEC> CreateControl, CancellationToken cancellationToken)
+    public static async Task RunRectanglePerimeter(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, CancellationToken cancellationToken)
     {
         var bindings = new HashSet<VariableBinding>();
         bindings.Add(new(variableName: "Length", value: 5, type: EBindingType.Input));
@@ -420,12 +418,11 @@ static class TestFunctionBlocks
         execControl.Failed += (o, e) => tcs.SetException(e);
         await tcs.Task;
 
-        if (!execControl.TryGetExecutionControl("Outputs", out var blockControl)) throw new Exception("Control not found");
-        var finalResult = blockControl.GetInput("Result");
+        var finalResult = execControl.GetOutput("Result");
         Console.WriteLine(finalResult);
     }
 
-    public static async Task RunLoopCFB(IBlockRunner blockRunner, Func<ICompositeEC> CreateControl, CancellationToken cancellationToken)
+    public static async Task RunLoopCFB(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, CancellationToken cancellationToken)
     {
         var bindings = new HashSet<VariableBinding>();
         bindings.Add(new(variableName: "N", value: 1000, type: EBindingType.Input));
@@ -438,12 +435,11 @@ static class TestFunctionBlocks
         execControl.Failed += (o, e) => tcs.SetException(e);
         await tcs.Task;
 
-        if (!execControl.TryGetExecutionControl("Outputs", out var blockControl)) throw new Exception("Control not found");
-        var finalResult = blockControl.GetInput("Result");
+        var finalResult = execControl.GetOutput("Result");
         Console.WriteLine(finalResult);
     }
 
-    public static async Task RunDependencyWait(IBlockRunner blockRunner, Func<ICompositeEC> CreateControl, CancellationToken cancellationToken)
+    public static async Task RunDependencyWait(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, CancellationToken cancellationToken)
     {
         var bindings = new HashSet<VariableBinding>();
         bindings.Add(new(variableName: "DelayMs", value: 3000, type: EBindingType.Input));
@@ -460,8 +456,7 @@ static class TestFunctionBlocks
         execControl.Failed += (o, e) => tcs.SetException(e);
         await tcs.Task;
 
-        if (!execControl.TryGetExecutionControl("Outputs", out var blockControl)) throw new Exception("Control not found");
-        var finalResult = blockControl.GetInput("Result");
+        var finalResult = execControl.GetOutput("Result");
         Console.WriteLine(finalResult);
     }
 }
