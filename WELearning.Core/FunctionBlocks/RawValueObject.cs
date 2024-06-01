@@ -1,12 +1,14 @@
+using WELearning.Core.Constants;
+using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Design;
 
-namespace WELearning.Core.FunctionBlocks.Models.Runtime;
+namespace WELearning.Core.FunctionBlocks;
 
-public class ValueObject : IDisposable
+public class RawValueObject : IValueObject, IDisposable
 {
     private readonly ManualResetEventSlim _valueSet;
 
-    public ValueObject(Variable variable)
+    public RawValueObject(Variable variable)
     {
         _valueSet = new ManualResetEventSlim();
         if (variable.DefaultValue != null)
@@ -15,7 +17,7 @@ public class ValueObject : IDisposable
         ValueChanged = false;
     }
 
-    public ValueObject(Variable variable, object value) : this(variable)
+    public RawValueObject(Variable variable, object value) : this(variable)
     {
         Value = value;
     }
@@ -64,16 +66,14 @@ public class ValueObject : IDisposable
         || Value is float || Value is double || Value is decimal
     );
 
-    public virtual bool Is<T>() => Value != null && Value is T;
-
-    public double ToDouble()
+    public double AsDouble()
     {
         var value = Value?.ToString();
         if (value == null) throw new ArgumentNullException();
         return double.Parse(value);
     }
 
-    public int ToInt()
+    public int AsInt()
     {
         var value = Value?.ToString();
         if (value == null) throw new ArgumentNullException();
@@ -82,5 +82,25 @@ public class ValueObject : IDisposable
 
     public override string ToString() => Value?.ToString();
 
-    public void Dispose() => _valueSet.Dispose();
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
+        _valueSet.Dispose();
+    }
+
+    public virtual object As(EDataType dataType)
+    {
+        switch (dataType)
+        {
+            case EDataType.Bool: return (bool)Value;
+            case EDataType.Int: return (int)Value;
+            case EDataType.DateTime: return (DateTime)Value;
+            case EDataType.Double: return (double)Value;
+            case EDataType.Numeric: return (double)Value;
+            case EDataType.Object: return Value;
+            case EDataType.Reference: return this;
+            case EDataType.String: return Value?.ToString();
+            default: throw new NotSupportedException($"Data type {dataType} is not supported for this value!");
+        }
+    }
 }

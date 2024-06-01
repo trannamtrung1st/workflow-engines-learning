@@ -1,3 +1,4 @@
+using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
 
 namespace WELearning.Core.FunctionBlocks.Models.Runtime;
@@ -11,9 +12,17 @@ public class VariableBinding
         Type = type;
     }
 
+    public VariableBinding(string variableName, IValueObject valueObject, EBindingType type)
+    {
+        VariableName = variableName;
+        ValueObject = valueObject;
+        Type = type;
+    }
+
     public EBindingType Type { get; }
     public string VariableName { get; }
-    public object Value { get; private set; }
+    public object Value { get; }
+    public IValueObject ValueObject { get; }
 
     public override bool Equals(object obj)
     {
@@ -25,5 +34,5 @@ public class VariableBinding
 
     public override int GetHashCode() => HashCode.Combine(VariableName, Type);
 
-    public override string ToString() => Value?.ToString();
+    public override string ToString() => (Value ?? ValueObject?.Value).ToString();
 }

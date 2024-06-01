@@ -149,15 +149,6 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
         }
     }
 
-    protected virtual void PrepareStates(IEnumerable<VariableBinding> bindings)
-    {
-        foreach (var binding in bindings)
-        {
-            var valueObject = GetValueObject(binding.VariableName, binding.Type.ToVariableType());
-            valueObject.Value = binding.Value;
-        }
-    }
-
     private void TryAddEvents(HashSet<string> events, IEnumerable<string> outputEvents)
     {
         if (outputEvents?.Any() != true) return;

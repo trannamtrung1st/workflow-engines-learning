@@ -6,20 +6,19 @@ public interface IBlockBinding
     bool ValueSet { get; }
 }
 
-public interface IInputBinding : IBlockBinding
+public interface IReadBinding : IBlockBinding
 {
     object Value { get; }
-    double ToDouble();
-    int ToInt();
+    double AsDouble();
+    int AsInt();
     bool IsNumeric { get; }
-    bool Is<T>();
 }
 
-public interface IOutputBinding : IBlockBinding
+public interface IWriteBinding : IBlockBinding
 {
-    Task Set(object value);
+    Task Write(object value);
 }
 
-public interface IReadWriteBinding : IInputBinding, IOutputBinding
+public interface IReadWriteBinding : IReadBinding, IWriteBinding
 {
 }

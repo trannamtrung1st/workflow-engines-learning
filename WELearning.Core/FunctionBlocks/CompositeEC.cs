@@ -131,15 +131,6 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
         return blockBindings;
     }
 
-    protected virtual void PrepareStates(IEnumerable<VariableBinding> bindings)
-    {
-        foreach (var binding in bindings)
-        {
-            var valueObject = GetValueObject(binding.VariableName, binding.Type.ToVariableType());
-            valueObject.Value = binding.Value;
-        }
-    }
-
     protected virtual void RefreshOutputs()
     {
         var outputEvents = Definition.Events.Where(e => !e.IsInput && _result.OutputEvents.Contains(e.Name));
@@ -147,7 +138,7 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
         var usingDataConnections = Definition.DataConnections
             .Where(c => allVariableNames.Contains(c.VariableName) && c.BindingType == EBindingType.Output)
             .ToArray();
-        var outputValues = new List<ValueObject>();
+        var outputValues = new List<IValueObject>();
 
         foreach (var connection in usingDataConnections)
         {

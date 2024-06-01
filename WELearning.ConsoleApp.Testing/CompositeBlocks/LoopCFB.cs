@@ -157,8 +157,8 @@ public static class LoopCFB
             id: "Trigger",
             name: "Trigger",
             content: @$"
-            await FB.Out(""Result"").Set(0.0);
-            var n = FB.In(""N"").ToInt();
+            await FB.Out(""Result"").Write(0.0);
+            var n = FB.In(""N"").AsInt();
             if (n > 0) 
                 await FB.Publish(""Loop"");
             else 
@@ -170,8 +170,8 @@ public static class LoopCFB
             id: "Loop",
             name: "Loop",
             content: @$"
-            var currentResult = FB.InOut(""Result"").ToInt();
-            var n = FB.In(""N"").ToInt();
+            var currentResult = FB.InOut(""Result"").AsInt();
+            var n = FB.In(""N"").AsInt();
             if (currentResult < n) 
                 await FB.Publish(""Loop"");
             else 
@@ -209,7 +209,7 @@ public static class LoopCFB
                         id: "Running2IdleCondition",
                         name: "Running to idle condition",
                         content: @$"
-                            var n = FB.In(""N"").ToInt();
+                            var n = FB.In(""N"").AsInt();
                             return n <= 0;
                         ",
                         runtime: ERuntime.CSharpScript,
@@ -223,8 +223,8 @@ public static class LoopCFB
                         id: "Looping2IdleCondition",
                         name: "Looping to idle condition",
                         content: @$"
-                            var n = FB.In(""N"").ToInt();
-                            var result = FB.In(""Result"").ToDouble();
+                            var n = FB.In(""N"").AsInt();
+                            var result = FB.In(""Result"").AsDouble();
                             return result >= n;
                         ",
                         runtime: ERuntime.CSharpScript,

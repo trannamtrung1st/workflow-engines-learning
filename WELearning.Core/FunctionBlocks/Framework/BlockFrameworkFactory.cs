@@ -5,5 +5,5 @@ namespace WELearning.Core.FunctionBlocks.Framework;
 
 public class BlockFrameworkFactory : IBlockFrameworkFactory<IBlockFramework>
 {
-    public IBlockFramework Create(IBasicEC control) => new BlockFramework(control);
+    public IBlockFramework Create(IExecutionControl control) => new BlockFramework(control);
 }

@@ -2,10 +2,13 @@ namespace WELearning.Core.Constants;
 
 public enum EDataType
 {
-    Void = 0,
-    Numeric = 1,
-    Int = 2,
-    Double = 3,
-    Bool = 4,
-    Object = 5
+    Undefined = 0,
+    Reference = 1,
+    Object = 2,
+    Numeric = 3,
+    Int = 4,
+    Double = 5,
+    Bool = 6,
+    String = 7,
+    DateTime = 8
 }

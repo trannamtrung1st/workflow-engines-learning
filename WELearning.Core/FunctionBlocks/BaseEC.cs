@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
+using WELearning.Core.FunctionBlocks.Extensions;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
@@ -11,7 +12,7 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
     where TFramework : IBlockFramework
     where TDefinition : BaseBlockDef
 {
-    protected readonly ConcurrentDictionary<Variable, ValueObject> _valueMap;
+    protected readonly ConcurrentDictionary<Variable, IValueObject> _valueMap;
     protected readonly SemaphoreSlim _mutexLock;
     protected readonly ManualResetEventSlim _idleWait;
     protected readonly IFunctionRunner<TFramework> _functionRunner;
@@ -42,14 +43,26 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
     public abstract event EventHandler<Exception> Failed;
     public abstract event EventHandler Completed;
 
-    public virtual ValueObject GetInOut(string key) => GetValueObject(key, EVariableType.InOut);
-    public virtual ValueObject GetInput(string key) => GetValueObject(key, EVariableType.Input);
-    public virtual ValueObject GetOutput(string key) => GetValueObject(key, EVariableType.Output);
-    public virtual ValueObject GetInternalData(string key) => GetValueObject(key, EVariableType.Internal);
-    public virtual ValueObject GetValueObject(string name, EVariableType type)
+    public virtual IValueObject GetInOut(string key) => GetValueObject(key, EVariableType.InOut);
+    public virtual IValueObject GetInput(string key) => GetValueObject(key, EVariableType.Input);
+    public virtual IValueObject GetOutput(string key) => GetValueObject(key, EVariableType.Output);
+    public virtual IValueObject GetInternalData(string key) => GetValueObject(key, EVariableType.Internal);
+    public virtual IValueObject GetValueObject(string name, EVariableType type)
     {
         var variable = ValidateBinding(name, type);
-        return _valueMap.GetOrAdd(variable, (variable) => new ValueObject(variable));
+        return _valueMap.GetOrAdd(variable, (variable) => new RawValueObject(variable));
+    }
+
+    public virtual void SetValueObject(string name, EVariableType type, IValueObject valueObject)
+    {
+        var variable = ValidateBinding(name, type);
+        _valueMap[variable] = valueObject;
+    }
+
+    public virtual Variable GetVariable(string key, EVariableType type)
+    {
+        var variable = Definition.Variables.FirstOrDefault(v => v.Name == key && v.VariableType == type);
+        return variable;
     }
 
     protected virtual Variable ValidateBinding(string name, EVariableType type)
@@ -61,6 +74,20 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
                 || (v.VariableType == EVariableType.InOut && isInOrOut)
             ));
         return variable ?? throw new KeyNotFoundException(name);
+    }
+
+    protected virtual void PrepareStates(IEnumerable<VariableBinding> bindings)
+    {
+        foreach (var binding in bindings)
+        {
+            if (binding.ValueObject != null)
+                SetValueObject(binding.VariableName, binding.Type.ToVariableType(), binding.ValueObject);
+            else
+            {
+                var valueObject = GetValueObject(binding.VariableName, binding.Type.ToVariableType());
+                valueObject.Value = binding.Value;
+            }
+        }
     }
 
     public virtual void WaitForIdle(CancellationToken cancellationToken) => _idleWait.Wait(cancellationToken);

@@ -9,5 +9,5 @@ Welcome!
 + Log and debug capabilities
 + Benchmark .NET for resource consumption
 + Simplify API
-+ Add IObjectValue (convert, receive) interface for connect object to primitive data port
++ Add IValueObject (convert, receive) interface for connect object to primitive data port
 + Add sample object output bindings
