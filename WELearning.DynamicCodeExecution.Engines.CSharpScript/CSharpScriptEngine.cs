@@ -14,14 +14,16 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
 {
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
     private static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(30);
-    private readonly MemoryCache _memoryCache;
-    public CSharpScriptEngine()
+    private readonly MemoryCache _scriptCache;
+    private readonly IKeyedLockManager _lockManager;
+    public CSharpScriptEngine(IKeyedLockManager lockManager)
     {
+        _lockManager = lockManager;
         var cacheOption = new MemoryCacheOptions
         {
             SizeLimit = DefaultCacheSizeLimitInBytes
         };
-        _memoryCache = new MemoryCache(cacheOption);
+        _scriptCache = new MemoryCache(cacheOption);
     }
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.CSharpScript;
@@ -30,14 +32,20 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
     {
         assemblies = ReflectionHelper.CombineAssemblies(assemblies, types);
         var (CacheKey, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, cancellationToken);
-        var script = _memoryCache.GetOrCreate(CacheKey, (entry) =>
+
+        Script<TReturn> script = null;
+        _lockManager.MutexAccess(CacheKey, () =>
         {
-            ConfigureCacheEntry(entry, CacheSize);
-            var scriptOptions = PrepareScriptOptions(imports, assemblies);
-            var script = CSharpScript.Create<TReturn>(content, scriptOptions, globalsType: typeof(TArg));
-            script.Compile(cancellationToken);
-            return script;
+            script = _scriptCache.GetOrCreate(CacheKey, (entry) =>
+            {
+                ConfigureCacheEntry(entry, CacheSize);
+                var scriptOptions = PrepareScriptOptions(imports, assemblies);
+                var script = CSharpScript.Create<TReturn>(content, scriptOptions, globalsType: typeof(TArg));
+                script.Compile(cancellationToken);
+                return script;
+            });
         });
+
         var result = await script.RunAsync(globals: arguments, cancellationToken: cancellationToken);
         return result.ReturnValue;
     }
@@ -46,14 +54,20 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
     {
         assemblies = ReflectionHelper.CombineAssemblies(assemblies, types);
         var (CacheKey, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, cancellationToken);
-        var script = _memoryCache.GetOrCreate(CacheKey, (entry) =>
+
+        Script script = null;
+        _lockManager.MutexAccess(CacheKey, () =>
         {
-            ConfigureCacheEntry(entry, CacheSize);
-            var scriptOptions = PrepareScriptOptions(imports, assemblies);
-            var script = CSharpScript.Create(content, scriptOptions, globalsType: typeof(TArg));
-            script.Compile(cancellationToken);
-            return script;
+            script = _scriptCache.GetOrCreate(CacheKey, (entry) =>
+            {
+                ConfigureCacheEntry(entry, CacheSize);
+                var scriptOptions = PrepareScriptOptions(imports, assemblies);
+                var script = CSharpScript.Create(content, scriptOptions, globalsType: typeof(TArg));
+                script.Compile(cancellationToken);
+                return script;
+            });
         });
+
         var result = await script.RunAsync(globals: arguments, cancellationToken: cancellationToken);
     }
 
@@ -90,6 +104,6 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
 
     public void Dispose()
     {
-        _memoryCache.Dispose();
+        _scriptCache.Dispose();
     }
 }

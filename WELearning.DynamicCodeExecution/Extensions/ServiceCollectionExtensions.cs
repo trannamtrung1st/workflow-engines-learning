@@ -9,4 +9,9 @@ public static class ServiceCollectionExtensions
     {
         return services.AddTransient<IRuntimeEngineFactory, RuntimeEngineFactory>();
     }
+
+    public static IServiceCollection AddKeyedLockManager(this IServiceCollection services)
+    {
+        return services.AddTransient<IKeyedLockManager, KeyedLockManager>();
+    }
 }

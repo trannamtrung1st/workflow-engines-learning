@@ -3,23 +3,22 @@ using WELearning.Core.FunctionBlocks.Models.Runtime;
 
 namespace WELearning.Core.FunctionBlocks;
 
-public class BlockRunner<TFramework> : IBlockRunner<TFramework> where TFramework : IBlockFramework
+public class BlockRunner : IBlockRunner
 {
-    public async Task<BlockExecutionResult> Run(
-        RunBlockRequest request, IBlockExecutionControl control,
-        Guid? optimizationScopeId, CancellationToken cancellationToken)
+    public async Task Run(RunBlockRequest request, IExecutionControl control, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
-        BlockExecutionResult result = null;
-        while (result == null)
+        bool started = false;
+        while (!started)
         {
             control.WaitForIdle(cancellationToken);
             await control.MutexAccess(async () =>
             {
                 if (control.IsIdle)
-                    result = await control.Execute(triggerEvent: request.TriggerEvent,
-                        bindings: request.Bindings, optimizationScopeId, cancellationToken: cancellationToken);
+                {
+                    await control.Execute(triggerEvent: request.TriggerEvent, bindings: request.Bindings, optimizationScopeId, cancellationToken);
+                    started = true;
+                }
             }, cancellationToken);
         }
-        return result;
     }
 }

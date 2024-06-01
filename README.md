@@ -4,9 +4,6 @@ Welcome!
 
 ## Todo list
 [TODO]
-+ Wire FB models
-+ Shorten name BFB, CFB, ...
-+ CFB states
 + Distribution, data store
 + Exception handling: states losses, etc ...
 + Log and debug capabilities

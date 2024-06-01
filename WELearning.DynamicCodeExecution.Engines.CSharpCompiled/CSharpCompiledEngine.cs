@@ -14,14 +14,16 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
 {
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
     private static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(30);
-    private readonly MemoryCache _memoryCache;
-    public CSharpCompiledEngine()
+    private readonly MemoryCache _assemblyCache;
+    private readonly IKeyedLockManager _lockManager;
+    public CSharpCompiledEngine(IKeyedLockManager lockManager)
     {
+        _lockManager = lockManager;
         var cacheOption = new MemoryCacheOptions
         {
             SizeLimit = DefaultCacheSizeLimitInBytes
         };
-        _memoryCache = new MemoryCache(cacheOption);
+        _assemblyCache = new MemoryCache(cacheOption);
     }
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.CSharpCompiled;
@@ -74,36 +76,40 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
     private async Task<Assembly> LoadOrCompile(string content, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken)
     {
         var (AssemblyName, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, cancellationToken);
-        var assembly = _memoryCache.GetOrCreate(AssemblyName, (entry) =>
+        Assembly assembly = null;
+        _lockManager.MutexAccess(AssemblyName, () =>
         {
-            entry.SetSize(CacheSize);
-            entry.SetSlidingExpiration(DefaultSlidingExpiration);
-            content = AddImports(content, imports);
-            try
+            assembly = _assemblyCache.GetOrCreate(AssemblyName, (entry) =>
             {
-                var assembly = Assembly.Load(AssemblyName);
-                return assembly;
-            }
-            catch
-            {
-                var syntaxTree = SyntaxFactory.ParseSyntaxTree(content);
-                var compilation = CSharpCompilation.Create(AssemblyName)
-                    .WithOptions(new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-                    .AddSyntaxTrees(syntaxTree);
-                if (assemblies?.Any() == true)
+                entry.SetSize(CacheSize);
+                entry.SetSlidingExpiration(DefaultSlidingExpiration);
+                content = AddImports(content, imports);
+                try
                 {
-                    var preloadAssemblies = assemblies.Select(dll => MetadataReference.CreateFromFile(dll.Location) as MetadataReference);
-                    compilation = compilation.WithReferences(preloadAssemblies);
+                    var assembly = Assembly.Load(AssemblyName);
+                    return assembly;
                 }
-                return EmitToMemory(compilation, cancellationToken);
-            }
+                catch
+                {
+                    var syntaxTree = SyntaxFactory.ParseSyntaxTree(content);
+                    var compilation = CSharpCompilation.Create(AssemblyName)
+                        .WithOptions(new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
+                        .AddSyntaxTrees(syntaxTree);
+                    if (assemblies?.Any() == true)
+                    {
+                        var preloadAssemblies = assemblies.Select(dll => MetadataReference.CreateFromFile(dll.Location) as MetadataReference);
+                        compilation = compilation.WithReferences(preloadAssemblies);
+                    }
+                    return EmitToMemory(compilation, cancellationToken);
+                }
+            });
         });
         return assembly;
     }
 
     private Assembly EmitToMemory(CSharpCompilation compilation, CancellationToken cancellationToken)
     {
-        // [TODO] add file emit
+        // [OPT] add file emit
         using var peStream = new MemoryStream();
         using var pdbStream = new MemoryStream();
         var emitResult = compilation.Emit(peStream, pdbStream, cancellationToken: cancellationToken);
@@ -114,6 +120,6 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
 
     public void Dispose()
     {
-        _memoryCache.Dispose();
+        _assemblyCache.Dispose();
     }
 }

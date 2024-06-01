@@ -19,19 +19,21 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
     private const string ExportedFunctionName = nameof(IExecutable<object>.Execute);
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
     private static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(30);
-    private readonly MemoryCache _scriptCache;
+    private readonly MemoryCache _moduleCache;
     private readonly IOptions<JintOptions> _jintOptions;
     private readonly EngineCache _engineCache;
-    public JintJavascriptEngine(IOptions<JintOptions> JintOptions)
+    private readonly IKeyedLockManager _lockManager;
+    public JintJavascriptEngine(IOptions<JintOptions> JintOptions, IKeyedLockManager lockManager)
     {
+        _lockManager = lockManager;
         var cacheOption = new MemoryCacheOptions
         {
             SizeLimit = DefaultCacheSizeLimitInBytes
         };
-        _scriptCache = new MemoryCache(cacheOption);
+        _moduleCache = new MemoryCache(cacheOption);
         _engineCache = new();
         _jintOptions = JintOptions;
-        // [TODO] add lib loading cache
+        // [OPT] add lib loading cache
     }
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.Javascript;
@@ -48,18 +50,22 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
     private async Task<ObjectInstance> GetScriptModule(Guid engineId, Engine engine, string content, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken)
     {
         var (ModuleName, CacheSize) = await GetScriptCacheEntry(engineId, content, imports, assemblies, cancellationToken);
-        var module = _scriptCache.GetOrCreate(ModuleName, (entry) =>
+        ObjectInstance module = null;
+        _lockManager.MutexAccess(ModuleName, () =>
         {
-            entry.SetSize(CacheSize);
-            entry.SetSlidingExpiration(DefaultSlidingExpiration);
-            content = AddImports(content, imports);
-            var preparedModule = Engine.PrepareModule(code: content, options: new ModulePreparationOptions
+            module = _moduleCache.GetOrCreate(ModuleName, (entry) =>
             {
-                ParsingOptions = ModuleParsingOptions.Default
+                entry.SetSize(CacheSize);
+                entry.SetSlidingExpiration(DefaultSlidingExpiration);
+                content = AddImports(content, imports);
+                var preparedModule = Engine.PrepareModule(code: content, options: new ModulePreparationOptions
+                {
+                    ParsingOptions = ModuleParsingOptions.Default
+                });
+                engine.Modules.Add(ModuleName, b => b.AddModule(preparedModule));
+                var module = engine.Modules.Import(ModuleName);
+                return module;
             });
-            engine.Modules.Add(ModuleName, b => b.AddModule(preparedModule));
-            var module = engine.Modules.Import(ModuleName);
-            return module;
         });
         return module;
     }
@@ -133,7 +139,7 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
 
     public void Dispose()
     {
-        _scriptCache.Dispose();
+        _moduleCache.Dispose();
         _engineCache.Dispose();
     }
 
@@ -169,7 +175,7 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
     private static TReturn Cast<TReturn>(JsValue jsValue)
     {
         object value;
-        // [TODO] cast
+        // [OPT] cast
         switch (jsValue.Type)
         {
             case Jint.Runtime.Types.Boolean: value = jsValue.AsBoolean(); break;
@@ -256,6 +262,7 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
 
         public void Dispose()
         {
+            _lock.Dispose();
             _engine.Dispose();
         }
 

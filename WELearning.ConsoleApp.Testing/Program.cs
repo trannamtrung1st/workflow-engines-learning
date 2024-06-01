@@ -4,26 +4,28 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
-using WELearning.ConsoleApp.Testing.Processes;
+using WELearning.ConsoleApp.Testing.CompositeBlocks;
 using WELearning.Core.FunctionBlocks;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.FunctionBlocks.Extensions;
+using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
 using WELearning.Core.Helpers;
+using WELearning.Core.Reflection.Extensions;
 using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Constants;
 using WELearning.DynamicCodeExecution.Extensions;
 
 const string LibraryFolderPath = "/Users/trungtran/MyPlace/Personal/Learning/workflow-engines-learning/local/libs";
 var serviceCollection = new ServiceCollection()
-    .AddDefaultProcessRunner<AppFramework>()
-    .AddDefaultBlockRunner<AppFramework>()
-    .AddDefaultLogicRunner<AppFramework>()
+    .AddDefaultBlockRunner()
+    .AddDefaultFunctionRunner<AppFramework>()
     .AddBlockFrameworkFactory<AppFramework, AppFrameworkFactory>()
     .AddDefaultRuntimeEngineFactory()
     .AddDefaultTypeProvider()
+    .AddKeyedLockManager()
     .AddCSharpCompiledEngine()
     .AddCSharpScriptEngine()
     // For JS engines, first found engine will be used
@@ -36,7 +38,7 @@ var timeoutTokenProvider = () => new CancellationTokenSource(TimeSpan.FromSecond
 
 await TestEngines.BenchmarkLoops(serviceProvider, timeoutTokenProvider);
 Console.WriteLine();
-await TestFunctionBlocks.BenchmarkComplexProcess(serviceProvider, timeoutTokenProvider);
+await TestFunctionBlocks.BenchmarkComplexCFB(serviceProvider, timeoutTokenProvider);
 Console.WriteLine();
 await TestEngines.Run(serviceProvider, timeoutTokenProvider);
 Console.WriteLine();
@@ -189,50 +191,43 @@ static class TestEngines
 
 static class TestFunctionBlocks
 {
-    public static async Task BenchmarkComplexProcess(IServiceProvider serviceProvider, Func<CancellationToken> timeoutTokenProvider)
+    public static async Task BenchmarkComplexCFB(IServiceProvider serviceProvider, Func<CancellationToken> timeoutTokenProvider)
     {
-        Console.WriteLine("=== Benchmark complex process ===");
+        Console.WriteLine("=== Benchmark complex CFB ===");
         const int FirstLoop = 1;
         const int SecondLoop = 300;
         const int ThirdLoop = 700;
-        var processRunner = serviceProvider.GetService<IProcessRunner>();
-        var blockRunner = serviceProvider.GetService<IBlockRunner<AppFramework>>();
+        var blockRunner = serviceProvider.GetService<IBlockRunner>();
         var engineFactory = serviceProvider.GetService<IRuntimeEngineFactory>();
-        var logicRunner = serviceProvider.GetService<ILogicRunner<AppFramework>>();
+        var functionRunner = serviceProvider.GetService<IFunctionRunner<AppFramework>>();
         var blockFrameworkFactory = serviceProvider.GetService<IBlockFrameworkFactory<AppFramework>>();
         var jsEngine = engineFactory.CreateEngine(ERuntime.Javascript);
         var jsEngineName = jsEngine.GetType().Name;
-        var csCompiledProcess = ComplexProcess.Build(
-            bAddDef: PredefinedBlocks.AddCsCompiled,
-            bMultiplyDef: PredefinedBlocks.MultiplyCsCompiled,
-            bRandomDef: PredefinedBlocks.RandomCsCompiled,
-            bDelayDef: PredefinedBlocks.DelayCsCompiled);
-        IProcessExecutionControl CreateControl(FunctionBlockProcess process) => new ProcessExecutionControl<AppFramework>(process, blockRunner, logicRunner, blockFrameworkFactory);
+        var csCompiledCFB = ComplexCFB.Build(
+            bAddDef: PredefinedBFBs.AddCsCompiled,
+            bMultiplyDef: PredefinedBFBs.MultiplyCsCompiled,
+            bRandomDef: PredefinedBFBs.RandomCsCompiled,
+            bDelayDef: PredefinedBFBs.DelayCsCompiled);
+        ICompositeEC CreateControl(CompositeBlockDef blockDef) => new CompositeEC<AppFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory);
 
-        Task<double> RunCsCompiled() => RunComplexProcess(
-            processRunner,
-            CreateControl: () => CreateControl(process: csCompiledProcess),
-            cancellationToken: timeoutTokenProvider());
+        Task<double> RunCsCompiled() => RunComplexCFB(
+            blockRunner, CreateControl: () => CreateControl(blockDef: csCompiledCFB), cancellationToken: timeoutTokenProvider());
 
-        var csScriptProcess = ComplexProcess.Build(
-            bAddDef: PredefinedBlocks.AddCsScript,
-            bMultiplyDef: PredefinedBlocks.MultiplyCsScript,
-            bRandomDef: PredefinedBlocks.RandomCsScript,
-            bDelayDef: PredefinedBlocks.DelayCsScript);
-        Task<double> RunCsScript() => RunComplexProcess(
-            processRunner,
-            CreateControl: () => CreateControl(process: csScriptProcess),
-            cancellationToken: timeoutTokenProvider());
+        var csScriptCFB = ComplexCFB.Build(
+            bAddDef: PredefinedBFBs.AddCsScript,
+            bMultiplyDef: PredefinedBFBs.MultiplyCsScript,
+            bRandomDef: PredefinedBFBs.RandomCsScript,
+            bDelayDef: PredefinedBFBs.DelayCsScript);
+        Task<double> RunCsScript() => RunComplexCFB(
+            blockRunner, CreateControl: () => CreateControl(blockDef: csScriptCFB), cancellationToken: timeoutTokenProvider());
 
-        var jsProcess = ComplexProcess.Build(
-            bAddDef: PredefinedBlocks.AddJs,
-            bMultiplyDef: PredefinedBlocks.MultiplyJs,
-            bRandomDef: PredefinedBlocks.RandomJs,
-            bDelayDef: PredefinedBlocks.DelayJs);
-        Task<double> RunJs() => RunComplexProcess(
-            processRunner,
-            CreateControl: () => CreateControl(process: jsProcess),
-            cancellationToken: timeoutTokenProvider());
+        var jsCFB = ComplexCFB.Build(
+            bAddDef: PredefinedBFBs.AddJs,
+            bMultiplyDef: PredefinedBFBs.MultiplyJs,
+            bRandomDef: PredefinedBFBs.RandomJs,
+            bDelayDef: PredefinedBFBs.DelayJs);
+        Task<double> RunJs() => RunComplexCFB(
+            blockRunner, CreateControl: () => CreateControl(blockDef: jsCFB), cancellationToken: timeoutTokenProvider());
 
         var sw = Stopwatch.StartNew();
         await Loop(FirstLoop, func: RunCsCompiled);
@@ -260,7 +255,7 @@ static class TestFunctionBlocks
 
         const int ParallelLoopCount = 1000;
         Console.WriteLine();
-        Console.WriteLine("=== Benchmark complex process (Parallel) ===");
+        Console.WriteLine("=== Benchmark complex CFB (Parallel) ===");
         sw.Restart();
         await ParallelLoop(ParallelLoopCount, RunCsCompiled);
         Console.WriteLine("C# compiled ({0}): {1}", ParallelLoopCount, sw.ElapsedMilliseconds);
@@ -298,175 +293,174 @@ static class TestFunctionBlocks
         await Task.WhenAll(waits.Select(w => w.Task));
     }
 
-    public static async Task<double> RunComplexProcess(IProcessRunner processRunner, Func<IProcessExecutionControl> CreateControl, CancellationToken cancellationToken)
+    public static async Task<double> RunComplexCFB(IBlockRunner blockRunner, Func<ICompositeEC> CreateControl, CancellationToken cancellationToken)
     {
-        var bindings = new HashSet<ProcessVariableBinding>();
-        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "Add1X", value: 5, type: EBindingType.Output)));
-        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "Add1Y", value: 10, type: EBindingType.Output)));
-        var processControl = CreateControl();
-        var runRequest = new RunProcessRequest(process: processControl.Process, bindings);
-        await processRunner.Run(runRequest, processControl, cancellationToken);
+        var bindings = new HashSet<VariableBinding>();
+        bindings.Add(new(variableName: "Add1X", value: 5, type: EBindingType.Input));
+        bindings.Add(new(variableName: "Add1Y", value: 10, type: EBindingType.Input));
+        var execControl = CreateControl();
+        var runRequest = new RunBlockRequest(bindings);
+        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default, cancellationToken);
 
         var tcs = new TaskCompletionSource();
-        processControl.Completed += (o, e) => tcs.SetResult();
-        processControl.Failed += (o, e) => tcs.SetException(e);
+        execControl.Completed += (o, e) => tcs.SetResult();
+        execControl.Failed += (o, e) => tcs.SetException(e);
         await tcs.Task;
 
-        if (!processControl.TryGetBlockControl("Outputs", out var blockControl)) throw new Exception("Control not found");
+        if (!execControl.TryGetExecutionControl("Outputs", out var blockControl)) throw new Exception("Control not found");
         var finalResult = blockControl.GetInput("Result");
         return (double)finalResult.Value;
     }
 
     public static async Task Run(IServiceProvider serviceProvider, Func<CancellationToken> timeoutTokenProvider)
     {
-        var processRunner = serviceProvider.GetService<IProcessRunner>();
-        var blockRunner = serviceProvider.GetService<IBlockRunner<AppFramework>>();
+        var blockRunner = serviceProvider.GetService<IBlockRunner>();
         var engineFactory = serviceProvider.GetService<IRuntimeEngineFactory>();
-        var logicRunner = serviceProvider.GetService<ILogicRunner<AppFramework>>();
+        var functionRunner = serviceProvider.GetService<IFunctionRunner<AppFramework>>();
         var blockFrameworkFactory = serviceProvider.GetService<IBlockFrameworkFactory<AppFramework>>();
         const int DelayMs = 5000;
-        IProcessExecutionControl CreateProcessControl(FunctionBlockProcess process) => new ProcessExecutionControl<AppFramework>(process, blockRunner, logicRunner, blockFrameworkFactory);
-        IBlockExecutionControl CreateBlockControl(FunctionBlock blockDef) => new BlockExecutionControl<AppFramework>(block: new(blockDef.Id), blockDef, logicRunner, blockFrameworkFactory);
+        ICompositeEC CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory);
+        IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFramework>(block: new(blockDef.Id), blockDef, functionRunner, blockFrameworkFactory);
 
         Console.WriteLine("DelayJS {0} ms", DelayMs);
         await RunBlockDelay(
-            blockRunner, CreateControl: () => CreateBlockControl(blockDef: PredefinedBlocks.DelayJs),
+            blockRunner, CreateControl: () => CreateBasicControl(blockDef: PredefinedBFBs.DelayJs),
             delayMs: DelayMs, cancellationToken: timeoutTokenProvider());
 
-        await RunBlockRandomDouble(blockRunner, CreateControl: () => CreateBlockControl(blockDef: PredefinedBlocks.RandomCsScript), cancellationToken: timeoutTokenProvider());
+        await RunBlockRandomDouble(blockRunner, CreateControl: () => CreateBasicControl(blockDef: PredefinedBFBs.RandomCsScript), cancellationToken: timeoutTokenProvider());
 
-        await RunBlockFactorial(blockRunner, CreateControl: () => CreateBlockControl(blockDef: PredefinedBlocks.FactorialCsScript), cancellationToken: timeoutTokenProvider());
+        await RunBlockFactorial(blockRunner, CreateControl: () => CreateBasicControl(blockDef: PredefinedBFBs.FactorialCsScript), cancellationToken: timeoutTokenProvider());
 
-        var rectangleAreaProcess = RectangleAreaProcess.Build(
-            bMultiplyDef: PredefinedBlocks.MultiplyCsScript
+        var rectangleAreaCFB = RectangleAreaCFB.Build(
+            bMultiplyDef: PredefinedBFBs.MultiplyCsScript
         );
-        await RunRectangleArea(processRunner, CreateControl: () => CreateProcessControl(process: rectangleAreaProcess), cancellationToken: timeoutTokenProvider());
+        await RunRectangleArea(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: rectangleAreaCFB), cancellationToken: timeoutTokenProvider());
 
-        await RunRectanglePerimeter(processRunner,
-            CreateControl: () => CreateProcessControl(process: RectanglePerimeterProcess.Build(
-                bAddDef: PredefinedBlocks.AddCsScript, bMultiplyDef: PredefinedBlocks.MultiplyCsCompiled
+        await RunRectanglePerimeter(blockRunner,
+            CreateControl: () => CreateCompositeControl(blockDef: RectanglePerimeterCFB.Build(
+                bAddDef: PredefinedBFBs.AddCsScript, bMultiplyDef: PredefinedBFBs.MultiplyCsCompiled
             )),
             cancellationToken: timeoutTokenProvider());
 
-        var rectanglePerimeterJs = RectanglePerimeterProcess.Build(
-            bAddDef: PredefinedBlocks.AddJs, bMultiplyDef: PredefinedBlocks.MultiplyCsCompiled
+        var rectanglePerimeterJs = RectanglePerimeterCFB.Build(
+            bAddDef: PredefinedBFBs.AddJs, bMultiplyDef: PredefinedBFBs.MultiplyCsCompiled
         );
-        await RunRectanglePerimeter(processRunner, CreateControl: () => CreateProcessControl(process: rectanglePerimeterJs), cancellationToken: timeoutTokenProvider());
+        await RunRectanglePerimeter(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: rectanglePerimeterJs), cancellationToken: timeoutTokenProvider());
         Console.WriteLine("\n{0}\n", JsonSerializer.Serialize(rectanglePerimeterJs, Program.DefaultJsonOpts));
 
-        await RunLoopProcess(processRunner, CreateControl: () => CreateProcessControl(process: LoopProcess.Build()), cancellationToken: timeoutTokenProvider());
+        await RunLoopCFB(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: LoopCFB.Build()), cancellationToken: timeoutTokenProvider());
 
-        await RunDependencyWait(processRunner, CreateControl: () => CreateProcessControl(process: DependencyWaitProcess.Build()), cancellationToken: timeoutTokenProvider());
+        await RunDependencyWait(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: DependencyWaitCFB.Build()), cancellationToken: timeoutTokenProvider());
     }
 
     public static async Task RunBlockDelay(
-        IBlockRunner<AppFramework> blockRunner, Func<IBlockExecutionControl> CreateControl,
+        IBlockRunner blockRunner, Func<IExecutionControl> CreateControl,
         int delayMs, CancellationToken cancellationToken)
     {
         var control = CreateControl();
         var bindings = new VariableBinding[] { new("Ms", delayMs, type: EBindingType.Input) };
-        var runRequest = new RunBlockRequest(block: control.Block, bindings, triggerEvent: null);
-        var result = await blockRunner.Run(runRequest, control, optimizationScopeId: default, cancellationToken);
-        Console.WriteLine(string.Join(Environment.NewLine, result.OutputEvents));
+        var runRequest = new RunBlockRequest(bindings, triggerEvent: null);
+        await blockRunner.Run(runRequest, control, optimizationScopeId: default, cancellationToken);
+        Console.WriteLine(string.Join(Environment.NewLine, control.Result.OutputEvents));
     }
 
     public static async Task RunBlockRandomDouble(
-        IBlockRunner<AppFramework> blockRunner, Func<IBlockExecutionControl> CreateControl,
+        IBlockRunner blockRunner, Func<IExecutionControl> CreateControl,
         CancellationToken cancellationToken)
     {
         var control = CreateControl();
-        var runRequest = new RunBlockRequest(block: control.Block, bindings: Array.Empty<VariableBinding>(), triggerEvent: null);
-        var result = await blockRunner.Run(runRequest, control, optimizationScopeId: default, cancellationToken);
-        Console.WriteLine(string.Join(Environment.NewLine, result.OutputEvents));
+        var runRequest = new RunBlockRequest(bindings: Array.Empty<VariableBinding>(), triggerEvent: null);
+        await blockRunner.Run(runRequest, control, optimizationScopeId: default, cancellationToken);
+        Console.WriteLine(string.Join(Environment.NewLine, control.Result.OutputEvents));
         Console.WriteLine(control.GetOutput("Result"));
     }
 
     public static async Task RunBlockFactorial(
-        IBlockRunner<AppFramework> blockRunner, Func<IBlockExecutionControl> CreateControl,
+        IBlockRunner blockRunner, Func<IExecutionControl> CreateControl,
         CancellationToken cancellationToken)
     {
         var control = CreateControl();
         var bindings = new VariableBinding[] { new("N", 5, type: EBindingType.Input) };
-        var runRequest = new RunBlockRequest(block: control.Block, bindings, triggerEvent: null);
-        var result = await blockRunner.Run(runRequest, control, optimizationScopeId: default, cancellationToken);
-        Console.WriteLine(string.Join(Environment.NewLine, result.OutputEvents));
+        var runRequest = new RunBlockRequest(bindings, triggerEvent: null);
+        await blockRunner.Run(runRequest, control, optimizationScopeId: default, cancellationToken);
+        Console.WriteLine(string.Join(Environment.NewLine, control.Result.OutputEvents));
         Console.WriteLine(control.GetOutput("Result"));
     }
 
-    public static async Task RunRectangleArea(IProcessRunner processRunner, Func<IProcessExecutionControl> CreateControl, CancellationToken cancellationToken)
+    public static async Task RunRectangleArea(IBlockRunner blockRunner, Func<ICompositeEC> CreateControl, CancellationToken cancellationToken)
     {
-        var bindings = new HashSet<ProcessVariableBinding>();
-        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "Length", value: 5, type: EBindingType.Output)));
-        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "Width", value: 2, type: EBindingType.Output)));
-        var processControl = CreateControl();
-        var runRequest = new RunProcessRequest(process: processControl.Process, bindings: bindings);
-        await processRunner.Run(runRequest, processControl, cancellationToken);
+        var bindings = new HashSet<VariableBinding>();
+        bindings.Add(new(variableName: "Length", value: 5, type: EBindingType.Input));
+        bindings.Add(new(variableName: "Width", value: 2, type: EBindingType.Input));
+        var execControl = CreateControl();
+        var runRequest = new RunBlockRequest(bindings: bindings);
+        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default, cancellationToken);
 
         var tcs = new TaskCompletionSource();
-        processControl.Completed += (o, e) => tcs.SetResult();
-        processControl.Failed += (o, e) => tcs.SetException(e);
+        execControl.Completed += (o, e) => tcs.SetResult();
+        execControl.Failed += (o, e) => tcs.SetException(e);
         await tcs.Task;
 
-        if (!processControl.TryGetBlockControl("Outputs", out var blockControl)) throw new Exception("Control not found");
+        if (!execControl.TryGetExecutionControl("Outputs", out var blockControl)) throw new Exception("Control not found");
         var finalResult = blockControl.GetInput("Result");
         Console.WriteLine(finalResult);
     }
 
-    public static async Task RunRectanglePerimeter(IProcessRunner processRunner, Func<IProcessExecutionControl> CreateControl, CancellationToken cancellationToken)
+    public static async Task RunRectanglePerimeter(IBlockRunner blockRunner, Func<ICompositeEC> CreateControl, CancellationToken cancellationToken)
     {
-        var bindings = new HashSet<ProcessVariableBinding>();
-        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "Length", value: 5, type: EBindingType.Output)));
-        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "Width", value: 2, type: EBindingType.Output)));
-        var processControl = CreateControl();
-        var runRequest = new RunProcessRequest(process: processControl.Process, bindings);
-        await processRunner.Run(runRequest, processControl, cancellationToken);
+        var bindings = new HashSet<VariableBinding>();
+        bindings.Add(new(variableName: "Length", value: 5, type: EBindingType.Input));
+        bindings.Add(new(variableName: "Width", value: 2, type: EBindingType.Input));
+        var execControl = CreateControl();
+        var runRequest = new RunBlockRequest(bindings);
+        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default, cancellationToken);
 
         var tcs = new TaskCompletionSource();
-        processControl.Completed += (o, e) => tcs.SetResult();
-        processControl.Failed += (o, e) => tcs.SetException(e);
+        execControl.Completed += (o, e) => tcs.SetResult();
+        execControl.Failed += (o, e) => tcs.SetException(e);
         await tcs.Task;
 
-        if (!processControl.TryGetBlockControl("Outputs", out var blockControl)) throw new Exception("Control not found");
+        if (!execControl.TryGetExecutionControl("Outputs", out var blockControl)) throw new Exception("Control not found");
         var finalResult = blockControl.GetInput("Result");
         Console.WriteLine(finalResult);
     }
 
-    public static async Task RunLoopProcess(IProcessRunner processRunner, Func<IProcessExecutionControl> CreateControl, CancellationToken cancellationToken)
+    public static async Task RunLoopCFB(IBlockRunner blockRunner, Func<ICompositeEC> CreateControl, CancellationToken cancellationToken)
     {
-        var bindings = new HashSet<ProcessVariableBinding>();
-        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "N", value: 1000, type: EBindingType.Output)));
-        var processControl = CreateControl();
-        var runRequest = new RunProcessRequest(process: processControl.Process, bindings);
-        await processRunner.Run(runRequest, processControl, cancellationToken);
+        var bindings = new HashSet<VariableBinding>();
+        bindings.Add(new(variableName: "N", value: 1000, type: EBindingType.Input));
+        var execControl = CreateControl();
+        var runRequest = new RunBlockRequest(bindings);
+        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default, cancellationToken);
 
         var tcs = new TaskCompletionSource();
-        processControl.Completed += (o, e) => tcs.SetResult();
-        processControl.Failed += (o, e) => tcs.SetException(e);
+        execControl.Completed += (o, e) => tcs.SetResult();
+        execControl.Failed += (o, e) => tcs.SetException(e);
         await tcs.Task;
 
-        if (!processControl.TryGetBlockControl("Outputs", out var blockControl)) throw new Exception("Control not found");
+        if (!execControl.TryGetExecutionControl("Outputs", out var blockControl)) throw new Exception("Control not found");
         var finalResult = blockControl.GetInput("Result");
         Console.WriteLine(finalResult);
     }
 
-    public static async Task RunDependencyWait(IProcessRunner processRunner, Func<IProcessExecutionControl> CreateControl, CancellationToken cancellationToken)
+    public static async Task RunDependencyWait(IBlockRunner blockRunner, Func<ICompositeEC> CreateControl, CancellationToken cancellationToken)
     {
-        var bindings = new HashSet<ProcessVariableBinding>();
-        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "DelayMs", value: 3000, type: EBindingType.Output)));
-        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "Add1X", value: 1, type: EBindingType.Output)));
-        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "Add1Y", value: 2, type: EBindingType.Output)));
-        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "Add2X", value: 3, type: EBindingType.Output)));
-        bindings.Add(new(blockId: "Inputs", binding: new(variableName: "Add2Y", value: 4, type: EBindingType.Output)));
-        var processControl = CreateControl();
-        var runRequest = new RunProcessRequest(process: processControl.Process, bindings);
-        await processRunner.Run(runRequest, processControl, cancellationToken);
+        var bindings = new HashSet<VariableBinding>();
+        bindings.Add(new(variableName: "DelayMs", value: 3000, type: EBindingType.Input));
+        bindings.Add(new(variableName: "Add1X", value: 1, type: EBindingType.Input));
+        bindings.Add(new(variableName: "Add1Y", value: 2, type: EBindingType.Input));
+        bindings.Add(new(variableName: "Add2X", value: 3, type: EBindingType.Input));
+        bindings.Add(new(variableName: "Add2Y", value: 4, type: EBindingType.Input));
+        var execControl = CreateControl();
+        var runRequest = new RunBlockRequest(bindings);
+        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default, cancellationToken);
 
         var tcs = new TaskCompletionSource();
-        processControl.Completed += (o, e) => tcs.SetResult();
-        processControl.Failed += (o, e) => tcs.SetException(e);
+        execControl.Completed += (o, e) => tcs.SetResult();
+        execControl.Failed += (o, e) => tcs.SetException(e);
         await tcs.Task;
 
-        if (!processControl.TryGetBlockControl("Outputs", out var blockControl)) throw new Exception("Control not found");
+        if (!execControl.TryGetExecutionControl("Outputs", out var blockControl)) throw new Exception("Control not found");
         var finalResult = blockControl.GetInput("Result");
         Console.WriteLine(finalResult);
     }

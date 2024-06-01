@@ -1,4 +1,4 @@
-using WELearning.Core.FunctionBlocks.Abstracts;
+using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
 
 namespace WELearning.Core.FunctionBlocks.Framework;
@@ -22,7 +22,9 @@ public class BlockBinding : IReadWriteBinding
 
     public virtual Task Set(object value)
     {
-        _valueObject.Value = value;
+        if (_valueObject.Variable.VariableType == Constants.EVariableType.Internal)
+            _valueObject.Value = value;
+        else _valueObject.TempValue = value;
         return Task.CompletedTask;
     }
 }

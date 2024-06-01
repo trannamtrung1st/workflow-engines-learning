@@ -14,6 +14,7 @@ public class BlockStateTransition
     public string TriggerEventName { get; set; }
     public string FromState { get; set; }
     public string ToState { get; set; }
-    public Logic TriggerCondition { get; set; }
-    public IEnumerable<string> ActionLogicIds { get; set; }
+    public Function TriggerCondition { get; set; }
+    public IEnumerable<string> ActionFunctionIds { get; set; }
+    public IEnumerable<string> DefaultOutputEvents { get; set; }
 }

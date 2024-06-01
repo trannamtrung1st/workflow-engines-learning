@@ -2,7 +2,7 @@ using WELearning.Core.FunctionBlocks.Models.Runtime;
 
 namespace WELearning.Core.FunctionBlocks.Abstracts;
 
-public interface IBlockRunner<TFramework>
+public interface IBlockRunner
 {
-    Task<BlockExecutionResult> Run(RunBlockRequest request, IBlockExecutionControl control, Guid? optimizationScopeId, CancellationToken cancellationToken);
+    Task Run(RunBlockRequest request, IExecutionControl control, Guid? optimizationScopeId, CancellationToken cancellationToken);
 }

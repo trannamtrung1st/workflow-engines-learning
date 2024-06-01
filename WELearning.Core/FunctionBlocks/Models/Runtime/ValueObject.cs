@@ -28,11 +28,30 @@ public class ValueObject : IDisposable
     {
         get => _value; set
         {
-            // [TODO] refreshed output
             ValueChanged = true;
             _value = value;
+            _tempValue = null;
+            _tempValueSet = false;
             _valueSet.Set();
         }
+    }
+
+    private bool _tempValueSet;
+    public bool TempValueSet => _tempValueSet;
+    private object _tempValue;
+    public object TempValue
+    {
+        get => _tempValue; set
+        {
+            _tempValue = value;
+            _tempValueSet = true;
+        }
+    }
+
+    public void TryCommit()
+    {
+        if (_tempValueSet)
+            Value = TempValue;
     }
 
     public void WaitValueSet(CancellationToken cancellationToken) => _valueSet.Wait(cancellationToken);

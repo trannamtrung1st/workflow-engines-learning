@@ -36,7 +36,7 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         _engineCache = new();
         _engineCacheWait = new(initialState: true);
         _v8Options = v8Options;
-        // [TODO] add lib loading cache
+        // [OPT] add lib loading cache
     }
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.Javascript;
