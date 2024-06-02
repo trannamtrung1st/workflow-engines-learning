@@ -312,11 +312,11 @@ static class TestFunctionBlocks
         var oReport = execControl.GetVariable("Report", EVariableType.Output);
         var oFinalReport = execControl.GetVariable("FinalReport", EVariableType.Output);
 
-        var iTempRef = new EntryValueObject(iTemp, temperatureEntry);
-        var iHumidityRef = new EntryValueObject(iHumidity, humidityEntry);
-        var iReportRef = new EntryValueObject(iReport, reportEntry);
-        var oReportRef = new EntryValueObject(oReport, reportEntry);
-        var oFinalReportRef = new EntryValueObject(oFinalReport, finalReportEntry);
+        var iTempRef = new REntryValueObject(iTemp, temperatureEntry);
+        var iHumidityRef = new REntryValueObject(iHumidity, humidityEntry);
+        var iReportRef = new REntryValueObject(iReport, reportEntry);
+        var oReportRef = new WEntryValueObject(oReport, reportEntry);
+        var oFinalReportRef = new WEntryValueObject(oFinalReport, finalReportEntry);
 
         bindings.Add(new(variableName: iTemp.Name, reference: iTempRef, type: EBindingType.Input));
         bindings.Add(new(variableName: iHumidity.Name, reference: iHumidityRef, type: EBindingType.Input));

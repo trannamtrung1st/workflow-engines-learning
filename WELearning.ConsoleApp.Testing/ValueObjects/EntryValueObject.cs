@@ -1,29 +1,61 @@
 using WELearning.ConsoleApp.Testing.Entities;
 using WELearning.Core.FunctionBlocks;
 using WELearning.Core.FunctionBlocks.Abstracts;
+using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.FunctionBlocks.Models.Design;
 
 namespace WELearning.ConsoleApp.Testing.ValueObjects;
 
-public class EntryValueObject : RawValueObject
+public abstract class EntryValueObject : RawValueObject
 {
-    private readonly EntryEntity _entity;
+    protected readonly EntryEntity _entity;
 
     public EntryValueObject(Variable variable, EntryEntity entity) : base(variable)
     {
         _entity = entity;
         EntryKey = _entity.Key;
-        Value = _entity.Value;
-    }
-
-    public EntryValueObject(Variable variable, EntryValueObject clonedFrom) : this(variable, clonedFrom._entity)
-    {
     }
 
     public string EntryKey { get; }
-    public override bool IsRaw => false;
     public override object Value { get => _entity.Value; set => base.Value = value; }
 
     protected override void SetCoreValue(object value) => _entity.Value = value;
-    public override IValueObject CloneFor(Variable variable) => new EntryValueObject(variable, this);
+    public override IValueObject CloneFor(Variable variable)
+    {
+        switch (variable.VariableType)
+        {
+            case EVariableType.Input: return new REntryValueObject(variable, _entity);
+            case EVariableType.Output: return new WEntryValueObject(variable, _entity);
+            default: return new RWEntryValueObject(variable, _entity);
+        }
+    }
+}
+
+public class RWEntryValueObject : EntryValueObject
+{
+    public RWEntryValueObject(Variable variable, EntryEntity entity) : base(variable, entity)
+    {
+        Value = _entity.Value;
+    }
+}
+
+public class REntryValueObject : EntryValueObject
+{
+    public REntryValueObject(Variable variable, EntryEntity entity) : base(variable, entity)
+    {
+        _valueSet.Set();
+        ValueChanged = false;
+    }
+
+    public override object Value
+    {
+        set => throw new InvalidOperationException("Read-only!");
+    }
+}
+
+public class WEntryValueObject : EntryValueObject
+{
+    public WEntryValueObject(Variable variable, EntryEntity entity) : base(variable, entity)
+    {
+    }
 }
