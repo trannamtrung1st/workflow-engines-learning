@@ -36,6 +36,7 @@ public class RWEntryValueObject : EntryValueObject
     public RWEntryValueObject(Variable variable, EntryEntity entity) : base(variable, entity)
     {
         Value = _entity.Value;
+        // [NOTE] value is set
     }
 }
 
@@ -45,6 +46,7 @@ public class REntryValueObject : EntryValueObject
     {
         _valueSet.Set();
         ValueChanged = false;
+        // [NOTE] value is set
     }
 
     public override object Value
@@ -57,5 +59,19 @@ public class WEntryValueObject : EntryValueObject
 {
     public WEntryValueObject(Variable variable, EntryEntity entity) : base(variable, entity)
     {
+        // [NOTE] value is not set
+    }
+
+    private object _value;
+    public override object Value
+    {
+        get => _value;
+        set => base.Value = value;
+    }
+
+    protected override void SetCoreValue(object value)
+    {
+        _value = value;
+        base.SetCoreValue(value);
     }
 }
