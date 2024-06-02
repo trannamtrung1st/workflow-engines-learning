@@ -11,32 +11,43 @@ public static class EntryReportCFB
     {
         var cfb = new CompositeBlockDef(id: "EntryReport", name: "Entry Report: a sample process using external object reference");
 
-        var i1 = new Variable("Input1", dataType: EDataType.Reference, variableType: EVariableType.Input);
-        var i2 = new Variable("Input2", dataType: EDataType.Reference, variableType: EVariableType.Input);
-        var oResult = new Variable("Result", dataType: EDataType.Reference, variableType: EVariableType.Output);
-        cfb.Variables = new Variable[] { i1, i2, oResult };
+        var iTemp = new Variable("Temperature", dataType: EDataType.Reference, variableType: EVariableType.Input);
+        var iHumidity = new Variable("Humidity", dataType: EDataType.Reference, variableType: EVariableType.Input);
+        var iReport = new Variable("Report", dataType: EDataType.Reference, variableType: EVariableType.Input);
+        var oReport = new Variable("Report", dataType: EDataType.Reference, variableType: EVariableType.Output);
+        var oFinalReport = new Variable("FinalReport", dataType: EDataType.Reference, variableType: EVariableType.Output);
+        cfb.Variables = new Variable[] { iTemp, iHumidity, iReport, oReport, oFinalReport };
 
-        var eTrigger = new BlockEvent(isInput: true, name: "Trigger", variableNames: new[] { i1.Name, i2.Name });
-        var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: new[] { oResult.Name });
+        var eTrigger = new BlockEvent(isInput: true, name: "Trigger", variableNames: new[] { iTemp.Name, iHumidity.Name, iReport.Name });
+        var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: new[] { oFinalReport.Name });
         cfb.Events = new[] { eTrigger, eCompleted };
         cfb.DefaultTriggerEvent = eTrigger.Name;
 
         var bConcatDef = PredefinedBFBs.ConcatTwoStringsJs;
-        var bConcat = new BlockInstance(bConcatDef.Id);
+        var bConcat1 = new BlockInstance(bConcatDef.Id, id: "Concat1");
+        var bConcat2 = new BlockInstance(bConcatDef.Id, id: "Concat2");
 
         var bInputsDef = PredefinedBFBs.CreateInOutBlock(
-            new Variable(name: "Input1", dataType: EDataType.Reference, variableType: EVariableType.InOut),
-            new Variable(name: "Input2", dataType: EDataType.Reference, variableType: EVariableType.InOut),
-            new Variable(name: "Delimiter", dataType: EDataType.String, variableType: EVariableType.InOut, defaultValue: " ")
+            new Variable(name: "Temperature", dataType: EDataType.Reference, variableType: EVariableType.InOut),
+            new Variable(name: "Humidity", dataType: EDataType.Reference, variableType: EVariableType.InOut),
+            new Variable(name: "Report", dataType: EDataType.Reference, variableType: EVariableType.InOut),
+            new Variable(name: "Delimiter", dataType: EDataType.String, variableType: EVariableType.InOut, defaultValue: " "),
+            new Variable(name: "FinalPrefix", dataType: EDataType.String, variableType: EVariableType.InOut, defaultValue: "FINAL:")
         );
         var bInputs = new BlockInstance(definitionId: bInputsDef.Id, id: "Inputs");
 
         var entryType = nameof(EntryEntity);
-        var bOutputsDef = PredefinedBFBs.CreatePassThroughBlock(passThroughVars: ("Result", entryType));
+        var bReportDef = PredefinedBFBs.CreateInOutBlock(
+            new Variable(name: "Report", dataType: EDataType.Reference, variableType: EVariableType.InOut, detailedType: entryType)
+        );
+        var bOutputsDef = PredefinedBFBs.CreateInOutBlock(
+            new Variable(name: "FinalReport", dataType: EDataType.Reference, variableType: EVariableType.InOut, detailedType: entryType)
+        );
+        var bReport = new BlockInstance(definitionId: bReportDef.Id, id: "ReportEntry");
         var bOutputs = new BlockInstance(definitionId: bOutputsDef.Id, id: "Outputs");
 
         {
-            var blocks = new List<BlockInstance> { bConcat, bInputs, bOutputs };
+            var blocks = new List<BlockInstance> { bConcat1, bConcat2, bInputs, bReport, bOutputs };
             cfb.Blocks = blocks;
         }
 
@@ -49,14 +60,24 @@ public static class EntryReportCFB
                 SourceEventName = "Trigger"
             });
 
-            eventConnections.Add(new(blockId: bConcat.Id, eventName: "Trigger")
+            eventConnections.Add(new(blockId: bConcat1.Id, eventName: "Trigger")
             {
                 SourceBlockId = bInputs.Id,
                 SourceEventName = "Completed"
             });
+            eventConnections.Add(new(blockId: bReport.Id, eventName: "Trigger")
+            {
+                SourceBlockId = bConcat1.Id,
+                SourceEventName = "Completed"
+            });
+            eventConnections.Add(new(blockId: bConcat2.Id, eventName: "Trigger")
+            {
+                SourceBlockId = bReport.Id,
+                SourceEventName = "Completed"
+            });
             eventConnections.Add(new(blockId: bOutputs.Id, eventName: "Trigger")
             {
-                SourceBlockId = bConcat.Id,
+                SourceBlockId = bConcat2.Id,
                 SourceEventName = "Completed"
             });
 
@@ -72,50 +93,80 @@ public static class EntryReportCFB
 
         {
             var dataConnections = new List<BlockDataConnection>();
-
-            // [NOTE] CFB input data
-            foreach (var variable in cfb.Variables.Where(v => v.VariableType == EVariableType.Input || v.VariableType == EVariableType.InOut))
-            {
-                dataConnections.Add(new(blockId: bInputs.Id, variableName: variable.Name, displayName: null, bindingType: EBindingType.Input)
-                {
-                    SourceVariableName = variable.Name
-                });
-            }
-
-            dataConnections.Add(new(blockId: bConcat.Id, variableName: "X", displayName: null, bindingType: EBindingType.Input)
+            dataConnections.Add(new(blockId: bConcat1.Id, variableName: "X", displayName: null, bindingType: EBindingType.Input)
             {
                 SourceBlockId = bInputs.Id,
-                SourceVariableName = "Input1"
+                SourceVariableName = "Temperature"
             });
-            dataConnections.Add(new(blockId: bConcat.Id, variableName: "Y", displayName: null, bindingType: EBindingType.Input)
+            dataConnections.Add(new(blockId: bConcat1.Id, variableName: "Y", displayName: null, bindingType: EBindingType.Input)
             {
                 SourceBlockId = bInputs.Id,
-                SourceVariableName = "Input2"
+                SourceVariableName = "Humidity"
             });
-            dataConnections.Add(new(blockId: bConcat.Id, variableName: "Delimiter", displayName: null, bindingType: EBindingType.Input)
+            dataConnections.Add(new(blockId: bConcat1.Id, variableName: "Delimiter", displayName: null, bindingType: EBindingType.Input)
             {
                 SourceBlockId = bInputs.Id,
                 SourceVariableName = "Delimiter"
             });
-            dataConnections.Add(new(blockId: bOutputs.Id, variableName: "Result", displayName: null, bindingType: EBindingType.Input)
+            dataConnections.Add(new(blockId: bReport.Id, variableName: "Report", displayName: null, bindingType: EBindingType.Input)
             {
-                SourceBlockId = bConcat.Id,
+                SourceBlockId = bConcat1.Id,
                 SourceVariableName = "Result"
             });
-
-            // [NOTE] CFB output data
-            foreach (var variable in cfb.Variables.Where(v => v.VariableType == EVariableType.Output || v.VariableType == EVariableType.InOut))
+            dataConnections.Add(new(blockId: bConcat2.Id, variableName: "X", displayName: null, bindingType: EBindingType.Input)
             {
-                dataConnections.Add(new(blockId: bOutputs.Id, variableName: variable.Name, displayName: null, bindingType: EBindingType.Output)
-                {
-                    SourceVariableName = variable.Name
-                });
-            }
-
+                SourceBlockId = bInputs.Id,
+                SourceVariableName = "FinalPrefix"
+            });
+            dataConnections.Add(new(blockId: bConcat2.Id, variableName: "Y", displayName: null, bindingType: EBindingType.Input)
+            {
+                SourceBlockId = bReport.Id,
+                SourceVariableName = "Report"
+            });
+            dataConnections.Add(new(blockId: bConcat2.Id, variableName: "Delimiter", displayName: null, bindingType: EBindingType.Input)
+            {
+                SourceBlockId = bInputs.Id,
+                SourceVariableName = "Delimiter"
+            });
+            dataConnections.Add(new(blockId: bOutputs.Id, variableName: "FinalReport", displayName: null, bindingType: EBindingType.Input)
+            {
+                SourceBlockId = bConcat2.Id,
+                SourceVariableName = "Result"
+            });
+            dataConnections.Add(new(blockId: null, variableName: "Report", displayName: null, bindingType: EBindingType.Output)
+            {
+                SourceBlockId = bOutputs.Id,
+                SourceVariableName = "Report"
+            });
             cfb.DataConnections = dataConnections;
         }
 
-        cfb.MapDefinitions(new[] { bConcatDef, bInputsDef, bOutputsDef });
+        {
+            var references = new List<BlockReference>();
+            references.Add(new(blockId: bInputs.Id, variableName: "Temperature", displayName: null, bindingType: EBindingType.Input)
+            {
+                SourceVariableName = "Temperature"
+            });
+            references.Add(new(blockId: bInputs.Id, variableName: "Humidity", displayName: null, bindingType: EBindingType.Input)
+            {
+                SourceVariableName = "Humidity"
+            });
+            references.Add(new(blockId: bInputs.Id, variableName: "Report", displayName: null, bindingType: EBindingType.Input)
+            {
+                SourceVariableName = "Report"
+            });
+            references.Add(new(blockId: bReport.Id, variableName: "Report", displayName: null, bindingType: EBindingType.Output)
+            {
+                SourceVariableName = "Report"
+            });
+            references.Add(new(blockId: bOutputs.Id, variableName: "FinalReport", displayName: null, bindingType: EBindingType.Output)
+            {
+                SourceVariableName = "FinalReport"
+            });
+            cfb.References = references;
+        }
+
+        cfb.MapDefinitions(new[] { bConcatDef, bReportDef, bInputsDef, bOutputsDef });
         return cfb;
     }
 

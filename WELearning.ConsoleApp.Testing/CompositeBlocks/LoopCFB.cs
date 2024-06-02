@@ -122,8 +122,9 @@ public static class LoopCFB
             // [NOTE] CFB output data
             foreach (var variable in cfb.Variables.Where(v => v.VariableType == EVariableType.Output || v.VariableType == EVariableType.InOut))
             {
-                dataConnections.Add(new(blockId: bOutputs.Id, variableName: variable.Name, displayName: null, bindingType: EBindingType.Output)
+                dataConnections.Add(new(blockId: null, variableName: variable.Name, displayName: null, bindingType: EBindingType.Output)
                 {
+                    SourceBlockId = bOutputs.Id,
                     SourceVariableName = variable.Name
                 });
             }
@@ -169,7 +170,7 @@ public static class LoopCFB
             id: "Loop",
             name: "Loop",
             content: @$"
-            var currentResult = FB.InOut(""Result"").AsInt();
+            var currentResult = FB.In(""Result"").AsInt();
             var n = FB.In(""N"").AsInt();
             if (currentResult < n) 
                 await FB.Publish(""Loop"");

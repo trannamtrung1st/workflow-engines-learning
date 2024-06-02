@@ -12,25 +12,25 @@ public class VariableBinding
         Type = type;
     }
 
-    public VariableBinding(string variableName, IValueObject valueObject, EBindingType type)
+    public VariableBinding(string variableName, IValueObject reference, EBindingType type)
     {
         VariableName = variableName;
-        ValueObject = valueObject;
+        Reference = reference;
         Type = type;
     }
 
-    public VariableBinding(string variableName, object value, IValueObject valueObject, EBindingType type)
+    public VariableBinding(string variableName, object value, IValueObject reference, EBindingType type)
     {
         VariableName = variableName;
         Value = value;
-        ValueObject = valueObject;
+        Reference = reference;
         Type = type;
     }
 
     public EBindingType Type { get; }
     public string VariableName { get; }
     public object Value { get; }
-    public IValueObject ValueObject { get; }
+    public IValueObject Reference { get; }
 
     public override bool Equals(object obj)
     {
@@ -42,5 +42,5 @@ public class VariableBinding
 
     public override int GetHashCode() => HashCode.Combine(VariableName, Type);
 
-    public override string ToString() => (Value ?? ValueObject?.Value).ToString();
+    public override string ToString() => (Value ?? Reference?.Value).ToString();
 }

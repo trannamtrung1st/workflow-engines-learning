@@ -49,14 +49,20 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
     public virtual IValueObject GetInternalData(string key) => GetValueObject(key, EVariableType.Internal);
     public virtual IValueObject GetValueObject(string name, EVariableType type)
     {
-        var variable = ValidateBinding(name, type);
+        var variable = ValidateVariable(name, type);
         return _valueMap.GetOrAdd(variable, (variable) => new RawValueObject(variable));
     }
 
-    public virtual void SetValueObject(string name, EVariableType type, IValueObject valueObject)
+    public virtual void SetReference(string name, EVariableType type, IValueObject valueObject)
     {
-        var variable = ValidateBinding(name, type);
+        var variable = ValidateVariable(name, type);
         _valueMap[variable] = valueObject;
+    }
+
+    public virtual void SetValue(string name, EVariableType type, object value)
+    {
+        var valueObject = GetValueObject(name, type);
+        valueObject.Value = value;
     }
 
     public virtual Variable GetVariable(string key, EVariableType type)
@@ -70,25 +76,23 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
         return variable;
     }
 
-    protected virtual Variable ValidateBinding(string name, EVariableType type)
+    public virtual IEnumerable<Variable> GetVariables() => Definition.Variables;
+
+    protected virtual Variable ValidateVariable(string name, EVariableType type)
         => GetVariable(name, type) ?? throw new KeyNotFoundException(name);
 
     protected virtual void PrepareStates(IEnumerable<VariableBinding> bindings)
     {
-        foreach (var binding in bindings)
+        foreach (var binding in bindings.Where(b => b.Reference != null))
         {
-            if (binding.ValueObject != null)
-                SetValueObject(binding.VariableName, binding.Type.ToVariableType(), binding.ValueObject);
-            else if (binding.Type == EBindingType.Input)
-            {
-                var valueObject = GetValueObject(binding.VariableName, type: EVariableType.Input);
-                valueObject.Value = binding.Value;
-            }
-            else if (binding.Value != null)
-            {
-                var valueObject = GetValueObject(binding.VariableName, type: EVariableType.Output);
-                valueObject.Value = binding.Value;
-            }
+            var variableType = binding.Type.ToVariableType();
+            SetReference(binding.VariableName, variableType, binding.Reference);
+        }
+
+        foreach (var binding in bindings.Where(b => b.Reference == null))
+        {
+            var variableType = binding.Type.ToVariableType();
+            SetValue(binding.VariableName, variableType, binding.Value);
         }
     }
 

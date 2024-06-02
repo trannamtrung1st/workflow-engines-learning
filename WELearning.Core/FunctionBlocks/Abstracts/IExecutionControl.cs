@@ -17,12 +17,13 @@ public interface IExecutionControl
     BlockExecutionResult Result { get; }
 
     Variable GetVariable(string key, EVariableType type);
-    IValueObject GetValueObject(string key, EVariableType type);
-    IValueObject GetInOut(string key);
+    IEnumerable<Variable> GetVariables();
     IValueObject GetInput(string key);
     IValueObject GetOutput(string key);
+    IValueObject GetInOut(string key);
     IValueObject GetInternalData(string key);
-    void SetValueObject(string name, EVariableType type, IValueObject valueObject);
+    void SetReference(string name, EVariableType type, IValueObject reference);
+    void SetValue(string name, EVariableType type, object value);
     Task Execute(string triggerEvent, IEnumerable<VariableBinding> bindings, Guid? optimizationScopeId, CancellationToken cancellationToken);
     void WaitForIdle(CancellationToken cancellationToken);
     Task MutexAccess(Func<Task> task, CancellationToken cancellationToken);

@@ -110,7 +110,7 @@ static class PredefinedBFBs
         return bInOut;
     }
 
-    public static BasicBlockDef CreatePassThroughBlock(params (string Name, string DetailedType)[] passThroughVars)
+    public static BasicBlockDef CreatePassThroughBlock(params (Variable In, Variable Out)[] passThroughVars)
     {
         var bPassThrough = new BasicBlockDef(id: $"PassThrough-{Guid.NewGuid()}", name: "Pass through block");
         var inVariables = new List<string>();
@@ -118,10 +118,10 @@ static class PredefinedBFBs
         var allVariables = new List<Variable>();
         foreach (var var in passThroughVars)
         {
-            allVariables.Add(new(var.Name, EDataType.Any, EVariableType.Input, detailedType: var.DetailedType));
-            allVariables.Add(new(var.Name, EDataType.Any, EVariableType.Output, detailedType: var.DetailedType));
-            inVariables.Add(var.Name);
-            outVariables.Add(var.Name);
+            allVariables.Add(var.In);
+            allVariables.Add(var.Out);
+            inVariables.Add(var.In.Name);
+            outVariables.Add(var.Out.Name);
         }
         bPassThrough.Variables = allVariables;
         var eTrigger = new BlockEvent(isInput: true, name: "Trigger", variableNames: inVariables);
@@ -135,7 +135,7 @@ static class PredefinedBFBs
             content: JavascriptHelper.WrapModuleFunction(
                 script: string.Join(
                     separator: Environment.NewLine,
-                    values: passThroughVars.Select(p => @$"await FB.Out(""{p.Name}"").Write({p.Name});")),
+                    values: passThroughVars.Select(p => @$"await FB.Out(""{p.Out.Name}"").Write({p.In.Name});")),
                 inputVariables: JavascriptHelper.GetInputVariableNames(bPassThrough.Variables)
             ),
             runtime: ERuntime.Javascript,

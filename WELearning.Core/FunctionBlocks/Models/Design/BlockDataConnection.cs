@@ -2,20 +2,13 @@ using WELearning.Core.FunctionBlocks.Constants;
 
 namespace WELearning.Core.FunctionBlocks.Models.Design;
 
-public class BlockDataConnection
+public class BlockDataConnection : BlockConnection
 {
-    public BlockDataConnection(string blockId, string variableName, string displayName, EBindingType bindingType)
+    public BlockDataConnection(string blockId, string variableName, string displayName, EBindingType bindingType) : base(blockId, variableName, displayName)
     {
-        BlockId = blockId;
-        VariableName = variableName;
-        DisplayName = displayName;
         BindingType = bindingType;
     }
 
-    public string BlockId { get; set; }
-    public string VariableName { get; set; }
-    public string DisplayName { get; set; }
     public EBindingType BindingType { get; set; }
     public string SourceBlockId { get; set; }
-    public string SourceVariableName { get; set; }
 }

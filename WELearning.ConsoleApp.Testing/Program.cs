@@ -302,15 +302,27 @@ static class TestFunctionBlocks
         var temperatureEntry = dataStore.GetEntry("Temperature");
         var humidityEntry = dataStore.GetEntry("Humidity");
         var reportEntry = dataStore.GetEntry("Report");
+        var finalReportEntry = dataStore.GetEntry("FinalReport");
         var bindings = new HashSet<VariableBinding>();
         var execControl = CreateControl();
 
-        var iInput1 = execControl.GetVariable("Input1", EVariableType.Input);
-        var iInput2 = execControl.GetVariable("Input2", EVariableType.Input);
-        var oResult = execControl.GetVariable("Result", EVariableType.Output);
-        bindings.Add(new(variableName: iInput1.Name, valueObject: new EntryValueObject(iInput1, temperatureEntry), type: EBindingType.Input));
-        bindings.Add(new(variableName: iInput2.Name, valueObject: new EntryValueObject(iInput2, humidityEntry), type: EBindingType.Input));
-        bindings.Add(new(variableName: oResult.Name, valueObject: new EntryValueObject(oResult, reportEntry), type: EBindingType.Output));
+        var iTemp = execControl.GetVariable("Temperature", EVariableType.Input);
+        var iHumidity = execControl.GetVariable("Humidity", EVariableType.Input);
+        var iReport = execControl.GetVariable("Report", EVariableType.Input);
+        var oReport = execControl.GetVariable("Report", EVariableType.Output);
+        var oFinalReport = execControl.GetVariable("FinalReport", EVariableType.Output);
+
+        var iTempRef = new EntryValueObject(iTemp, temperatureEntry);
+        var iHumidityRef = new EntryValueObject(iHumidity, humidityEntry);
+        var iReportRef = new EntryValueObject(iReport, reportEntry);
+        var oReportRef = new EntryValueObject(oReport, reportEntry);
+        var oFinalReportRef = new EntryValueObject(oFinalReport, finalReportEntry);
+
+        bindings.Add(new(variableName: iTemp.Name, reference: iTempRef, type: EBindingType.Input));
+        bindings.Add(new(variableName: iHumidity.Name, reference: iHumidityRef, type: EBindingType.Input));
+        bindings.Add(new(variableName: iReport.Name, reference: iReportRef, type: EBindingType.Input));
+        bindings.Add(new(variableName: oReport.Name, reference: oReportRef, type: EBindingType.Output));
+        bindings.Add(new(variableName: oFinalReport.Name, reference: oFinalReportRef, type: EBindingType.Output));
 
         var runRequest = new RunBlockRequest(bindings);
         await blockRunner.Run(runRequest, execControl, optimizationScopeId: default, cancellationToken);
@@ -320,9 +332,10 @@ static class TestFunctionBlocks
         execControl.Failed += (o, e) => tcs.SetException(e);
         await tcs.Task;
 
-        var finalResult = execControl.GetOutput("Result") as EntryValueObject;
+        var finalResult = execControl.GetOutput("FinalReport") as EntryValueObject;
         dataStore.UpdateEntry(finalResult.EntryKey, finalResult.Value);
-        Console.WriteLine("Result: {0} | {1}", finalResult, reportEntry);
+        finalReportEntry = dataStore.GetEntry(finalReportEntry.Key);
+        Console.WriteLine("Result: {0} | {1}", finalResult, finalReportEntry);
     }
 
     public static async Task<double> RunComplexCFB(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, CancellationToken cancellationToken)

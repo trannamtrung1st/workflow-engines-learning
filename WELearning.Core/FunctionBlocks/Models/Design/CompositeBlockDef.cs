@@ -12,6 +12,7 @@ public class CompositeBlockDef : BaseBlockDef
     public IEnumerable<BlockInstance> Blocks { get; set; }
     public IEnumerable<BlockEventConnection> EventConnections { get; set; }
     public IEnumerable<BlockDataConnection> DataConnections { get; set; }
+    public IEnumerable<BlockReference> References { get; set; }
 
     public BaseBlockDef GetDefinition(string definitionId)
     {
