@@ -1,7 +1,6 @@
 using WELearning.ConsoleApp.Testing.Entities;
 using WELearning.Core.FunctionBlocks;
 using WELearning.Core.FunctionBlocks.Abstracts;
-using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.FunctionBlocks.Models.Design;
 
 namespace WELearning.ConsoleApp.Testing.ValueObjects;
@@ -20,15 +19,6 @@ public abstract class EntryValueObject : RawValueObject
     public override object Value { get => _entity.Value; set => base.Value = value; }
 
     protected override void SetCoreValue(object value) => _entity.Value = value;
-    public override IValueObject CloneFor(Variable variable)
-    {
-        switch (variable.VariableType)
-        {
-            case EVariableType.Input: return new REntryValueObject(variable, _entity);
-            case EVariableType.Output: return new WEntryValueObject(variable, _entity);
-            default: return new RWEntryValueObject(variable, _entity);
-        }
-    }
 }
 
 public class RWEntryValueObject : EntryValueObject
@@ -38,6 +28,8 @@ public class RWEntryValueObject : EntryValueObject
         Value = _entity.Value;
         // [NOTE] value is set
     }
+
+    public override IValueObject CloneFor(Variable variable) => new RWEntryValueObject(variable, _entity);
 }
 
 public class REntryValueObject : EntryValueObject
@@ -53,6 +45,8 @@ public class REntryValueObject : EntryValueObject
     {
         set => throw new InvalidOperationException("Read-only!");
     }
+
+    public override IValueObject CloneFor(Variable variable) => new REntryValueObject(variable, _entity);
 }
 
 public class WEntryValueObject : EntryValueObject
@@ -66,7 +60,6 @@ public class WEntryValueObject : EntryValueObject
     public override object Value
     {
         get => _value;
-        set => base.Value = value;
     }
 
     protected override void SetCoreValue(object value)
@@ -74,4 +67,6 @@ public class WEntryValueObject : EntryValueObject
         _value = value;
         base.SetCoreValue(value);
     }
+
+    public override IValueObject CloneFor(Variable variable) => new WEntryValueObject(variable, _entity);
 }

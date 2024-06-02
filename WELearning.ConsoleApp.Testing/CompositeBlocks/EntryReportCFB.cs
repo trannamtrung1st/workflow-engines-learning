@@ -133,10 +133,10 @@ public static class EntryReportCFB
                 SourceBlockId = bConcat2.Id,
                 SourceVariableName = "Result"
             });
-            dataConnections.Add(new(blockId: null, variableName: "Report", displayName: null, bindingType: EBindingType.Output)
+            dataConnections.Add(new(blockId: null, variableName: "FinalReport", displayName: null, bindingType: EBindingType.Output)
             {
                 SourceBlockId = bOutputs.Id,
-                SourceVariableName = "Report"
+                SourceVariableName = "FinalReport"
             });
             cfb.DataConnections = dataConnections;
         }
