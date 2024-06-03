@@ -12,6 +12,7 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
     where TFramework : IBlockFramework
     where TDefinition : BaseBlockDef
 {
+    private readonly object _handleFailedLock = new();
     protected readonly ConcurrentDictionary<Variable, IValueObject> _valueMap;
     protected readonly SemaphoreSlim _mutexLock;
     protected readonly ManualResetEventSlim _idleWait;
@@ -32,13 +33,15 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
         Definition = definition;
     }
 
+    public Guid? CurrentRunId { get; protected set; }
     public BlockInstance Block { get; }
     public TDefinition Definition { get; }
     public virtual Exception Exception { get; protected set; }
-    public abstract IExecutionControl ExceptionFrom { get; protected set; }
+    public virtual IExecutionControl ExceptionFrom { get; protected set; }
     public virtual bool IsIdle => _idleWait.IsSet;
     public virtual EBlockExecutionStatus Status { get; protected set; }
-    public abstract BlockExecutionResult Result { get; }
+    public virtual BlockExecutionResult Result { get; protected set; }
+    public virtual BlockActivity LastActivity { get; protected set; }
 
     public abstract event EventHandler Running;
     public abstract event EventHandler<Exception> Failed;
@@ -81,6 +84,46 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
 
     protected virtual Variable ValidateVariable(string name, EVariableType type)
         => GetVariable(name, type) ?? throw new KeyNotFoundException(name);
+
+    protected virtual void PrepareRunningStatus(RunBlockRequest runRequest)
+    {
+        CurrentRunId = runRequest.RunId;
+        Exception = null; ExceptionFrom = null; Result = null;
+        Status = EBlockExecutionStatus.Running;
+        LastActivity = new BlockActivity(this, runRequest: runRequest);
+    }
+
+    protected virtual bool PrepareFailedStatus(Exception ex, IExecutionControl from = null)
+    {
+        lock (_handleFailedLock)
+        {
+            if (Status == EBlockExecutionStatus.Failed) return false;
+            Status = EBlockExecutionStatus.Failed;
+        }
+        Exception = ex;
+        ExceptionFrom = from ?? this;
+        LastActivity = new BlockActivity(this);
+        return true;
+    }
+
+    protected virtual void PrepareCompletedStatus()
+    {
+        RefreshOutputs();
+        Status = EBlockExecutionStatus.Completed;
+        LastActivity = new BlockActivity(this);
+    }
+
+    protected virtual void EnterOrThrow()
+    {
+        lock (_idleWait)
+        {
+            if (!IsIdle) throw new InvalidOperationException("Not ready for execute!");
+            _idleWait.Reset();
+        }
+    }
+
+    protected virtual string GetTriggerOrDefault(string triggerEvent)
+        => triggerEvent ?? Definition.DefaultTriggerEvent;
 
     protected virtual void PrepareStates(IEnumerable<VariableBinding> bindings)
     {
@@ -130,5 +173,6 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
         _idleWait.Dispose();
     }
 
-    public abstract Task Execute(string triggerEvent, IEnumerable<VariableBinding> bindings, Guid? optimizationScopeId, CancellationToken cancellationToken);
+    public abstract Task Execute(RunBlockRequest request, Guid? optimizationScopeId, CancellationToken cancellationToken);
+    protected abstract void RefreshOutputs();
 }

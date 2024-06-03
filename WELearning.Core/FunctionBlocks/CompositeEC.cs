@@ -13,16 +13,12 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
 {
     private readonly IBlockRunner _blockRunner;
     private ConcurrentDictionary<string, IExecutionControl> _blockExecControlMap;
-    private readonly ConcurrentBag<string> _outputEvents;
+    private ConcurrentBag<string> _outputEvents;
     private int _runningTasksCount;
 
     public override event EventHandler Running;
     public override event EventHandler<Exception> Failed;
     public override event EventHandler Completed;
-
-    private BlockExecutionResult _result;
-    public override BlockExecutionResult Result => _result;
-    public override IExecutionControl ExceptionFrom { get; protected set; }
 
     public CompositeEC(
         BlockInstance block,
@@ -37,34 +33,31 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
         _outputEvents = new();
     }
 
-    public override Task Execute(string triggerEvent, IEnumerable<VariableBinding> bindings, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    public override Task Execute(RunBlockRequest request, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
-        lock (_idleWait)
-        {
-            if (!IsIdle) throw new InvalidOperationException("Not ready for execute!");
-            _idleWait.Reset();
-        }
-
-        triggerEvent ??= Definition.DefaultTriggerEvent;
+        EnterOrThrow();
+        var triggerEvent = GetTriggerOrDefault(request.TriggerEvent);
         try
         {
-            Status = EBlockExecutionStatus.Running;
-            _outputEvents.Clear();
+            _outputEvents = new();
+            PrepareRunningStatus(request);
             Running?.Invoke(this, EventArgs.Empty);
-            PrepareStates(bindings);
+            PrepareStates(request.Bindings);
             var startingTriggers = Definition.FindNextBlocks(triggerEvent);
             TriggerBlocks(blockTriggers: startingTriggers, optimizationScopeId, cancellationToken);
         }
-        catch (Exception ex) { HandleFailed(ex); }
+        catch (Exception ex)
+        {
+            HandleFailed(ex);
+            throw;
+        }
         return Task.CompletedTask;
     }
 
-    private void HandleFailed(Exception ex, IExecutionControl from = null)
+    protected void HandleFailed(Exception ex, IExecutionControl from = null)
     {
-        Exception = ex;
-        ExceptionFrom = from ?? this;
-        Status = EBlockExecutionStatus.Failed;
-        Failed?.Invoke(this, ex);
+        if (PrepareFailedStatus(ex, from))
+            Failed?.Invoke(this, ex);
     }
 
     protected virtual void TriggerBlocks(IEnumerable<BlockTrigger> blockTriggers, Guid? optimizationScopeId, CancellationToken cancellationToken)
@@ -162,9 +155,9 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
         return blockBindings;
     }
 
-    protected virtual void RefreshOutputs()
+    protected override void RefreshOutputs()
     {
-        var outputEvents = Definition.Events.Where(e => !e.IsInput && _result.OutputEvents.Contains(e.Name));
+        var outputEvents = Definition.Events.Where(e => !e.IsInput && Result.OutputEvents.Contains(e.Name));
         var allVariableNames = outputEvents.SelectMany(ev => ev.VariableNames);
         var usingDataConnections = Definition.DataConnections
             .Where(c => c.BlockId == null && allVariableNames.Contains(c.VariableName) && c.BindingType == EBindingType.Output)
@@ -202,14 +195,13 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
         {
             if (_runningTasksCount > 0 && --_runningTasksCount == 0)
             {
-                _idleWait.Set();
                 if (Status == EBlockExecutionStatus.Running)
                 {
-                    _result = new BlockExecutionResult(_outputEvents.ToArray());
-                    RefreshOutputs();
-                    Status = EBlockExecutionStatus.Completed;
+                    Result = new BlockExecutionResult(_outputEvents);
+                    PrepareCompletedStatus();
                     cfbCompleted = true;
                 }
+                _idleWait.Set();
             }
         }
         if (cfbCompleted) Completed?.Invoke(this, EventArgs.Empty);

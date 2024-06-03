@@ -15,7 +15,7 @@ public class BlockRunner : IBlockRunner
             {
                 if (control.IsIdle)
                 {
-                    await control.Execute(triggerEvent: request.TriggerEvent, bindings: request.Bindings, optimizationScopeId, cancellationToken);
+                    await control.Execute(request, optimizationScopeId, cancellationToken);
                     started = true;
                 }
             }, cancellationToken);

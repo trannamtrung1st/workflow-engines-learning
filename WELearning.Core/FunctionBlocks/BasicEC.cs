@@ -21,12 +21,21 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
 
     public virtual string CurrentState { get; protected set; }
     private BFBExecutionResult _result;
-    public override BlockExecutionResult Result => _result;
+    public override BlockExecutionResult Result
+    {
+        get => _result;
+        protected set => _result = value as BFBExecutionResult;
+    }
     BFBExecutionResult IBasicEC.Result => _result;
+
     public override IExecutionControl ExceptionFrom
     {
-        get => this;
-        protected set => throw new InvalidOperationException("Exception should be from this BFB only!");
+        get => Exception != null ? this : null;
+        protected set
+        {
+            if (value != null && value != this)
+                throw new InvalidOperationException("Exception should be from this BFB only!");
+        }
     }
 
     public override event EventHandler Running;
@@ -51,24 +60,18 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
         return null;
     }
 
-    public override async Task Execute(string triggerEvent,
-        IEnumerable<VariableBinding> bindings, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    public override async Task Execute(RunBlockRequest request, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
-        lock (_idleWait)
-        {
-            if (!IsIdle) throw new InvalidOperationException("Not ready for execute!");
-            _idleWait.Reset();
-        }
-
-        triggerEvent ??= Definition.DefaultTriggerEvent;
+        EnterOrThrow();
+        var triggerEvent = GetTriggerOrDefault(request.TriggerEvent);
         HashSet<IDisposable> optimizationScopes = null;
         try
         {
             IEnumerable<string> outputEvents = Array.Empty<string>();
             var fromState = CurrentState;
-            Status = EBlockExecutionStatus.Running;
+            PrepareRunningStatus(request);
             Running?.Invoke(this, EventArgs.Empty);
-            PrepareStates(bindings);
+            PrepareStates(request.Bindings);
 
             if (Definition.ExecutionControlChart != null)
             {
@@ -78,15 +81,14 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
 
             var finalState = CurrentState;
             _result = new BFBExecutionResult(fromState, finalState, outputEvents: outputEvents);
-            RefreshOutputs();
-            Status = EBlockExecutionStatus.Completed;
+            PrepareCompletedStatus();
             Completed?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception ex)
         {
-            Exception = ex;
-            Status = EBlockExecutionStatus.Failed;
-            Failed?.Invoke(this, ex);
+            if (PrepareFailedStatus(ex, this))
+                Failed?.Invoke(this, ex);
+            throw;
         }
         finally
         {
@@ -118,6 +120,7 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
                 return result;
             }
             catch (CompilationError ex) { throw new FunctionCompilationError(ex, condition); }
+            catch (RuntimeException ex) { throw new FunctionRuntimeException(ex, condition); }
         }
 
         async Task RunAction(Function actionFunction, CancellationToken cancellationToken)
@@ -128,6 +131,7 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
                 if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
             }
             catch (CompilationError ex) { throw new FunctionCompilationError(ex, actionFunction); }
+            catch (RuntimeException ex) { throw new FunctionRuntimeException(ex, actionFunction); }
         }
 
         var outputEvents = new HashSet<string>();
@@ -154,7 +158,7 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
         return outputEvents;
     }
 
-    protected virtual void RefreshOutputs()
+    protected override void RefreshOutputs()
     {
         var outputEvents = Definition.Events.Where(e => !e.IsInput && _result.OutputEvents.Contains(e.Name));
         foreach (var outputEvent in outputEvents)

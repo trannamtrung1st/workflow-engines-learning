@@ -52,8 +52,8 @@ static class PredefinedBFBs
         FactorialCsScript = CreateBlockFactorialCsScript();
         ConcatTwoStringsJs = CreateBlockConcatTwoStringsJs();
         CompilationErrorJs = CreateCompilationError();
-        RuntimeErrorJs = CreateRuntimeErrorJs();
-        RuntimeErrorJsFromCs = CreateRuntimeErrorJsFromCs();
+        RuntimeExceptionJs = CreateRuntimeExceptionJs();
+        RuntimeExceptionJsFromCs = CreateRuntimeExceptionJsFromCs();
     }
 
     public static readonly BasicBlockDef MultiplyCsCompiled;
@@ -71,8 +71,8 @@ static class PredefinedBFBs
     public static readonly BasicBlockDef FactorialCsScript;
     public static readonly BasicBlockDef ConcatTwoStringsJs;
     public static readonly BasicBlockDef CompilationErrorJs;
-    public static readonly BasicBlockDef RuntimeErrorJs;
-    public static readonly BasicBlockDef RuntimeErrorJsFromCs;
+    public static readonly BasicBlockDef RuntimeExceptionJs;
+    public static readonly BasicBlockDef RuntimeExceptionJsFromCs;
 
     public static BasicBlockDef CreateInOutBlock(params Variable[] variables)
     {
@@ -797,24 +797,27 @@ let a = 5;"
         );
     }
 
-    private static BasicBlockDef CreateRuntimeErrorJs()
+    private static BasicBlockDef CreateRuntimeExceptionJs()
     {
         return CreateBlockSimple(
-            id: "RuntimeErrorJs", name: "Runtime error (JS)",
+            id: "RuntimeExceptionJs", name: "Runtime exception (JS)",
             content:
 @"const a = 2; 
-throw new Error('This is a sample JS error!');
-let a = 5;"
+function TestError() { throw new Error('This is a sample runtime exception!'); }
+let b = 5;
+var c = 10;
+TestError();
+c = 0;"
         );
     }
 
-    private static BasicBlockDef CreateRuntimeErrorJsFromCs()
+    private static BasicBlockDef CreateRuntimeExceptionJsFromCs()
     {
         return CreateBlockSimple(
-            id: "RuntimeErrorCs", name: "Runtime error (C#)",
+            id: "RuntimeExceptionCs", name: "Runtime exception (C#)",
             content:
 @"const a = 2; 
-FB.DemoException();
+/* Test position */ FB.DemoException();
 let a = 5;"
         );
     }

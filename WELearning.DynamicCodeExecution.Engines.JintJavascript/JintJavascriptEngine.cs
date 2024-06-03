@@ -6,6 +6,8 @@ using Esprima;
 using Jint;
 using Jint.Native;
 using Jint.Native.Object;
+using Jint.Runtime;
+using Jint.Runtime.Debugger;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using WELearning.DynamicCodeExecution.Abstracts;
@@ -92,13 +94,20 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                 cfg.EnableModules(basePath: _jintOptions.Value.LibraryFolderPath, restrictToBasePath: true);
                 if (assemblies?.Any() == true)
                     cfg.AllowClr(assemblies);
+                cfg.DebuggerStatementHandling(Jint.Runtime.Debugger.DebuggerStatementHandling.Script);
+                cfg.DebugMode(debugMode: true);
             });
+
             if (types?.Any() == true)
             {
                 foreach (var type in types)
                     engine.SetValue(type.Name, type);
             }
-            return new EngineWrap(engine);
+
+            var wrap = new EngineWrap(engine);
+            engine.Debugger.Skip += wrap.SetNodePosition;
+            engine.Debugger.Break += wrap.SetNodePosition;
+            return wrap;
         }
 
         if (optimizationScopeId == default) return (CreateNewEngine(), null);
@@ -141,14 +150,13 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
     {
         var (result, scope) = await ExecuteCore(request, cancellationToken);
-        var castResult = Cast<TReturn>(result.UnwrapIfPromise());
+        var castResult = Cast<TReturn>(result);
         return (castResult, scope);
     }
 
     public async Task<IDisposable> Execute<TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
     {
-        var (result, scope) = await ExecuteCore(request, cancellationToken);
-        result.UnwrapIfPromise();
+        var (_, scope) = await ExecuteCore(request, cancellationToken);
         return scope;
     }
 
@@ -163,9 +171,11 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         {
             await engineWrap.SafeAccessEngine(async (engine) =>
             {
+                engineWrap.ResetNodePosition();
                 var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, request.Imports, request.Assemblies, cancellationToken);
                 var exportedFunction = module.Get(ExportedFunctionName);
                 result = exportedFunction.Call(arguments: arguments);
+                result = result.UnwrapIfPromise();
             }, cancellationToken);
         }
         catch (ParserException ex)
@@ -176,6 +186,28 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                 userContentLineEnd: lineEnd,
                 userContentIndexStart: indexStart,
                 userContentIndexEnd: indexEnd);
+        }
+        catch (PromiseRejectedException ex)
+        {
+            throw new JintRuntimeException(ex,
+                content: content,
+                userContentLineStart: lineStart,
+                userContentLineEnd: lineEnd,
+                userContentIndexStart: indexStart,
+                userContentIndexEnd: indexEnd);
+        }
+        catch (Exception ex)
+        {
+            if (engineWrap.CurrentNodePosition.HasValue)
+                throw new JintRuntimeException(
+                    systemException: ex,
+                    currentNodePosition: engineWrap.CurrentNodePosition.Value,
+                    currentNodeIndex: engineWrap.CurrentNodeIndex,
+                    userContentLineStart: lineStart,
+                    userContentLineEnd: lineEnd,
+                    userContentIndexStart: indexStart,
+                    userContentIndexEnd: indexEnd);
+            else throw;
         }
 
         return (result, optimizationScope);
@@ -310,15 +342,31 @@ return {OutVariable};" : string.Empty;
             _lock = new(1);
             Engine = engine;
             Id = Guid.NewGuid();
+            ResetNodePosition();
         }
 
         public Engine Engine { get; }
         public Guid Id { get; }
+        public Position? CurrentNodePosition { get; set; }
+        public int CurrentNodeIndex { get; set; }
 
         public void Dispose()
         {
             _lock.Dispose();
             Engine.Dispose();
+        }
+
+        public void ResetNodePosition()
+        {
+            CurrentNodeIndex = -1;
+            CurrentNodePosition = null;
+        }
+
+        public StepMode SetNodePosition(object o, DebugInformation e)
+        {
+            CurrentNodeIndex = e.CurrentNode?.Range.Start ?? -1;
+            CurrentNodePosition = e.CurrentNode?.Location.Start;
+            return default;
         }
 
         public async Task SafeAccessEngine(Func<Engine, Task> func, CancellationToken cancellationToken)

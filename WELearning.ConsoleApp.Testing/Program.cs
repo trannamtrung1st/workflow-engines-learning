@@ -472,29 +472,43 @@ static class TestFunctionBlocks
         void HandleFailed(object o, Exception ex)
         {
             if (o is not IExecutionControl control) return;
+            string messageFormat =
+@"=== {0} ===
++ Block: {1}
++ Description: {2}
++ Location (line, column): ({3}, {4})
++ Is system error: {5}
++ Source: {6}
+
+Original content (error located):
+-----------------";
             if (ex is FunctionCompilationError error)
             {
                 var compErr = error.Error;
-                Console.Error.WriteLine(format:
-@"Compilation error:
-+ Block: {0}
-+ Description: {1}
-+ Location (line, column): ({2}, {3})
-+ Is system error: {4}
-
-Original content (error located):
------------------",
+                Console.Error.WriteLine(format: messageFormat,
+                    "Compilation error",
                     control.ExceptionFrom.Block.Id,
                     compErr.Description,
                     compErr.LineNumber,
                     compErr.Column,
-                    compErr.IsSystemError);
+                    compErr.IsUserContent,
+                    compErr.Source);
                 error.PrintError();
                 Console.WriteLine();
             }
-            else
+            else if (ex is FunctionRuntimeException runtimeEx)
             {
-
+                var exception = runtimeEx.Exception;
+                Console.Error.WriteLine(format: messageFormat,
+                    $"Runtime exception ({exception.Source})",
+                    control.ExceptionFrom.Block.Id,
+                    exception.Description,
+                    exception.LineNumber,
+                    exception.Column,
+                    exception.IsUserContent,
+                    exception.Source);
+                runtimeEx.PrintError();
+                Console.WriteLine();
             }
         }
 
@@ -504,12 +518,12 @@ Original content (error located):
             await TryRunBlock(execControl);
         }
         {
-            var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.RuntimeErrorJs));
+            var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.RuntimeExceptionJs));
             execControl.Failed += HandleFailed;
             await TryRunBlock(execControl);
         }
         {
-            var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.RuntimeErrorJsFromCs));
+            var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.RuntimeExceptionJsFromCs));
             execControl.Failed += HandleFailed;
             await TryRunBlock(execControl);
         }
