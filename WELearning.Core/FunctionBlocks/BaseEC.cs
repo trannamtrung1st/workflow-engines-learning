@@ -102,7 +102,7 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
         }
         Exception = ex;
         ExceptionFrom = from ?? this;
-        LastActivity = new BlockActivity(this);
+        LastActivity = new BlockActivity(this, runRequest: LastActivity.RunRequest);
         return true;
     }
 
@@ -110,7 +110,7 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
     {
         RefreshOutputs();
         Status = EBlockExecutionStatus.Completed;
-        LastActivity = new BlockActivity(this);
+        LastActivity = new BlockActivity(this, runRequest: LastActivity.RunRequest);
     }
 
     protected virtual void EnterOrThrow()

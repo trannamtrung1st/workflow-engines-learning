@@ -2,11 +2,16 @@ namespace WELearning.Core.FunctionBlocks.Models.Runtime;
 
 public class RunBlockRequest
 {
-    public RunBlockRequest(IEnumerable<VariableBinding> bindings, string triggerEvent = null)
+    public RunBlockRequest(Guid runId, IEnumerable<VariableBinding> bindings, string triggerEvent = null)
     {
-        RunId = Guid.NewGuid();
+        RunId = runId;
         Bindings = bindings;
         TriggerEvent = triggerEvent;
+    }
+
+    public RunBlockRequest(IEnumerable<VariableBinding> bindings, string triggerEvent = null)
+        : this(runId: Guid.NewGuid(), bindings, triggerEvent)
+    {
     }
 
     public Guid RunId { get; }

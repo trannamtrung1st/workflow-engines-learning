@@ -19,6 +19,9 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
     public override event EventHandler Running;
     public override event EventHandler<Exception> Failed;
     public override event EventHandler Completed;
+    public event EventHandler ControlRunning;
+    public event EventHandler ControlCompleted;
+    public event EventHandler<Exception> ControlFailed;
 
     public CompositeEC(
         BlockInstance block,
@@ -44,7 +47,7 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
             Running?.Invoke(this, EventArgs.Empty);
             PrepareStates(request.Bindings);
             var startingTriggers = Definition.FindNextBlocks(triggerEvent);
-            TriggerBlocks(blockTriggers: startingTriggers, optimizationScopeId, cancellationToken);
+            TriggerBlocks(runId: request.RunId, blockTriggers: startingTriggers, optimizationScopeId, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -60,7 +63,7 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
             Failed?.Invoke(this, ex);
     }
 
-    protected virtual void TriggerBlocks(IEnumerable<BlockTrigger> blockTriggers, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    protected virtual void TriggerBlocks(Guid runId, IEnumerable<BlockTrigger> blockTriggers, Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         foreach (var trigger in blockTriggers)
         {
@@ -73,10 +76,10 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
                     var execControl = GetOrInitExecutionControl(block);
                     var triggerEvent = trigger.TriggerEvent ?? Definition.GetDefinition(block.DefinitionId).DefaultTriggerEvent;
                     var blockBindings = PrepareBindings(triggerEvent, block, cancellationToken);
-                    var runRequest = new RunBlockRequest(blockBindings, triggerEvent);
+                    var runRequest = new RunBlockRequest(runId, blockBindings, triggerEvent);
                     await _blockRunner.Run(runRequest, execControl, optimizationScopeId, cancellationToken);
                     var nextBlockTriggers = Definition.FindNextBlocks(block.Id, outputEvents: execControl.Result.OutputEvents);
-                    TriggerBlocks(nextBlockTriggers, optimizationScopeId, cancellationToken);
+                    TriggerBlocks(runId, nextBlockTriggers, optimizationScopeId, cancellationToken);
                 }, cancellationToken);
             }
             else _outputEvents.Add(trigger.TriggerEvent);
@@ -225,11 +228,21 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
             else if (definition is CompositeBlockDef compositeBlockDef)
                 execControl = new CompositeEC<TFramework>(block, definition: compositeBlockDef, _blockRunner, _functionRunner, _blockFrameworkFactory);
             else throw new NotSupportedException($"Definition of type {definition.GetType().FullName} not supported!");
+            execControl.Running += HandleControlRunning;
+            execControl.Completed += HandleControlCompleted;
             execControl.Failed += HandleControlFailed;
             return execControl;
         });
 
-    protected virtual void HandleControlFailed(object sender, Exception ex) => HandleFailed(ex, sender as IExecutionControl);
+    protected virtual void HandleControlRunning(object sender, EventArgs ev) => ControlRunning?.Invoke(sender, ev);
+
+    protected virtual void HandleControlCompleted(object sender, EventArgs ev) => ControlCompleted?.Invoke(sender, ev);
+
+    protected virtual void HandleControlFailed(object sender, Exception ex)
+    {
+        ControlFailed?.Invoke(sender, ex);
+        HandleFailed(ex, sender as IExecutionControl);
+    }
 
     protected Task RunTaskAsync(Func<CancellationToken, Task> func, CancellationToken cancellationToken)
     {

@@ -211,6 +211,12 @@ static class TestEngines
 
 static class TestFunctionBlocks
 {
+    private static readonly CompositeBlockDef JsComplexCFB = ComplexCFB.Build(
+        bAddDef: PredefinedBFBs.AddJs,
+        bMultiplyDef: PredefinedBFBs.MultiplyJs,
+        bRandomDef: PredefinedBFBs.RandomJs,
+        bDelayDef: PredefinedBFBs.DelayJs);
+
     public static async Task BenchmarkComplexCFB(IServiceProvider serviceProvider, Func<CancellationToken> timeoutTokenProvider)
     {
         Console.WriteLine("=== Benchmark complex CFB ===");
@@ -241,13 +247,8 @@ static class TestFunctionBlocks
         Task<double> RunCsScript() => RunComplexCFB(
             blockRunner, CreateControl: () => CreateControl(blockDef: csScriptCFB), cancellationToken: timeoutTokenProvider());
 
-        var jsCFB = ComplexCFB.Build(
-            bAddDef: PredefinedBFBs.AddJs,
-            bMultiplyDef: PredefinedBFBs.MultiplyJs,
-            bRandomDef: PredefinedBFBs.RandomJs,
-            bDelayDef: PredefinedBFBs.DelayJs);
         Task<double> RunJs() => RunComplexCFB(
-            blockRunner, CreateControl: () => CreateControl(blockDef: jsCFB), cancellationToken: timeoutTokenProvider());
+            blockRunner, CreateControl: () => CreateControl(blockDef: JsComplexCFB), cancellationToken: timeoutTokenProvider());
 
         var sw = Stopwatch.StartNew();
         await Loop(FirstLoop, func: RunCsCompiled);
@@ -371,7 +372,7 @@ static class TestFunctionBlocks
         var functionRunner = serviceProvider.GetService<IFunctionRunner<AppFramework>>();
         var blockFrameworkFactory = serviceProvider.GetService<IBlockFrameworkFactory<AppFramework>>();
         const int DelayMs = 5000;
-        IExecutionControl CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory);
+        ICompositeEC CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory);
         IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFramework>(block: new(blockDef.Id), blockDef, functionRunner, blockFrameworkFactory);
 
         await RunLogAndDebug(blockRunner, CreateControl: CreateCompositeControl, timeoutTokenProvider);
@@ -457,7 +458,7 @@ static class TestFunctionBlocks
         Console.WriteLine(finalResult);
     }
 
-    public static async Task RunLogAndDebug(IBlockRunner blockRunner, Func<CompositeBlockDef, IExecutionControl> CreateControl, Func<CancellationToken> cancellationTokenProvider)
+    public static async Task RunLogAndDebug(IBlockRunner blockRunner, Func<CompositeBlockDef, ICompositeEC> CreateControl, Func<CancellationToken> cancellationTokenProvider)
     {
         async Task TryRunBlock(IExecutionControl execControl)
         {
@@ -469,7 +470,7 @@ static class TestFunctionBlocks
             catch { }
         }
 
-        void HandleFailed(object o, Exception ex)
+        void LogFailure(object o, Exception ex)
         {
             if (o is not IExecutionControl control) return;
             string messageFormat =
@@ -514,18 +515,65 @@ Original content (error located):
 
         {
             var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.CompilationErrorJs));
-            execControl.Failed += HandleFailed;
+            execControl.Failed += LogFailure;
             await TryRunBlock(execControl);
         }
         {
             var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.RuntimeExceptionJs));
-            execControl.Failed += HandleFailed;
+            execControl.Failed += LogFailure;
             await TryRunBlock(execControl);
         }
         {
             var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.RuntimeExceptionJsFromCs));
-            execControl.Failed += HandleFailed;
+            execControl.Failed += LogFailure;
             await TryRunBlock(execControl);
+        }
+
+        {
+            void LogBlockActivity(object o)
+            {
+                if (o is not IExecutionControl execControl) return;
+                var lastActivity = execControl.LastActivity;
+                string messageFormat =
+@"
+=== {0} ===
++ Run ID: {1}
++ Time (UTC): {2}
++ Status: {3}
++ Run time (ms): {4}
++ Exception from block: {5}
+";
+                Console.WriteLine(format: messageFormat,
+                    $"{(lastActivity.Control is ICompositeEC ? "CFB" : "BFB")}: {lastActivity.Control.Block.Id}",
+                    lastActivity.RunRequest.RunId,
+                    lastActivity.TimeUtc,
+                    lastActivity.Status,
+                    lastActivity.RunTime?.TotalMilliseconds.ToString() ?? "N/A",
+                    lastActivity.ExceptionFrom?.Block.Id ?? "N/A");
+                if (lastActivity.Status == EBlockExecutionStatus.Failed)
+                    LogFailure(o, lastActivity.Exception);
+            }
+
+            var bindings = new HashSet<VariableBinding>();
+            bindings.Add(new(variableName: "Add1X", value: 5, type: EBindingType.Input));
+            bindings.Add(new(variableName: "Add1Y", value: 10, type: EBindingType.Input));
+
+            var execControl = CreateControl(JsComplexCFB);
+            execControl.Running += (o, e) => LogBlockActivity(o);
+            execControl.Completed += (o, e) => LogBlockActivity(o);
+            execControl.Failed += (o, e) => LogBlockActivity(o);
+            execControl.ControlRunning += (o, e) => LogBlockActivity(o);
+            execControl.ControlCompleted += (o, e) => LogBlockActivity(o);
+            execControl.ControlFailed += (o, e) => LogBlockActivity(o);
+
+            try
+            {
+                var runRequest = new RunBlockRequest(bindings);
+                await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default, cancellationToken: cancellationTokenProvider());
+                var finalResult = execControl.GetOutput("Result");
+                Console.WriteLine("Complex CFB result: {0}", finalResult);
+            }
+            catch { }
         }
     }
 

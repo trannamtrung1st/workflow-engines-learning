@@ -29,7 +29,7 @@ public class BlockActivity
     private void CalculateRuntime(BlockActivity lastActivity)
     {
         if (
-            Status != EBlockExecutionStatus.Completed || Status != EBlockExecutionStatus.Failed
+            (Status != EBlockExecutionStatus.Completed && Status != EBlockExecutionStatus.Failed)
             || lastActivity?.Status != EBlockExecutionStatus.Running
         ) return;
         RunTime = TimeUtc - lastActivity.TimeUtc;
