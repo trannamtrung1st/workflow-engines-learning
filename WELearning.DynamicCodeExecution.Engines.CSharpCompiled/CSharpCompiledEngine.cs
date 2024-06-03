@@ -33,7 +33,8 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
     {
         var assemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types);
         var assembly = await LoadOrCompile(request.Content, request.Imports, assemblies, cancellationToken);
-        var execType = assembly.ExportedTypes.FirstOrDefault(t => t.IsClass && typeof(IExecutable<TReturn, TArg>).IsAssignableFrom(t));
+        var baseType = typeof(IExecutable<TReturn, TArg>);
+        var execType = assembly.ExportedTypes.FirstOrDefault(t => t.IsClass && baseType.IsAssignableFrom(t));
         var instance = (IExecutable<TReturn, TArg>)Activator.CreateInstance(execType);
         var result = await instance.Execute(request.Arguments, cancellationToken);
         return (result, default);
@@ -58,7 +59,7 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
         return importPart + content;
     }
 
-    private async Task<(string AssemblyName, long CacheSize)> GetScriptCacheEntry(
+    private static async Task<(string AssemblyName, long CacheSize)> GetScriptCacheEntry(
         string content, IEnumerable<string> imports,
         IEnumerable<Assembly> assemblies,
         CancellationToken cancellationToken)

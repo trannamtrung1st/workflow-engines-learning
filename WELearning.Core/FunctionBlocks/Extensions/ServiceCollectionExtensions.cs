@@ -12,6 +12,7 @@ public static class ServiceCollectionExtensions
     }
 
     public static IServiceCollection AddDefaultFunctionRunner<TFramework>(this IServiceCollection services)
+        where TFramework : IBlockFramework
     {
         return services.AddTransient<IFunctionRunner<TFramework>, FunctionRunner<TFramework>>();
     }

@@ -30,8 +30,9 @@ public class Variable
         return Name == other.Name && VariableType == other.VariableType;
     }
 
-    public bool CanInput() => VariableType == EVariableType.Input || VariableType == EVariableType.InOut;
-    public bool CanOutput() => VariableType == EVariableType.Output || VariableType == EVariableType.InOut;
+    public bool CanInput() => VariableType == EVariableType.Input || CanInOut();
+    public bool CanOutput() => VariableType == EVariableType.Output || CanInOut();
+    public bool CanInOut() => VariableType == EVariableType.InOut || VariableType == EVariableType.Internal;
 
     public override int GetHashCode()
     {

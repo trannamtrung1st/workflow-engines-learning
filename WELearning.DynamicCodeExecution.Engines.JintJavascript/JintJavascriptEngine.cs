@@ -140,15 +140,12 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         var combinedAssemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types)?.ToArray();
         var (engineWrap, optimizationScope) = PrepareEngine(combinedAssemblies, request.Types, request.OptimizationScopeId, cancellationToken);
         TReturn castResult = default;
-        var content = request.UseRawContent ? request.Content : PreprocessContent(request.Content, request.FlattenArguments);
+        var content = PreprocessContent(request);
         await engineWrap.SafeAccessEngine(async (engine) =>
         {
             var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, request.Imports, request.Assemblies, cancellationToken);
             var exportedFunction = module.Get(ExportedFunctionName);
-            var finalArguments = new JsValue[] { JsValue.FromObjectWithType(engine, request.Arguments, typeof(TArg)) };
-            if (request.FlattenArguments?.Any() == true)
-                finalArguments = finalArguments.Concat(request.FlattenArguments.Select(v => JsValue.FromObject(engine, v.Value))).ToArray();
-            var result = exportedFunction.Call(arguments: finalArguments);
+            var result = exportedFunction.Call(arguments: GetFunctionArguments(engine, request));
             castResult = Cast<TReturn>(result.UnwrapIfPromise());
         }, cancellationToken);
         return (castResult, optimizationScope);
@@ -158,26 +155,64 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     {
         var combinedAssemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types)?.ToArray();
         var (engineWrap, optimizationScope) = PrepareEngine(combinedAssemblies, request.Types, request.OptimizationScopeId, cancellationToken);
-        var content = request.UseRawContent ? request.Content : PreprocessContent(request.Content, request.FlattenArguments);
+        var content = PreprocessContent(request);
         await engineWrap.SafeAccessEngine(async (engine) =>
         {
             var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, request.Imports, request.Assemblies, cancellationToken);
             var exportedFunction = module.Get(ExportedFunctionName);
-            var finalArguments = new JsValue[] { JsValue.FromObjectWithType(engine, request.Arguments, typeof(TArg)) };
-            if (request.FlattenArguments?.Any() == true)
-                finalArguments = finalArguments.Concat(request.FlattenArguments.Select(v => JsValue.FromObject(engine, v.Value))).ToArray();
-            var result = exportedFunction.Call(arguments: finalArguments);
+            var result = exportedFunction.Call(arguments: GetFunctionArguments(engine, request));
             result.UnwrapIfPromise();
         }, cancellationToken);
         return optimizationScope;
     }
 
-    private static string PreprocessContent(string content, IEnumerable<(string Name, object Value)> flattenArguments)
+    private static JsValue[] GetFunctionArguments<TArg>(Engine engine, ExecuteCodeRequest<TArg> request)
     {
-        return JavascriptHelper.WrapModuleFunction(
-            script: content,
-            inputVariables: flattenArguments?.Select(a => a.Name)
+        var finalArguments = request.FlattenArguments?.Any() == true
+            ? request.FlattenArguments.Select(v => JsValue.FromObject(engine, v.Value)).ToArray()
+            : new[] { JsValue.FromObjectWithType(engine, request.Arguments, typeof(TArg)) };
+        return finalArguments;
+    }
+
+    private static IEnumerable<string> GetCombineArguments(List<(string Name, object Value)> flattenArguments, List<string> flattenOutputs)
+    {
+        var finalArguments = new List<string>();
+        flattenArguments ??= new();
+        flattenOutputs ??= new();
+        for (int i = 0; i < flattenArguments.Count; i++)
+        {
+            finalArguments.Add(flattenArguments[i].Name);
+            flattenOutputs.Remove(flattenArguments[i].Name);
+        }
+        for (int i = 0; i < flattenOutputs.Count; i++)
+            finalArguments.Add(flattenOutputs[i]);
+        return finalArguments;
+    }
+
+    private static string PreprocessContent<TArg>(ExecuteCodeRequest<TArg> request)
+    {
+        const string OutVariable = "__APP_OUT__";
+        var flattenOutputs = request.FlattenOutputs?.ToList();
+        var flattenOutputsStr = flattenOutputs?.Any() == true ? @$"
+            const {OutVariable} = {{{string.Join(',', flattenOutputs)}}};
+            Object.keys({OutVariable}).forEach(key => {{
+                if ({OutVariable}[key] === undefined) {{
+                    delete {OutVariable}[key];
+                }}
+            }});
+            return {OutVariable};
+        " : string.Empty;
+        var inputArguments = GetCombineArguments(
+            flattenArguments: request.FlattenArguments?.ToList(),
+            flattenOutputs: flattenOutputs);
+        var content = request.UseRawContent ? request.Content : JavascriptHelper.WrapModuleFunction(
+            script: @$"
+            {request.Content}
+            {flattenOutputsStr}
+            ",
+            inputVariables: inputArguments
         );
+        return content;
     }
 
     private static TReturn Cast<TReturn>(JsValue jsValue)

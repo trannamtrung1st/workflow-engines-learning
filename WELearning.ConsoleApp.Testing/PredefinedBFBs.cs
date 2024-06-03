@@ -4,7 +4,6 @@ using WELearning.DynamicCodeExecution.Constants;
 using System.Reflection;
 using WELearning.Core.FunctionBlocks.Framework;
 using WELearning.Core.FunctionBlocks.Constants;
-using WELearning.DynamicCodeExecution.Helpers;
 
 static class PredefinedBFBs
 {
@@ -223,7 +222,6 @@ static class PredefinedBFBs
         return CreateBlockMultiply(
             runtime: ERuntime.Javascript,
             multiplyScript: @$"
-            const FB = _FB_.FB;
             const x = FB.In(""X"").AsDouble();
             const y = FB.In(""Y"").AsDouble();
             const result = x * y;
@@ -231,12 +229,10 @@ static class PredefinedBFBs
             await FB.Publish(""Completed"");
             ",
             handleInvalidScript: @$"
-            const FB = _FB_.FB;
             FB.LogWarning(""Invalid arguments X, Y"");
             await FB.Publish(""Completed"");
             ",
             invalidConditionScript: @$"
-            const FB = _FB_.FB;
             const x = FB.In(""X""); const y = FB.In(""Y"");
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
             ",
@@ -327,7 +323,6 @@ static class PredefinedBFBs
             var y = FB.In(""Y"").AsDouble();
             var result = x + y;
             await FB.Out(""Result"").Write(result);
-            await FB.Publish(""Completed"");
             ",
             handleInvalidScript: @$"
             FB.LogWarning(""Invalid arguments X, Y"");
@@ -350,7 +345,6 @@ static class PredefinedBFBs
             var y = FB.In(""Y"").AsDouble();
             var result = x + y;
             await FB.Out(""Result"").Write(result);
-            await FB.Publish(""Completed"");
             "),
             handleInvalidScript: BaseCompiledFunction<AppFramework>.WrapScript(@$"
             FB.LogWarning(""Invalid arguments X, Y"");
@@ -369,20 +363,13 @@ static class PredefinedBFBs
         return CreateBlockAdd(
             runtime: ERuntime.Javascript,
             addScript: @$"
-            const FB = _FB_.FB;
-            const x = FB.In(""X"").AsDouble();
-            const y = FB.In(""Y"").AsDouble();
-            const result = x + y;
-            await FB.Out(""Result"").Write(result);
-            await FB.Publish(""Completed"");
+            Result = X + Y
             ",
             handleInvalidScript: @$"
-            const FB = _FB_.FB;
             FB.LogWarning(""Invalid arguments X, Y"");
             await FB.Publish(""Completed"");
             ",
             invalidConditionScript: @$"
-            const FB = _FB_.FB;
             const x = FB.In(""X""); const y = FB.In(""Y"");
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
             ",
@@ -442,6 +429,7 @@ static class PredefinedBFBs
 
                 var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eTrigger.Name);
                 tIdle2Running.ActionFunctionIds = new[] { fRun.Id };
+                tIdle2Running.DefaultOutputEvents = new[] { eCompleted.Name };
 
                 transitions.Add(tIdle2Invalid);
                 transitions.Add(tIdle2Running);
@@ -491,7 +479,6 @@ static class PredefinedBFBs
         return CreateBlockRandom(
             runtime: ERuntime.Javascript,
             randomScript: @$"
-            const FB = _FB_.FB;
             const result = FB.NextRandomDouble();
             await FB.Out(""Result"").Write(result);
             await FB.Publish(""Completed"");
@@ -580,7 +567,6 @@ static class PredefinedBFBs
         return CreateBlockDelay(
             runtime: ERuntime.Javascript,
             delayScript: @$"
-            const FB = _FB_.FB;
             const ms = FB.In(""Ms"").AsInt();
             FB.Delay(ms);
             await FB.Publish(""Completed"");

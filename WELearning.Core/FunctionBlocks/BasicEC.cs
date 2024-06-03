@@ -97,20 +97,22 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
         optimizationScopeId ??= Guid.NewGuid();
         var blockFramework = _blockFrameworkFactory.Create(this);
         var globalObject = new BlockGlobalObject<TFramework>(blockFramework);
-        var flattenArguments = FlattenInputs();
-        flattenArguments = new (string, object)[] { (nameof(BlockGlobalObject<TFramework>.FB), blockFramework) }
-            .Concat(flattenArguments);
+        var flattenArguments = new List<(string, object)>();
+        var flattenOutputs = new List<string>() { BuiltInVariables.EventsOutputVariable };
+        flattenArguments.Add((nameof(BlockGlobalObject<TFramework>.FB), blockFramework));
+        FlattenInputs(flattenArguments);
+        FlattenOutputs(flattenOutputs);
 
         async Task<bool> Evaluate(Function condition, CancellationToken cancellationToken)
         {
-            var (result, optimizationScope) = await _functionRunner.Run<bool>(condition, globalObject: globalObject, flattenArguments, optimizationScopeId.Value, cancellationToken);
+            var (result, optimizationScope) = await _functionRunner.Run<bool>(condition, globalObject: globalObject, flattenArguments, flattenOutputs, optimizationScopeId.Value, cancellationToken);
             if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
             return result;
         }
 
         async Task RunAction(Function actionFunction, CancellationToken cancellationToken)
         {
-            var optimizationScope = await _functionRunner.Run(actionFunction, globalObject, flattenArguments, optimizationScopeId.Value, cancellationToken);
+            var optimizationScope = await _functionRunner.Run(actionFunction, globalObject, flattenArguments, flattenOutputs, optimizationScopeId.Value, cancellationToken);
             if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
         }
 

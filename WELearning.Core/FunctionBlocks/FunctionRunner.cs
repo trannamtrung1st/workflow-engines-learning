@@ -1,6 +1,7 @@
 
 using System.Reflection;
 using WELearning.Core.FunctionBlocks.Abstracts;
+using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
 using WELearning.Core.Reflection.Abstracts;
@@ -8,7 +9,7 @@ using WELearning.DynamicCodeExecution.Abstracts;
 
 namespace WELearning.Core.FunctionBlocks;
 
-public class FunctionRunner<TFramework> : IFunctionRunner<TFramework>
+public class FunctionRunner<TFramework> : IFunctionRunner<TFramework> where TFramework : IBlockFramework
 {
     private readonly IRuntimeEngineFactory _engineFactory;
     private readonly ITypeProvider _typeProvider;
@@ -21,7 +22,9 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework>
     }
 
     public async Task<(TReturn Result, IDisposable OptimizationScope)> Run<TReturn>(
-        Function function, BlockGlobalObject<TFramework> globalObject, IEnumerable<(string Name, object Value)> flattenArguments,
+        Function function, BlockGlobalObject<TFramework> globalObject,
+        IEnumerable<(string Name, object Value)> flattenArguments,
+        IEnumerable<string> flattenOutputs,
         Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         var engine = _engineFactory.CreateEngine(runtime: function.Runtime);
@@ -33,6 +36,7 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework>
                 content: function.Content,
                 arguments: globalObject,
                 flattenArguments: flattenArguments,
+                flattenOutputs: flattenOutputs,
                 imports: function.Imports,
                 assemblies, types,
                 optimizationScopeId: optimizationScopeId,
@@ -44,18 +48,21 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework>
     }
 
     public async Task<IDisposable> Run(
-        Function function, BlockGlobalObject<TFramework> globalObject, IEnumerable<(string Name, object Value)> flattenArguments,
+        Function function, BlockGlobalObject<TFramework> globalObject,
+        IEnumerable<(string Name, object Value)> flattenArguments,
+        IEnumerable<string> flattenOutputs,
         Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         var engine = _engineFactory.CreateEngine(runtime: function.Runtime);
         var assemblies = function.Assemblies != null ? _typeProvider.GetAssemblies(function.Assemblies) : null;
         assemblies = assemblies != null ? assemblies.Concat(DefaultAssemblies) : DefaultAssemblies;
         var types = function.Types != null ? _typeProvider.GetTypes(function.Types) : null;
-        var scope = await engine.Execute<BlockGlobalObject<TFramework>>(
+        var (result, scope) = await engine.Execute<dynamic, BlockGlobalObject<TFramework>>(
             request: new(
                 content: function.Content,
                 arguments: globalObject,
                 flattenArguments: flattenArguments,
+                flattenOutputs: flattenOutputs,
                 imports: function.Imports,
                 assemblies, types,
                 optimizationScopeId: optimizationScopeId,
@@ -63,6 +70,7 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework>
             ),
             cancellationToken: cancellationToken
         );
+        globalObject.FB.HandleDynamicResult(result);
         return scope;
     }
 }

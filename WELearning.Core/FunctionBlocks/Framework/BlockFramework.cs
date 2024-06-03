@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
+using System.Dynamic;
 using WELearning.Core.FunctionBlocks.Abstracts;
+using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 
 namespace WELearning.Core.FunctionBlocks.Framework;
@@ -23,26 +25,62 @@ public class BlockFramework : IBlockFramework
     }
 
     private readonly HashSet<string> _outputEvents;
-    public IEnumerable<string> OutputEvents => _outputEvents;
+    public virtual IEnumerable<string> OutputEvents => _outputEvents;
 
-    public Task DelayAsync(int ms) => Task.Delay(ms);
-    public void Delay(int ms) => Task.Delay(ms).Wait();
+    public virtual Task DelayAsync(int ms) => Task.Delay(ms);
+    public virtual void Delay(int ms) => Task.Delay(ms).Wait();
 
-    public IReadBinding In(string name)
+    public virtual IReadBinding In(string name)
         => _inputBindings.GetOrAdd(name, (key) => new InputBinding(key, valueObject: _control.GetInput(name)));
 
-    public IWriteBinding Out(string name)
+    public virtual IWriteBinding Out(string name)
         => _outputBindings.GetOrAdd(name, (key) => new OutputBinding(key, valueObject: _control.GetOutput(name)));
 
-    public IReadWriteBinding InOut(string name)
+    public virtual IReadWriteBinding InOut(string name)
         => _inOutBindings.GetOrAdd(name, (key) => new InOutBinding(key, valueObject: _control.GetInOut(name)));
 
-    public IReadWriteBinding Internal(string name)
+    public virtual IReadWriteBinding Internal(string name)
         => _internalBindings.GetOrAdd(name, (key) => new InternalBinding(key, valueObject: _control.GetInternalData(name)));
 
-    public Task Publish(string eventName)
+    public virtual Task Publish(string eventName)
     {
         _outputEvents.Add(eventName);
+        return Task.CompletedTask;
+    }
+
+    public virtual Task HandleDynamicResult(dynamic result)
+    {
+        if (result is not ExpandoObject expObj) return Task.CompletedTask;
+        foreach (var kvp in expObj)
+        {
+            switch (kvp.Key)
+            {
+                case BuiltInVariables.EventsOutputVariable:
+                    {
+                        var events = kvp.Value as IEnumerable<object>;
+                        if (events?.Any() == true)
+                            foreach (var ev in events)
+                                if (ev is string evStr)
+                                    _outputEvents.Add(evStr);
+                        break;
+                    }
+                default:
+                    {
+                        var variable = _control.GetVariable(kvp.Key, Constants.EVariableType.Output)
+                            ?? _control.GetVariable(kvp.Key, Constants.EVariableType.InOut)
+                            ?? _control.GetVariable(kvp.Key, Constants.EVariableType.Internal);
+                        IWriteBinding writeBinding = null;
+                        switch (variable.VariableType)
+                        {
+                            case Constants.EVariableType.Output: writeBinding = Out(kvp.Key); break;
+                            case Constants.EVariableType.InOut: writeBinding = InOut(kvp.Key); break;
+                            case Constants.EVariableType.Internal: writeBinding = Internal(kvp.Key); break;
+                        }
+                        writeBinding?.Write(kvp.Value);
+                        break;
+                    }
+            }
+        }
         return Task.CompletedTask;
     }
 }

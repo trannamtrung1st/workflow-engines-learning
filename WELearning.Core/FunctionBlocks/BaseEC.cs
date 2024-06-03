@@ -96,16 +96,21 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
         }
     }
 
-    protected virtual IEnumerable<(string Name, object Value)> FlattenInputs()
+    protected virtual void FlattenInputs(List<(string, object)> flatten)
     {
-        var flatten = new List<(string, object)>();
-        var inputVars = Definition.Variables.Where(v => v.CanInput());
-        foreach (var input in inputVars)
+        var variables = Definition.Variables.Where(v => v.CanInput());
+        foreach (var variable in variables)
         {
-            if (_valueMap.TryGetValue(input, out var value))
-                flatten.Add((input.Name, value));
+            if (_valueMap.TryGetValue(variable, out var valueObject))
+                flatten.Add((variable.Name, valueObject.Value));
         }
-        return flatten;
+    }
+
+    protected virtual void FlattenOutputs(List<string> flatten)
+    {
+        var variables = Definition.Variables.Where(v => v.CanOutput());
+        foreach (var variable in variables)
+            flatten.Add(variable.Name);
     }
 
     public virtual void WaitForIdle(CancellationToken cancellationToken) => _idleWait.Wait(cancellationToken);

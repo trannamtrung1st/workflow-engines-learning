@@ -17,7 +17,6 @@ using WELearning.Core.Reflection.Extensions;
 using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Constants;
 using WELearning.DynamicCodeExecution.Extensions;
-using WELearning.DynamicCodeExecution.Helpers;
 
 const string LibraryFolderPath = "/Users/trungtran/MyPlace/Personal/Learning/workflow-engines-learning/local/libs";
 var serviceCollection = new ServiceCollection()
@@ -114,7 +113,9 @@ static class TestEngines
                             return Task.FromResult(arguments.X * 5);    
                         }}
                     }}",
-                    arguments: new LoopTestArgs { X = i }, flattenArguments: null,
+                    arguments: new LoopTestArgs { X = i },
+                    flattenArguments: null,
+                    flattenOutputs: null,
                     imports: imports, assemblies: assemblies, types: null
                 ), cancellationToken);
         }
@@ -126,7 +127,9 @@ static class TestEngines
         {
             await runtimeEngine.Execute<LoopTestArgs>(
                 request: new(
-                    content: @$"X * 5", arguments: new LoopTestArgs { X = i }, flattenArguments: null,
+                    content: @$"X * 5", arguments: new LoopTestArgs { X = i },
+                    flattenArguments: null,
+                    flattenOutputs: null,
                     imports: null, assemblies: null, types: null
                 ), cancellationToken);
         }
@@ -142,8 +145,10 @@ static class TestEngines
             {
                 scope = await runtimeEngine.Execute<LoopTestArgs>(
                     new(
-                        content: @$"return _FB_.X * 5",
-                        arguments: new LoopTestArgs { X = i }, flattenArguments: null,
+                        content: @$"return X * 5",
+                        arguments: new LoopTestArgs { X = i },
+                        flattenArguments: new (string, object)[] { ("X", i) },
+                        flattenOutputs: null,
                         imports: null, assemblies: null, types: null,
                         optimizationScopeId
                     ), cancellationToken);
@@ -167,10 +172,12 @@ static class TestEngines
             request: new(
                 content: @"
                     const testLodash = _.filter([1, 2, 3], item => !!item);
-                    const apiString = await _FB_.TestAsync();
+                    const apiString = await TestAsync();
                     return `Hello ` + testLodash.toString() + apiString;
                 ",
-                arguments: new { TestAsync }, flattenArguments: null,
+                arguments: new { TestAsync },
+                flattenArguments: new (string, object)[] { (nameof(TestAsync), TestAsync) },
+                flattenOutputs: null,
                 imports: new[] { "import './fetch.min.js'", "import './lodash.min.js';", "import './axios.min.js';" },
                 types: null,
                 assemblies: null
@@ -184,10 +191,12 @@ static class TestEngines
             request: new(
                 content: @"
                     const testLodash = _.filter([1, 2, 3], item => !!item);
-                    const apiString = await _FB_.TestAsync();
+                    const apiString = await TestAsync();
                     return `Hello ` + testLodash.toString() + apiString;
                 ",
-                arguments: new { TestAsync }, flattenArguments: null,
+                arguments: new { TestAsync },
+                flattenArguments: new (string, object)[] { (nameof(TestAsync), TestAsync) },
+                flattenOutputs: null,
                 imports: new[] { "import { fetch } from 'fetch.min.js'", "import 'lodash.min.js'", "import 'axios.min.js'" },
                 types: null,
                 assemblies: null

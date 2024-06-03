@@ -10,4 +10,5 @@ public interface IBlockFramework
     IReadWriteBinding Internal(string name);
     Task Publish(string eventName);
     IEnumerable<string> OutputEvents { get; }
+    Task HandleDynamicResult(dynamic result);
 }

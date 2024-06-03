@@ -3,17 +3,17 @@ using WELearning.DynamicCodeExecution.Abstracts;
 
 namespace WELearning.Core.FunctionBlocks.Framework;
 
-public abstract class BaseCompiledFunction<TFramework> : IExecutable<BlockGlobalObject<TFramework>>
+public abstract class BaseCompiledFunction<TFramework> : IExecutable<object, BlockGlobalObject<TFramework>>
 {
     protected TFramework FB;
 
-    public Task Execute(BlockGlobalObject<TFramework> global, CancellationToken cancellationToken)
+    public Task<object> Execute(BlockGlobalObject<TFramework> global, CancellationToken cancellationToken)
     {
         FB = global.FB;
         return Handle(cancellationToken);
     }
 
-    public abstract Task Handle(CancellationToken cancellationToken);
+    public abstract Task<object> Handle(CancellationToken cancellationToken);
 
     public static string WrapScript(string script)
     {
@@ -21,9 +21,10 @@ public abstract class BaseCompiledFunction<TFramework> : IExecutable<BlockGlobal
         return @$"
 public class Function : BaseCompiledFunction<{frameworkTypeName}>
 {{
-    public override async Task Handle(CancellationToken cancellationToken)
+    public override async Task<object> Handle(CancellationToken cancellationToken)
     {{
         {script}
+        return null;
     }}
 }}";
     }
