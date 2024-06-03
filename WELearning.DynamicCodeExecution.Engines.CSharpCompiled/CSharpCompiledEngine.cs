@@ -7,6 +7,7 @@ using Microsoft.Extensions.Caching.Memory;
 using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Constants;
 using WELearning.DynamicCodeExecution.Helpers;
+using WELearning.DynamicCodeExecution.Models;
 
 namespace WELearning.DynamicCodeExecution.Engines;
 
@@ -28,22 +29,24 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.CSharpCompiled;
 
-    public async Task<TReturn> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
+    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
     {
-        assemblies = ReflectionHelper.CombineAssemblies(assemblies, types);
-        var assembly = await LoadOrCompile(content, imports, assemblies, cancellationToken);
+        var assemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types);
+        var assembly = await LoadOrCompile(request.Content, request.Imports, assemblies, cancellationToken);
         var execType = assembly.ExportedTypes.FirstOrDefault(t => t.IsClass && typeof(IExecutable<TReturn, TArg>).IsAssignableFrom(t));
         var instance = (IExecutable<TReturn, TArg>)Activator.CreateInstance(execType);
-        return await instance.Execute(arguments, cancellationToken);
+        var result = await instance.Execute(request.Arguments, cancellationToken);
+        return (result, default);
     }
 
-    public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
+    public async Task<IDisposable> Execute<TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
     {
-        assemblies = ReflectionHelper.CombineAssemblies(assemblies, types);
-        var assembly = await LoadOrCompile(content, imports, assemblies, cancellationToken);
+        var assemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types);
+        var assembly = await LoadOrCompile(request.Content, request.Imports, assemblies, cancellationToken);
         var execType = assembly.ExportedTypes.FirstOrDefault(t => t.IsClass && typeof(IExecutable<TArg>).IsAssignableFrom(t));
         var instance = (IExecutable<TArg>)Activator.CreateInstance(execType);
-        await instance.Execute(arguments, cancellationToken);
+        await instance.Execute(request.Arguments, cancellationToken);
+        return default;
     }
 
     private string AddImports(string content, IEnumerable<string> imports)

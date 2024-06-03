@@ -1,15 +1,11 @@
-
-using System.Reflection;
 using WELearning.DynamicCodeExecution.Constants;
+using WELearning.DynamicCodeExecution.Models;
 
 namespace WELearning.DynamicCodeExecution.Abstracts;
 
 public interface IRuntimeEngine
 {
-    Task<TReturn> Execute<TReturn, TArg>(
-        string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports,
-        IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken);
-    Task Execute<TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports,
-        IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken);
+    Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken);
+    Task<IDisposable> Execute<TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken);
     bool CanRun(ERuntime runtime);
 }

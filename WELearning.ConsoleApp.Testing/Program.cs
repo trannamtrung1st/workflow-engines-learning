@@ -55,7 +55,7 @@ static class TestEngines
         var runtimeEngineFactory = serviceProvider.GetService<IRuntimeEngineFactory>();
         var csCompiledEngine = runtimeEngineFactory.CreateEngine(ERuntime.CSharpCompiled);
         var csScriptEngine = runtimeEngineFactory.CreateEngine(ERuntime.CSharpScript);
-        var jsEngine = runtimeEngineFactory.CreateEngine(ERuntime.Javascript) as IOptimizableRuntimeEngine;
+        var jsEngine = runtimeEngineFactory.CreateEngine(ERuntime.Javascript);
         var jsEngineName = jsEngine.GetType().Name;
         var compiledAssemblies = new[]
         {
@@ -105,15 +105,18 @@ static class TestEngines
         for (var i = 0; i < n; i++)
         {
             await runtimeEngine.Execute<int, LoopTestArgs>(
-                content: @$"
-                public class Function : IExecutable<int, LoopTestArgs> 
-                {{
-                    public Task<int> Execute(LoopTestArgs arguments, CancellationToken cancellationToken) 
+                request: new(
+                    content: @$"
+                    public class Function : IExecutable<int, LoopTestArgs> 
                     {{
-                        return Task.FromResult(arguments.X * 5);    
-                    }}
-                }}", arguments: new LoopTestArgs { X = i }, flattenArguments: null,
-                imports: imports, assemblies: assemblies, types: null, cancellationToken);
+                        public Task<int> Execute(LoopTestArgs arguments, CancellationToken cancellationToken) 
+                        {{
+                            return Task.FromResult(arguments.X * 5);    
+                        }}
+                    }}",
+                    arguments: new LoopTestArgs { X = i }, flattenArguments: null,
+                    imports: imports, assemblies: assemblies, types: null
+                ), cancellationToken);
         }
     }
 
@@ -121,13 +124,15 @@ static class TestEngines
     {
         for (var i = 0; i < n; i++)
         {
-            await runtimeEngine.Execute(
-                content: @$"X * 5", arguments: new LoopTestArgs { X = i }, flattenArguments: null,
-                imports: null, assemblies: null, types: null, cancellationToken);
+            await runtimeEngine.Execute<LoopTestArgs>(
+                request: new(
+                    content: @$"X * 5", arguments: new LoopTestArgs { X = i }, flattenArguments: null,
+                    imports: null, assemblies: null, types: null
+                ), cancellationToken);
         }
     }
 
-    public static async Task LoopJavascript(int n, IOptimizableRuntimeEngine runtimeEngine, CancellationToken cancellationToken)
+    public static async Task LoopJavascript(int n, IRuntimeEngine runtimeEngine, CancellationToken cancellationToken)
     {
         IDisposable scope = null;
         Guid optimizationScopeId = Guid.NewGuid();
@@ -135,11 +140,13 @@ static class TestEngines
         {
             for (var i = 0; i < n; i++)
             {
-                scope = await runtimeEngine.Execute(
-                    content: JavascriptHelper.WrapModuleFunction(@$"return _FB_.X * 5"),
-                    arguments: new LoopTestArgs { X = i }, flattenArguments: null,
-                    imports: null, assemblies: null, types: null,
-                    optimizationScopeId, cancellationToken);
+                scope = await runtimeEngine.Execute<LoopTestArgs>(
+                    new(
+                        content: JavascriptHelper.WrapModuleFunction(@$"return _FB_.X * 5"),
+                        arguments: new LoopTestArgs { X = i }, flattenArguments: null,
+                        imports: null, assemblies: null, types: null,
+                        optimizationScopeId
+                    ), cancellationToken);
             }
         }
         finally { scope?.Dispose(); }
@@ -156,38 +163,41 @@ static class TestEngines
     public static async Task TestJintLib(IRuntimeEngineFactory engineFactory, CancellationToken cancellationToken)
     {
         var runtimeEngine = engineFactory.CreateEngine(runtime: ERuntime.Javascript);
-
-        var result = await runtimeEngine.Execute<string, object>(JavascriptHelper.WrapModuleFunction(@"
-            const testLodash = _.filter([1, 2, 3], item => !!item);
-            const apiString = await _FB_.TestAsync();
-            return `Hello ` + testLodash.toString() + apiString;
-        ", topStatements: @"
-            import './lodash.min.js';
-            import './axios.min.js';
-        "),
-        arguments: new { TestAsync }, flattenArguments: null,
-        imports: new[] { "import './fetch.min.js'" },
-        types: null,
-        assemblies: null,
-        cancellationToken: cancellationToken);
+        var result = await runtimeEngine.Execute<string, object>(
+            request: new(
+                content: JavascriptHelper.WrapModuleFunction(@"
+                    const testLodash = _.filter([1, 2, 3], item => !!item);
+                    const apiString = await _FB_.TestAsync();
+                    return `Hello ` + testLodash.toString() + apiString;
+                ", topStatements: @"
+                    import './lodash.min.js';
+                    import './axios.min.js';
+                "),
+                arguments: new { TestAsync }, flattenArguments: null,
+                imports: new[] { "import './fetch.min.js'" },
+                types: null,
+                assemblies: null
+            ), cancellationToken: cancellationToken);
     }
 
     public static async Task TestV8Lib(IRuntimeEngineFactory engineFactory, CancellationToken cancellationToken)
     {
         var runtimeEngine = engineFactory.CreateEngine(runtime: ERuntime.Javascript);
-        var result = await runtimeEngine.Execute<string, object>(JavascriptHelper.WrapModuleFunction(@"
-            const testLodash = _.filter([1, 2, 3], item => !!item);
-            const apiString = await _FB_.TestAsync();
-            return `Hello ` + testLodash.toString() + apiString;
-        ", topStatements: @"
-            import 'lodash.min.js';
-            import 'axios.min.js';
-        "),
-        arguments: new { TestAsync }, flattenArguments: null,
-        imports: new[] { "import { fetch } from 'fetch.min.js'" },
-        types: null,
-        assemblies: null,
-        cancellationToken: cancellationToken);
+        var result = await runtimeEngine.Execute<string, object>(
+            request: new(
+                content: JavascriptHelper.WrapModuleFunction(@"
+                    const testLodash = _.filter([1, 2, 3], item => !!item);
+                    const apiString = await _FB_.TestAsync();
+                    return `Hello ` + testLodash.toString() + apiString;
+                ", topStatements: @"
+                    import 'lodash.min.js';
+                    import 'axios.min.js';
+                "),
+                arguments: new { TestAsync }, flattenArguments: null,
+                imports: new[] { "import { fetch } from 'fetch.min.js'" },
+                types: null,
+                assemblies: null
+            ), cancellationToken: cancellationToken);
     }
 }
 

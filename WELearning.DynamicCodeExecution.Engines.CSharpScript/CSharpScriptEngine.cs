@@ -7,6 +7,7 @@ using Microsoft.Extensions.Caching.Memory;
 using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Constants;
 using WELearning.DynamicCodeExecution.Helpers;
+using WELearning.DynamicCodeExecution.Models;
 
 namespace WELearning.DynamicCodeExecution.Engines;
 
@@ -28,10 +29,10 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.CSharpScript;
 
-    public async Task<TReturn> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
+    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
     {
-        assemblies = ReflectionHelper.CombineAssemblies(assemblies, types);
-        var (CacheKey, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, cancellationToken);
+        var assemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types);
+        var (CacheKey, CacheSize) = await GetScriptCacheEntry(request.Content, request.Imports, assemblies, cancellationToken);
 
         Script<TReturn> script = null;
         _lockManager.MutexAccess(CacheKey, () =>
@@ -39,21 +40,21 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
             script = _scriptCache.GetOrCreate(CacheKey, (entry) =>
             {
                 ConfigureCacheEntry(entry, CacheSize);
-                var scriptOptions = PrepareScriptOptions(imports, assemblies);
-                var script = CSharpScript.Create<TReturn>(content, scriptOptions, globalsType: typeof(TArg));
+                var scriptOptions = PrepareScriptOptions(request.Imports, assemblies);
+                var script = CSharpScript.Create<TReturn>(request.Content, scriptOptions, globalsType: typeof(TArg));
                 script.Compile(cancellationToken);
                 return script;
             });
         });
 
-        var result = await script.RunAsync(globals: arguments, cancellationToken: cancellationToken);
-        return result.ReturnValue;
+        var result = await script.RunAsync(globals: request.Arguments, cancellationToken: cancellationToken);
+        return (result.ReturnValue, default);
     }
 
-    public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
+    public async Task<IDisposable> Execute<TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
     {
-        assemblies = ReflectionHelper.CombineAssemblies(assemblies, types);
-        var (CacheKey, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, cancellationToken);
+        var assemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types);
+        var (CacheKey, CacheSize) = await GetScriptCacheEntry(request.Content, request.Imports, assemblies, cancellationToken);
 
         Script script = null;
         _lockManager.MutexAccess(CacheKey, () =>
@@ -61,14 +62,15 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
             script = _scriptCache.GetOrCreate(CacheKey, (entry) =>
             {
                 ConfigureCacheEntry(entry, CacheSize);
-                var scriptOptions = PrepareScriptOptions(imports, assemblies);
-                var script = CSharpScript.Create(content, scriptOptions, globalsType: typeof(TArg));
+                var scriptOptions = PrepareScriptOptions(request.Imports, assemblies);
+                var script = CSharpScript.Create(request.Content, scriptOptions, globalsType: typeof(TArg));
                 script.Compile(cancellationToken);
                 return script;
             });
         });
 
-        var result = await script.RunAsync(globals: arguments, cancellationToken: cancellationToken);
+        var result = await script.RunAsync(globals: request.Arguments, cancellationToken: cancellationToken);
+        return default;
     }
 
     private async Task<(string CacheKey, long CacheSize)> GetScriptCacheEntry(

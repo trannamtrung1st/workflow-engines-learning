@@ -25,35 +25,22 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework>
         Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         var engine = _engineFactory.CreateEngine(runtime: function.Runtime);
-        var optEngine = engine as IOptimizableRuntimeEngine;
         var assemblies = function.Assemblies != null ? _typeProvider.GetAssemblies(function.Assemblies) : null;
         assemblies = assemblies != null ? assemblies.Concat(DefaultAssemblies) : DefaultAssemblies;
         var types = function.Types != null ? _typeProvider.GetTypes(function.Types) : null;
-        if (optEngine != null)
-        {
-            var result = await optEngine.Execute<TReturn, BlockGlobalObject<TFramework>>(
+        var result = await engine.Execute<TReturn, BlockGlobalObject<TFramework>>(
+            request: new(
                 content: function.Content,
                 arguments: globalObject,
                 flattenArguments: flattenArguments,
                 imports: function.Imports,
                 assemblies, types,
                 optimizationScopeId: optimizationScopeId,
-                cancellationToken: cancellationToken
-            );
-            return result;
-        }
-        else
-        {
-            var result = await engine.Execute<TReturn, BlockGlobalObject<TFramework>>(
-                content: function.Content,
-                arguments: globalObject,
-                flattenArguments: flattenArguments,
-                imports: function.Imports,
-                assemblies, types,
-                cancellationToken: cancellationToken
-            );
-            return (result, null);
-        }
+                useRawContent: function.UseRawContent
+            ),
+            cancellationToken: cancellationToken
+        );
+        return result;
     }
 
     public async Task<IDisposable> Run(
@@ -61,34 +48,21 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework>
         Guid? optimizationScopeId, CancellationToken cancellationToken)
     {
         var engine = _engineFactory.CreateEngine(runtime: function.Runtime);
-        var optEngine = engine as IOptimizableRuntimeEngine;
         var assemblies = function.Assemblies != null ? _typeProvider.GetAssemblies(function.Assemblies) : null;
         assemblies = assemblies != null ? assemblies.Concat(DefaultAssemblies) : DefaultAssemblies;
         var types = function.Types != null ? _typeProvider.GetTypes(function.Types) : null;
-        if (optEngine != null)
-        {
-            var optimizationScope = await optEngine.Execute(
+        var scope = await engine.Execute<BlockGlobalObject<TFramework>>(
+            request: new(
                 content: function.Content,
                 arguments: globalObject,
                 flattenArguments: flattenArguments,
                 imports: function.Imports,
                 assemblies, types,
                 optimizationScopeId: optimizationScopeId,
-                cancellationToken: cancellationToken
-            );
-            return optimizationScope;
-        }
-        else
-        {
-            await engine.Execute(
-                content: function.Content,
-                arguments: globalObject,
-                flattenArguments: flattenArguments,
-                imports: function.Imports,
-                assemblies, types,
-                cancellationToken: cancellationToken
-            );
-            return null;
-        }
+                useRawContent: function.UseRawContent
+            ),
+            cancellationToken: cancellationToken
+        );
+        return scope;
     }
 }

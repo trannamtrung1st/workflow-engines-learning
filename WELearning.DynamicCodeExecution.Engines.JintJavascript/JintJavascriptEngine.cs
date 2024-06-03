@@ -11,10 +11,11 @@ using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Constants;
 using WELearning.DynamicCodeExecution.Engines.JintJavascript.Models;
 using WELearning.DynamicCodeExecution.Helpers;
+using WELearning.DynamicCodeExecution.Models;
 
 namespace WELearning.DynamicCodeExecution.Engines;
 
-public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
+public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 {
     private const string ExportedFunctionName = nameof(IExecutable<object>.Execute);
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
@@ -37,15 +38,6 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
     }
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.Javascript;
-
-    public async Task<TReturn> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
-    {
-        var (result, _) = await Execute<TReturn, TArg>(content, arguments, flattenArguments, imports, assemblies, types, optimizationScopeId: default, cancellationToken);
-        return result;
-    }
-
-    public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
-        => await Execute(content, arguments, flattenArguments, imports, assemblies, types, optimizationScopeId: default, cancellationToken);
 
     private async Task<ObjectInstance> GetScriptModule(Guid engineId, Engine engine, string content, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken)
     {
@@ -143,35 +135,35 @@ public class JintJavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         _engineCache.Dispose();
     }
 
-    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
     {
-        var combinedAssemblies = ReflectionHelper.CombineAssemblies(assemblies, types)?.ToArray();
-        var (engineWrap, optimizationScope) = PrepareEngine(combinedAssemblies, types, optimizationScopeId, cancellationToken);
+        var combinedAssemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types)?.ToArray();
+        var (engineWrap, optimizationScope) = PrepareEngine(combinedAssemblies, request.Types, request.OptimizationScopeId, cancellationToken);
         TReturn castResult = default;
         await engineWrap.SafeAccessEngine(async (engine) =>
         {
-            var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, imports, assemblies, cancellationToken);
+            var module = await GetScriptModule(engineId: engineWrap.Id, engine, request.Content, request.Imports, request.Assemblies, cancellationToken);
             var exportedFunction = module.Get(ExportedFunctionName);
-            var finalArguments = new JsValue[] { JsValue.FromObjectWithType(engine, arguments, typeof(TArg)) };
-            if (flattenArguments?.Any() == true)
-                finalArguments = finalArguments.Concat(flattenArguments.Select(v => JsValue.FromObject(engine, v.Value))).ToArray();
+            var finalArguments = new JsValue[] { JsValue.FromObjectWithType(engine, request.Arguments, typeof(TArg)) };
+            if (request.FlattenArguments?.Any() == true)
+                finalArguments = finalArguments.Concat(request.FlattenArguments.Select(v => JsValue.FromObject(engine, v.Value))).ToArray();
             var result = exportedFunction.Call(arguments: finalArguments);
             castResult = Cast<TReturn>(result.UnwrapIfPromise());
         }, cancellationToken);
         return (castResult, optimizationScope);
     }
 
-    public async Task<IDisposable> Execute<TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    public async Task<IDisposable> Execute<TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
     {
-        var combinedAssemblies = ReflectionHelper.CombineAssemblies(assemblies, types)?.ToArray();
-        var (engineWrap, optimizationScope) = PrepareEngine(combinedAssemblies, types, optimizationScopeId, cancellationToken);
+        var combinedAssemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types)?.ToArray();
+        var (engineWrap, optimizationScope) = PrepareEngine(combinedAssemblies, request.Types, request.OptimizationScopeId, cancellationToken);
         await engineWrap.SafeAccessEngine(async (engine) =>
         {
-            var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, imports, assemblies, cancellationToken);
+            var module = await GetScriptModule(engineId: engineWrap.Id, engine, request.Content, request.Imports, request.Assemblies, cancellationToken);
             var exportedFunction = module.Get(ExportedFunctionName);
-            var finalArguments = new JsValue[] { JsValue.FromObjectWithType(engine, arguments, typeof(TArg)) };
-            if (flattenArguments?.Any() == true)
-                finalArguments = finalArguments.Concat(flattenArguments.Select(v => JsValue.FromObject(engine, v.Value))).ToArray();
+            var finalArguments = new JsValue[] { JsValue.FromObjectWithType(engine, request.Arguments, typeof(TArg)) };
+            if (request.FlattenArguments?.Any() == true)
+                finalArguments = finalArguments.Concat(request.FlattenArguments.Select(v => JsValue.FromObject(engine, v.Value))).ToArray();
             var result = exportedFunction.Call(arguments: finalArguments);
             result.UnwrapIfPromise();
         }, cancellationToken);

@@ -11,11 +11,12 @@ using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Constants;
 using WELearning.DynamicCodeExecution.Engines.V8Javascript.Models;
 using WELearning.DynamicCodeExecution.Helpers;
+using WELearning.DynamicCodeExecution.Models;
 
 namespace WELearning.DynamicCodeExecution.Engines;
 
 // [NOTE] out-dated, later updates will be on Jint
-public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
+public class V8JavascriptEngine : IRuntimeEngine, IDisposable
 {
     private const string ArgumentsVar = "args";
     private const string ExportedFunctionName = nameof(IExecutable<object>.Execute);
@@ -40,15 +41,6 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
     }
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.Javascript;
-
-    public async Task<TReturn> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
-    {
-        var (result, _) = await Execute<TReturn, TArg>(content, arguments, flattenArguments, imports, assemblies, types, optimizationScopeId: default, cancellationToken);
-        return result;
-    }
-
-    public async Task Execute<TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, CancellationToken cancellationToken)
-        => await Execute(content, arguments, flattenArguments, imports, assemblies, types, optimizationScopeId: default, cancellationToken);
 
     private static void TryAddArguments<TArg>(V8ScriptEngine engine, TArg arguments)
     {
@@ -170,12 +162,12 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
             item.Dispose();
     }
 
-    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
     {
-        var combinedTypes = ReflectionHelper.CombineTypes(assemblies, types);
-        var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, optimizationScopeId, cancellationToken);
-        TryAddArguments(engine, arguments);
-        var script = await GetScript(engine, optimizationScope, content, imports, assemblies, cancellationToken);
+        var combinedTypes = ReflectionHelper.CombineTypes(request.Assemblies, request.Types);
+        var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, request.OptimizationScopeId, cancellationToken);
+        TryAddArguments(engine, request.Arguments);
+        var script = await GetScript(engine, optimizationScope, request.Content, request.Imports, request.Assemblies, cancellationToken);
         var evalResult = engine.Evaluate(script);
         TReturn result;
         if (evalResult is Task<object> task)
@@ -185,12 +177,12 @@ public class V8JavascriptEngine : IOptimizableRuntimeEngine, IDisposable
         return (result, optimizationScope);
     }
 
-    public async Task<IDisposable> Execute<TArg>(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    public async Task<IDisposable> Execute<TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
     {
-        var combinedTypes = ReflectionHelper.CombineTypes(assemblies, types);
-        var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, optimizationScopeId, cancellationToken);
-        TryAddArguments(engine, arguments);
-        var script = await GetScript(engine, optimizationScope, content, imports, assemblies, cancellationToken);
+        var combinedTypes = ReflectionHelper.CombineTypes(request.Assemblies, request.Types);
+        var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, request.OptimizationScopeId, cancellationToken);
+        TryAddArguments(engine, request.Arguments);
+        var script = await GetScript(engine, optimizationScope, request.Content, request.Imports, request.Assemblies, cancellationToken);
         var result = engine.Evaluate(script);
         if (result is Task task) await task;
         return optimizationScope;

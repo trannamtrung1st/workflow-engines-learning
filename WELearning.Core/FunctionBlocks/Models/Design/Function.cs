@@ -6,7 +6,7 @@ public class Function
 {
     public Function(string id, string name, string content,
         ERuntime runtime, IEnumerable<string> imports,
-        IEnumerable<string> assemblies, IEnumerable<string> types)
+        IEnumerable<string> assemblies, IEnumerable<string> types, bool useRawContent = true)
     {
         Id = id;
         Name = name;
@@ -15,6 +15,7 @@ public class Function
         Imports = imports;
         Assemblies = assemblies;
         Types = types;
+        UseRawContent = useRawContent;
     }
 
     public string Id { get; set; }
@@ -24,4 +25,5 @@ public class Function
     public IEnumerable<string> Imports { get; set; }
     public IEnumerable<string> Assemblies { get; set; }
     public IEnumerable<string> Types { get; set; }
+    public bool UseRawContent { get; set; }
 }
