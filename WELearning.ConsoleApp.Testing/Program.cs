@@ -13,11 +13,11 @@ using WELearning.Core.FunctionBlocks.Extensions;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
-using WELearning.Core.Helpers;
 using WELearning.Core.Reflection.Extensions;
 using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Constants;
 using WELearning.DynamicCodeExecution.Extensions;
+using WELearning.DynamicCodeExecution.Helpers;
 
 const string LibraryFolderPath = "/Users/trungtran/MyPlace/Personal/Learning/workflow-engines-learning/local/libs";
 var serviceCollection = new ServiceCollection()
@@ -142,7 +142,7 @@ static class TestEngines
             {
                 scope = await runtimeEngine.Execute<LoopTestArgs>(
                     new(
-                        content: JavascriptHelper.WrapModuleFunction(@$"return _FB_.X * 5"),
+                        content: @$"return _FB_.X * 5",
                         arguments: new LoopTestArgs { X = i }, flattenArguments: null,
                         imports: null, assemblies: null, types: null,
                         optimizationScopeId
@@ -165,16 +165,13 @@ static class TestEngines
         var runtimeEngine = engineFactory.CreateEngine(runtime: ERuntime.Javascript);
         var result = await runtimeEngine.Execute<string, object>(
             request: new(
-                content: JavascriptHelper.WrapModuleFunction(@"
+                content: @"
                     const testLodash = _.filter([1, 2, 3], item => !!item);
                     const apiString = await _FB_.TestAsync();
                     return `Hello ` + testLodash.toString() + apiString;
-                ", topStatements: @"
-                    import './lodash.min.js';
-                    import './axios.min.js';
-                "),
+                ",
                 arguments: new { TestAsync }, flattenArguments: null,
-                imports: new[] { "import './fetch.min.js'" },
+                imports: new[] { "import './fetch.min.js'", "import './lodash.min.js';", "import './axios.min.js';" },
                 types: null,
                 assemblies: null
             ), cancellationToken: cancellationToken);
@@ -185,16 +182,13 @@ static class TestEngines
         var runtimeEngine = engineFactory.CreateEngine(runtime: ERuntime.Javascript);
         var result = await runtimeEngine.Execute<string, object>(
             request: new(
-                content: JavascriptHelper.WrapModuleFunction(@"
+                content: @"
                     const testLodash = _.filter([1, 2, 3], item => !!item);
                     const apiString = await _FB_.TestAsync();
                     return `Hello ` + testLodash.toString() + apiString;
-                ", topStatements: @"
-                    import 'lodash.min.js';
-                    import 'axios.min.js';
-                "),
+                ",
                 arguments: new { TestAsync }, flattenArguments: null,
-                imports: new[] { "import { fetch } from 'fetch.min.js'" },
+                imports: new[] { "import { fetch } from 'fetch.min.js'", "import 'lodash.min.js'", "import 'axios.min.js'" },
                 types: null,
                 assemblies: null
             ), cancellationToken: cancellationToken);

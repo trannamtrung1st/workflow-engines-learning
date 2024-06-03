@@ -4,7 +4,7 @@ namespace WELearning.DynamicCodeExecution.Models;
 
 public class ExecuteCodeRequest<TArg>
 {
-    public ExecuteCodeRequest(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId = default, bool useRawContent = true)
+    public ExecuteCodeRequest(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId = default, bool useRawContent = false)
     {
         Content = content;
         Arguments = arguments;

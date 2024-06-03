@@ -3,8 +3,8 @@ using WELearning.Core.Constants;
 using WELearning.DynamicCodeExecution.Constants;
 using System.Reflection;
 using WELearning.Core.FunctionBlocks.Framework;
-using WELearning.Core.Helpers;
 using WELearning.Core.FunctionBlocks.Constants;
+using WELearning.DynamicCodeExecution.Helpers;
 
 static class PredefinedBFBs
 {
@@ -132,12 +132,9 @@ static class PredefinedBFBs
         var fRun = new Function(
             id: "Run",
             name: "Run",
-            content: JavascriptHelper.WrapModuleFunction(
-                script: string.Join(
-                    separator: Environment.NewLine,
-                    values: passThroughVars.Select(p => @$"await FB.Out(""{p.Out.Name}"").Write({p.In.Name});")),
-                inputVariables: JavascriptHelper.GetInputVariableNames(bPassThrough.Variables)
-            ),
+            content: string.Join(
+                separator: Environment.NewLine,
+                values: passThroughVars.Select(p => @$"await FB.Out(""{p.Out.Name}"").Write({p.In.Name});")),
             runtime: ERuntime.Javascript,
             imports: null, assemblies: null, types: null);
         bPassThrough.Functions = new[] { fRun };
@@ -225,24 +222,24 @@ static class PredefinedBFBs
     {
         return CreateBlockMultiply(
             runtime: ERuntime.Javascript,
-            multiplyScript: JavascriptHelper.WrapModuleFunction(@$"
+            multiplyScript: @$"
             const FB = _FB_.FB;
             const x = FB.In(""X"").AsDouble();
             const y = FB.In(""Y"").AsDouble();
             const result = x * y;
             await FB.Out(""Result"").Write(result);
             await FB.Publish(""Completed"");
-            "),
-            handleInvalidScript: JavascriptHelper.WrapModuleFunction(@$"
+            ",
+            handleInvalidScript: @$"
             const FB = _FB_.FB;
             FB.LogWarning(""Invalid arguments X, Y"");
             await FB.Publish(""Completed"");
-            "),
-            invalidConditionScript: JavascriptHelper.WrapModuleFunction(@$"
+            ",
+            invalidConditionScript: @$"
             const FB = _FB_.FB;
             const x = FB.In(""X""); const y = FB.In(""Y"");
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
-            "),
+            ",
             imports: null, assemblies: null
         );
     }
@@ -371,24 +368,24 @@ static class PredefinedBFBs
     {
         return CreateBlockAdd(
             runtime: ERuntime.Javascript,
-            addScript: JavascriptHelper.WrapModuleFunction(@$"
+            addScript: @$"
             const FB = _FB_.FB;
             const x = FB.In(""X"").AsDouble();
             const y = FB.In(""Y"").AsDouble();
             const result = x + y;
             await FB.Out(""Result"").Write(result);
             await FB.Publish(""Completed"");
-            "),
-            handleInvalidScript: JavascriptHelper.WrapModuleFunction(@$"
+            ",
+            handleInvalidScript: @$"
             const FB = _FB_.FB;
             FB.LogWarning(""Invalid arguments X, Y"");
             await FB.Publish(""Completed"");
-            "),
-            invalidConditionScript: JavascriptHelper.WrapModuleFunction(@$"
+            ",
+            invalidConditionScript: @$"
             const FB = _FB_.FB;
             const x = FB.In(""X""); const y = FB.In(""Y"");
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
-            "),
+            ",
             imports: null, assemblies: null
         );
     }
@@ -493,12 +490,12 @@ static class PredefinedBFBs
     {
         return CreateBlockRandom(
             runtime: ERuntime.Javascript,
-            randomScript: JavascriptHelper.WrapModuleFunction(@$"
+            randomScript: @$"
             const FB = _FB_.FB;
             const result = FB.NextRandomDouble();
             await FB.Out(""Result"").Write(result);
             await FB.Publish(""Completed"");
-            "),
+            ",
             imports: null, assemblies: null
         );
     }
@@ -582,12 +579,12 @@ static class PredefinedBFBs
     {
         return CreateBlockDelay(
             runtime: ERuntime.Javascript,
-            delayScript: JavascriptHelper.WrapModuleFunction(@$"
+            delayScript: @$"
             const FB = _FB_.FB;
             const ms = FB.In(""Ms"").AsInt();
             FB.Delay(ms);
             await FB.Publish(""Completed"");
-            "),
+            ",
             imports: null, assemblies: null
         );
     }
@@ -659,13 +656,10 @@ static class PredefinedBFBs
         var fRun = new Function(
             id: "Run",
             name: "Run",
-            content: JavascriptHelper.WrapModuleFunction(
-                script: @$"
-                var result = X + Delimiter + Y;
-                await FB.Out(""Result"").Write(result);
-                ",
-                inputVariables: JavascriptHelper.GetInputVariableNames(bConcat.Variables)
-            ),
+            content: @$"
+            var result = X + Delimiter + Y;
+            await FB.Out(""Result"").Write(result);
+            ",
             runtime: ERuntime.Javascript,
             imports: null, assemblies: null, types: null);
         var functions = new[] { fRun };

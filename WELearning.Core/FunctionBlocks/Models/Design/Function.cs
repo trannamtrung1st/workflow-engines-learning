@@ -6,7 +6,7 @@ public class Function
 {
     public Function(string id, string name, string content,
         ERuntime runtime, IEnumerable<string> imports,
-        IEnumerable<string> assemblies, IEnumerable<string> types, bool useRawContent = true)
+        IEnumerable<string> assemblies, IEnumerable<string> types, bool useRawContent = false)
     {
         Id = id;
         Name = name;

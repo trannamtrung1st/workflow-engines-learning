@@ -140,9 +140,10 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         var combinedAssemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types)?.ToArray();
         var (engineWrap, optimizationScope) = PrepareEngine(combinedAssemblies, request.Types, request.OptimizationScopeId, cancellationToken);
         TReturn castResult = default;
+        var content = request.UseRawContent ? request.Content : PreprocessContent(request.Content, request.FlattenArguments);
         await engineWrap.SafeAccessEngine(async (engine) =>
         {
-            var module = await GetScriptModule(engineId: engineWrap.Id, engine, request.Content, request.Imports, request.Assemblies, cancellationToken);
+            var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, request.Imports, request.Assemblies, cancellationToken);
             var exportedFunction = module.Get(ExportedFunctionName);
             var finalArguments = new JsValue[] { JsValue.FromObjectWithType(engine, request.Arguments, typeof(TArg)) };
             if (request.FlattenArguments?.Any() == true)
@@ -157,9 +158,10 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     {
         var combinedAssemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types)?.ToArray();
         var (engineWrap, optimizationScope) = PrepareEngine(combinedAssemblies, request.Types, request.OptimizationScopeId, cancellationToken);
+        var content = request.UseRawContent ? request.Content : PreprocessContent(request.Content, request.FlattenArguments);
         await engineWrap.SafeAccessEngine(async (engine) =>
         {
-            var module = await GetScriptModule(engineId: engineWrap.Id, engine, request.Content, request.Imports, request.Assemblies, cancellationToken);
+            var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, request.Imports, request.Assemblies, cancellationToken);
             var exportedFunction = module.Get(ExportedFunctionName);
             var finalArguments = new JsValue[] { JsValue.FromObjectWithType(engine, request.Arguments, typeof(TArg)) };
             if (request.FlattenArguments?.Any() == true)
@@ -168,6 +170,14 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             result.UnwrapIfPromise();
         }, cancellationToken);
         return optimizationScope;
+    }
+
+    private static string PreprocessContent(string content, IEnumerable<(string Name, object Value)> flattenArguments)
+    {
+        return JavascriptHelper.WrapModuleFunction(
+            script: content,
+            inputVariables: flattenArguments?.Select(a => a.Name)
+        );
     }
 
     private static TReturn Cast<TReturn>(JsValue jsValue)
