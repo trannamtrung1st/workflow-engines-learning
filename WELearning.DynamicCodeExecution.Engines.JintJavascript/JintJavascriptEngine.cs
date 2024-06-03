@@ -139,15 +139,16 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     {
         var combinedAssemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types)?.ToArray();
         var (engineWrap, optimizationScope) = PrepareEngine(combinedAssemblies, request.Types, request.OptimizationScopeId, cancellationToken);
+        JsValue result = default;
         TReturn castResult = default;
-        var content = PreprocessContent(request);
+        var (content, arguments) = PreprocessContent(request, engineWrap.Engine);
         await engineWrap.SafeAccessEngine(async (engine) =>
         {
             var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, request.Imports, request.Assemblies, cancellationToken);
             var exportedFunction = module.Get(ExportedFunctionName);
-            var result = exportedFunction.Call(arguments: GetFunctionArguments(engine, request));
-            castResult = Cast<TReturn>(result.UnwrapIfPromise());
+            result = exportedFunction.Call(arguments: arguments);
         }, cancellationToken);
+        castResult = Cast<TReturn>(result.UnwrapIfPromise());
         return (castResult, optimizationScope);
     }
 
@@ -155,27 +156,21 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     {
         var combinedAssemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types)?.ToArray();
         var (engineWrap, optimizationScope) = PrepareEngine(combinedAssemblies, request.Types, request.OptimizationScopeId, cancellationToken);
-        var content = PreprocessContent(request);
+        JsValue result = default;
+        var (content, arguments) = PreprocessContent(request, engineWrap.Engine);
         await engineWrap.SafeAccessEngine(async (engine) =>
         {
             var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, request.Imports, request.Assemblies, cancellationToken);
             var exportedFunction = module.Get(ExportedFunctionName);
-            var result = exportedFunction.Call(arguments: GetFunctionArguments(engine, request));
-            result.UnwrapIfPromise();
+            result = exportedFunction.Call(arguments: arguments);
         }, cancellationToken);
+        result.UnwrapIfPromise();
         return optimizationScope;
     }
 
-    private static JsValue[] GetFunctionArguments<TArg>(Engine engine, ExecuteCodeRequest<TArg> request)
+    private static (IEnumerable<string> Names, JsValue[] Values) GetCombineArguments<TArg>(Engine engine, TArg arguments, List<(string Name, object Value)> flattenArguments, List<string> flattenOutputs)
     {
-        var finalArguments = request.FlattenArguments?.Any() == true
-            ? request.FlattenArguments.Select(v => JsValue.FromObject(engine, v.Value)).ToArray()
-            : new[] { JsValue.FromObjectWithType(engine, request.Arguments, typeof(TArg)) };
-        return finalArguments;
-    }
-
-    private static IEnumerable<string> GetCombineArguments(List<(string Name, object Value)> flattenArguments, List<string> flattenOutputs)
-    {
+        var argumentValues = new List<JsValue>();
         var finalArguments = new List<string>();
         flattenArguments ??= new();
         flattenOutputs ??= new();
@@ -183,16 +178,23 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         {
             finalArguments.Add(flattenArguments[i].Name);
             flattenOutputs.Remove(flattenArguments[i].Name);
+            argumentValues.Add(JsValue.FromObject(engine, flattenArguments[i].Value));
         }
         for (int i = 0; i < flattenOutputs.Count; i++)
             finalArguments.Add(flattenOutputs[i]);
-        return finalArguments;
+        if (argumentValues.Count == 0)
+            argumentValues.Add(JsValue.FromObjectWithType(engine, arguments, typeof(TArg)));
+        return (finalArguments, argumentValues.ToArray());
     }
 
-    private static string PreprocessContent<TArg>(ExecuteCodeRequest<TArg> request)
+    private static (string Content, JsValue[] Values) PreprocessContent<TArg>(ExecuteCodeRequest<TArg> request, Engine engine)
     {
         const string OutVariable = "__APP_OUT__";
         var flattenOutputs = request.FlattenOutputs?.ToList();
+        var (inputArguments, values) = GetCombineArguments(
+            engine: engine, arguments: request.Arguments,
+            flattenArguments: request.FlattenArguments?.ToList(),
+            flattenOutputs: flattenOutputs);
         var flattenOutputsStr = flattenOutputs?.Any() == true ? @$"
             const {OutVariable} = {{{string.Join(',', flattenOutputs)}}};
             Object.keys({OutVariable}).forEach(key => {{
@@ -202,9 +204,6 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             }});
             return {OutVariable};
         " : string.Empty;
-        var inputArguments = GetCombineArguments(
-            flattenArguments: request.FlattenArguments?.ToList(),
-            flattenOutputs: flattenOutputs);
         var content = request.UseRawContent ? request.Content : JavascriptHelper.WrapModuleFunction(
             script: @$"
             {request.Content}
@@ -212,7 +211,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             ",
             inputVariables: inputArguments
         );
-        return content;
+        return (content, values);
     }
 
     private static TReturn Cast<TReturn>(JsValue jsValue)
@@ -293,26 +292,26 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     class EngineWrap : IDisposable
     {
         private readonly SemaphoreSlim _lock;
-        private readonly Engine _engine;
         public EngineWrap(Engine engine)
         {
             _lock = new(1);
-            _engine = engine;
+            Engine = engine;
             Id = Guid.NewGuid();
         }
 
+        public Engine Engine { get; }
         public Guid Id { get; }
 
         public void Dispose()
         {
             _lock.Dispose();
-            _engine.Dispose();
+            Engine.Dispose();
         }
 
         public async Task SafeAccessEngine(Func<Engine, Task> func, CancellationToken cancellationToken)
         {
             await _lock.WaitAsync(cancellationToken);
-            try { await func(_engine); }
+            try { await func(Engine); }
             finally { _lock.Release(); }
         }
     }
