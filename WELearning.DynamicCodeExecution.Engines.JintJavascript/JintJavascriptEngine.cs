@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using Esprima;
 using Jint;
 using Jint.Native;
 using Jint.Native.Object;
@@ -9,7 +10,9 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Constants;
+using WELearning.DynamicCodeExecution.Engines.JintJavascript.Exceptions;
 using WELearning.DynamicCodeExecution.Engines.JintJavascript.Models;
+using WELearning.DynamicCodeExecution.Extensions;
 using WELearning.DynamicCodeExecution.Helpers;
 using WELearning.DynamicCodeExecution.Models;
 
@@ -137,35 +140,45 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 
     public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
     {
-        var combinedAssemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types)?.ToArray();
-        var (engineWrap, optimizationScope) = PrepareEngine(combinedAssemblies, request.Types, request.OptimizationScopeId, cancellationToken);
-        JsValue result = default;
-        TReturn castResult = default;
-        var (content, arguments) = PreprocessContent(request, engineWrap.Engine);
-        await engineWrap.SafeAccessEngine(async (engine) =>
-        {
-            var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, request.Imports, request.Assemblies, cancellationToken);
-            var exportedFunction = module.Get(ExportedFunctionName);
-            result = exportedFunction.Call(arguments: arguments);
-        }, cancellationToken);
-        castResult = Cast<TReturn>(result.UnwrapIfPromise());
-        return (castResult, optimizationScope);
+        var (result, scope) = await ExecuteCore(request, cancellationToken);
+        var castResult = Cast<TReturn>(result.UnwrapIfPromise());
+        return (castResult, scope);
     }
 
     public async Task<IDisposable> Execute<TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
     {
+        var (result, scope) = await ExecuteCore(request, cancellationToken);
+        result.UnwrapIfPromise();
+        return scope;
+    }
+
+    protected async Task<(JsValue Result, IDisposable Scope)> ExecuteCore<TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
+    {
         var combinedAssemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types)?.ToArray();
         var (engineWrap, optimizationScope) = PrepareEngine(combinedAssemblies, request.Types, request.OptimizationScopeId, cancellationToken);
         JsValue result = default;
-        var (content, arguments) = PreprocessContent(request, engineWrap.Engine);
-        await engineWrap.SafeAccessEngine(async (engine) =>
+        var ((content, lineStart, lineEnd, indexStart, indexEnd), arguments) = PreprocessContent(request, engineWrap.Engine);
+
+        try
         {
-            var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, request.Imports, request.Assemblies, cancellationToken);
-            var exportedFunction = module.Get(ExportedFunctionName);
-            result = exportedFunction.Call(arguments: arguments);
-        }, cancellationToken);
-        result.UnwrapIfPromise();
-        return optimizationScope;
+            await engineWrap.SafeAccessEngine(async (engine) =>
+            {
+                var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, request.Imports, request.Assemblies, cancellationToken);
+                var exportedFunction = module.Get(ExportedFunctionName);
+                result = exportedFunction.Call(arguments: arguments);
+            }, cancellationToken);
+        }
+        catch (ParserException ex)
+        {
+            throw new JintCompilationError(
+                parserException: ex,
+                userContentLineStart: lineStart,
+                userContentLineEnd: lineEnd,
+                userContentIndexStart: indexStart,
+                userContentIndexEnd: indexEnd);
+        }
+
+        return (result, optimizationScope);
     }
 
     private static (IEnumerable<string> Names, JsValue[] Values) GetCombineArguments<TArg>(Engine engine, TArg arguments, List<(string Name, object Value)> flattenArguments, List<string> flattenOutputs)
@@ -187,7 +200,8 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         return (finalArguments, argumentValues.ToArray());
     }
 
-    private static (string Content, JsValue[] Values) PreprocessContent<TArg>(ExecuteCodeRequest<TArg> request, Engine engine)
+    private static ((string Content, int LineStart, int LineEnd, int IndexStart, int IndexEnd) ContentInfo, JsValue[] Values)
+        PreprocessContent<TArg>(ExecuteCodeRequest<TArg> request, Engine engine)
     {
         const string OutVariable = "__APP_OUT__";
         var flattenOutputs = request.FlattenOutputs?.ToList();
@@ -195,23 +209,22 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             engine: engine, arguments: request.Arguments,
             flattenArguments: request.FlattenArguments?.ToList(),
             flattenOutputs: flattenOutputs);
-        var flattenOutputsStr = flattenOutputs?.Any() == true ? @$"
-            const {OutVariable} = {{{string.Join(',', flattenOutputs)}}};
-            Object.keys({OutVariable}).forEach(key => {{
-                if ({OutVariable}[key] === undefined) {{
-                    delete {OutVariable}[key];
-                }}
-            }});
-            return {OutVariable};
-        " : string.Empty;
-        var content = request.UseRawContent ? request.Content : JavascriptHelper.WrapModuleFunction(
-            script: @$"
-            {request.Content}
-            {flattenOutputsStr}
-            ",
-            inputVariables: inputArguments
-        );
-        return (content, values);
+        var flattenOutputsStr = flattenOutputs?.Any() == true ?
+@$"const {OutVariable} = {{{string.Join(',', flattenOutputs)}}};
+Object.keys({OutVariable}).forEach(key => {{
+    if ({OutVariable}[key] === undefined) {{
+        delete {OutVariable}[key];
+    }}
+}});
+return {OutVariable};" : string.Empty;
+        var contentLineCount = request.Content.NewLineCount();
+        var contentInfo = request.UseRawContent
+            ? (request.Content, 1, contentLineCount, 0, request.Content.Length - 1)
+            : JavascriptHelper.WrapModuleFunction(
+            script: request.Content,
+            returnStatements: flattenOutputsStr,
+            inputVariables: inputArguments);
+        return (contentInfo, values);
     }
 
     private static TReturn Cast<TReturn>(JsValue jsValue)

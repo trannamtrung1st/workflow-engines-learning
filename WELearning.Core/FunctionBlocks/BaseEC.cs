@@ -35,6 +35,7 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
     public BlockInstance Block { get; }
     public TDefinition Definition { get; }
     public virtual Exception Exception { get; protected set; }
+    public abstract IExecutionControl ExceptionFrom { get; protected set; }
     public virtual bool IsIdle => _idleWait.IsSet;
     public virtual EBlockExecutionStatus Status { get; protected set; }
     public abstract BlockExecutionResult Result { get; }

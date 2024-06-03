@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Dynamic;
+using Microsoft.Extensions.Logging;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
@@ -8,14 +9,16 @@ namespace WELearning.Core.FunctionBlocks.Framework;
 
 public class BlockFramework : IBlockFramework
 {
+    private readonly ILogger<BlockFramework> _logger;
     protected readonly IExecutionControl _control;
     protected readonly ConcurrentDictionary<string, InputBinding> _inputBindings;
     protected readonly ConcurrentDictionary<string, OutputBinding> _outputBindings;
     protected readonly ConcurrentDictionary<string, InOutBinding> _inOutBindings;
     protected readonly ConcurrentDictionary<string, InternalBinding> _internalBindings;
 
-    public BlockFramework(IExecutionControl control)
+    public BlockFramework(IExecutionControl control, ILogger<BlockFramework> logger)
     {
+        _logger = logger;
         _control = control;
         _inputBindings = new();
         _outputBindings = new();
@@ -83,4 +86,24 @@ public class BlockFramework : IBlockFramework
         }
         return Task.CompletedTask;
     }
+
+    public virtual void Log(params object[] data)
+    {
+        var message = GetLogMessage(data);
+        _logger.LogInformation(message);
+    }
+
+    public virtual void LogError(params object[] data)
+    {
+        var message = GetLogMessage(data);
+        _logger.LogError(message);
+    }
+
+    public virtual void LogWarning(params object[] data)
+    {
+        var message = GetLogMessage(data);
+        _logger.LogWarning(message);
+    }
+
+    public static string GetLogMessage(object[] data) => string.Join(' ', data);
 }

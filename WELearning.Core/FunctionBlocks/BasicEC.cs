@@ -1,8 +1,10 @@
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
+using WELearning.Core.FunctionBlocks.Exceptions;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
+using WELearning.DynamicCodeExecution.Exceptions;
 
 namespace WELearning.Core.FunctionBlocks;
 
@@ -21,6 +23,11 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
     private BFBExecutionResult _result;
     public override BlockExecutionResult Result => _result;
     BFBExecutionResult IBasicEC.Result => _result;
+    public override IExecutionControl ExceptionFrom
+    {
+        get => this;
+        protected set => throw new InvalidOperationException("Exception should be from this BFB only!");
+    }
 
     public override event EventHandler Running;
     public override event EventHandler<Exception> Failed;
@@ -80,7 +87,6 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
             Exception = ex;
             Status = EBlockExecutionStatus.Failed;
             Failed?.Invoke(this, ex);
-            throw;
         }
         finally
         {
@@ -105,15 +111,23 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
 
         async Task<bool> Evaluate(Function condition, CancellationToken cancellationToken)
         {
-            var (result, optimizationScope) = await _functionRunner.Run<bool>(condition, globalObject: globalObject, flattenArguments, flattenOutputs, optimizationScopeId.Value, cancellationToken);
-            if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
-            return result;
+            try
+            {
+                var (result, optimizationScope) = await _functionRunner.Run<bool>(condition, globalObject: globalObject, flattenArguments, flattenOutputs, optimizationScopeId.Value, cancellationToken);
+                if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
+                return result;
+            }
+            catch (CompilationError ex) { throw new FunctionCompilationError(ex, condition); }
         }
 
         async Task RunAction(Function actionFunction, CancellationToken cancellationToken)
         {
-            var optimizationScope = await _functionRunner.Run(actionFunction, globalObject, flattenArguments, flattenOutputs, optimizationScopeId.Value, cancellationToken);
-            if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
+            try
+            {
+                var optimizationScope = await _functionRunner.Run(actionFunction, globalObject, flattenArguments, flattenOutputs, optimizationScopeId.Value, cancellationToken);
+                if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
+            }
+            catch (CompilationError ex) { throw new FunctionCompilationError(ex, actionFunction); }
         }
 
         var outputEvents = new HashSet<string>();

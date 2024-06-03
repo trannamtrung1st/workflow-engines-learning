@@ -159,6 +159,7 @@ public static class LoopCFB
             content: @$"
             await FB.Out(""Result"").Write(0.0);
             var n = FB.In(""N"").AsInt();
+            FB.Log(""Loop: N is"", n);
             if (n > 0) 
                 await FB.Publish(""Loop"");
             else 

@@ -22,6 +22,7 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
 
     private BlockExecutionResult _result;
     public override BlockExecutionResult Result => _result;
+    public override IExecutionControl ExceptionFrom { get; protected set; }
 
     public CompositeEC(
         BlockInstance block,
@@ -53,18 +54,15 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
             PrepareStates(bindings);
             var startingTriggers = Definition.FindNextBlocks(triggerEvent);
             TriggerBlocks(blockTriggers: startingTriggers, optimizationScopeId, cancellationToken);
-            return Task.CompletedTask;
         }
-        catch (Exception ex)
-        {
-            HandleFailed(ex);
-            throw;
-        }
+        catch (Exception ex) { HandleFailed(ex); }
+        return Task.CompletedTask;
     }
 
-    private void HandleFailed(Exception ex)
+    private void HandleFailed(Exception ex, IExecutionControl from = null)
     {
         Exception = ex;
+        ExceptionFrom = from ?? this;
         Status = EBlockExecutionStatus.Failed;
         Failed?.Invoke(this, ex);
     }
@@ -229,12 +227,17 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
         => _blockExecControlMap.GetOrAdd(block.Id, (key) =>
         {
             var definition = Definition.GetDefinition(block.DefinitionId);
+            IExecutionControl execControl;
             if (definition is BasicBlockDef basicBlockDef)
-                return new BasicEC<TFramework>(block, definition: basicBlockDef, _functionRunner, _blockFrameworkFactory);
+                execControl = new BasicEC<TFramework>(block, definition: basicBlockDef, _functionRunner, _blockFrameworkFactory);
             else if (definition is CompositeBlockDef compositeBlockDef)
-                return new CompositeEC<TFramework>(block, definition: compositeBlockDef, _blockRunner, _functionRunner, _blockFrameworkFactory);
+                execControl = new CompositeEC<TFramework>(block, definition: compositeBlockDef, _blockRunner, _functionRunner, _blockFrameworkFactory);
             else throw new NotSupportedException($"Definition of type {definition.GetType().FullName} not supported!");
+            execControl.Failed += HandleControlFailed;
+            return execControl;
         });
+
+    protected virtual void HandleControlFailed(object sender, Exception ex) => HandleFailed(ex, sender as IExecutionControl);
 
     protected Task RunTaskAsync(Func<CancellationToken, Task> func, CancellationToken cancellationToken)
     {

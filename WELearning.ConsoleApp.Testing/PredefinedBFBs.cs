@@ -51,6 +51,9 @@ static class PredefinedBFBs
         DelayJs = CreateBlockDelayJs();
         FactorialCsScript = CreateBlockFactorialCsScript();
         ConcatTwoStringsJs = CreateBlockConcatTwoStringsJs();
+        CompilationErrorJs = CreateCompilationError();
+        RuntimeErrorJs = CreateRuntimeErrorJs();
+        RuntimeErrorJsFromCs = CreateRuntimeErrorJsFromCs();
     }
 
     public static readonly BasicBlockDef MultiplyCsCompiled;
@@ -67,6 +70,9 @@ static class PredefinedBFBs
     public static readonly BasicBlockDef DelayJs;
     public static readonly BasicBlockDef FactorialCsScript;
     public static readonly BasicBlockDef ConcatTwoStringsJs;
+    public static readonly BasicBlockDef CompilationErrorJs;
+    public static readonly BasicBlockDef RuntimeErrorJs;
+    public static readonly BasicBlockDef RuntimeErrorJsFromCs;
 
     public static BasicBlockDef CreateInOutBlock(params Variable[] variables)
     {
@@ -567,9 +573,8 @@ static class PredefinedBFBs
         return CreateBlockDelay(
             runtime: ERuntime.Javascript,
             delayScript: @$"
-            const ms = FB.In(""Ms"").AsInt();
-            FB.Delay(ms);
-            await FB.Publish(""Completed"");
+            FB.Delay(Ms);
+            _events = ['Completed'];
             ",
             imports: null, assemblies: null
         );
@@ -780,4 +785,82 @@ static class PredefinedBFBs
         return bFactorial;
     }
 
+    #region Errors
+    private static BasicBlockDef CreateCompilationError()
+    {
+        return CreateBlockSimple(
+            id: "CompilationError", name: "Compilation error",
+            content:
+@"const a = 2; 
+var 1 = 1;
+let a = 5;"
+        );
+    }
+
+    private static BasicBlockDef CreateRuntimeErrorJs()
+    {
+        return CreateBlockSimple(
+            id: "RuntimeErrorJs", name: "Runtime error (JS)",
+            content:
+@"const a = 2; 
+throw new Error('This is a sample JS error!');
+let a = 5;"
+        );
+    }
+
+    private static BasicBlockDef CreateRuntimeErrorJsFromCs()
+    {
+        return CreateBlockSimple(
+            id: "RuntimeErrorCs", name: "Runtime error (C#)",
+            content:
+@"const a = 2; 
+FB.DemoException();
+let a = 5;"
+        );
+    }
+    #endregion
+
+    private static BasicBlockDef CreateBlockSimple(string id, string name, string content)
+    {
+        var bConcat = new BasicBlockDef(id: id, name: name);
+        bConcat.Variables = Array.Empty<Variable>();
+        var eTrigger = new BlockEvent(isInput: true, name: "Trigger", variableNames: Array.Empty<string>());
+        var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: Array.Empty<string>());
+        bConcat.Events = new[] { eTrigger, eCompleted };
+        bConcat.DefaultTriggerEvent = eTrigger.Name;
+
+        var fRun = new Function(
+            id: "Run",
+            name: "Run",
+            content: content,
+            runtime: ERuntime.Javascript,
+            imports: null, assemblies: null, types: null);
+        var functions = new[] { fRun };
+        bConcat.Functions = functions;
+
+        {
+            var execControl = new BlockECC();
+
+            var sIdle = new BlockState("Idle");
+            var sRunning = new BlockState("Running");
+            var states = new[] { sIdle, sRunning };
+
+            var transitions = new List<BlockStateTransition>();
+            {
+                var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eTrigger.Name);
+                tIdle2Running.ActionFunctionIds = new[] { fRun.Id };
+                tIdle2Running.DefaultOutputEvents = new[] { eCompleted.Name };
+
+                transitions.Add(tIdle2Running);
+                transitions.Add(new(fromState: sRunning.Name, toState: sIdle.Name));
+            }
+
+            execControl.States = states;
+            execControl.StateTransitions = transitions;
+            execControl.InitialState = sIdle.Name;
+            bConcat.ExecutionControlChart = execControl;
+        }
+
+        return bConcat;
+    }
 }

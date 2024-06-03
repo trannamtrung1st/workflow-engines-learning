@@ -13,6 +13,7 @@ public interface IExecutionControl
     BlockInstance Block { get; }
     bool IsIdle { get; }
     Exception Exception { get; }
+    IExecutionControl ExceptionFrom { get; }
     EBlockExecutionStatus Status { get; }
     BlockExecutionResult Result { get; }
 

@@ -4,11 +4,13 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using WELearning.ConsoleApp.Testing.CompositeBlocks;
 using WELearning.ConsoleApp.Testing.ValueObjects;
 using WELearning.Core.FunctionBlocks;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
+using WELearning.Core.FunctionBlocks.Exceptions;
 using WELearning.Core.FunctionBlocks.Extensions;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Design;
@@ -20,6 +22,8 @@ using WELearning.DynamicCodeExecution.Extensions;
 
 const string LibraryFolderPath = "/Users/trungtran/MyPlace/Personal/Learning/workflow-engines-learning/local/libs";
 var serviceCollection = new ServiceCollection()
+    .AddLogging(cfg => cfg.AddConsole())
+    // FunctionBlock services
     .AddDefaultBlockRunner()
     .AddDefaultFunctionRunner<AppFramework>()
     .AddBlockFrameworkFactory<AppFramework, AppFrameworkFactory>()
@@ -31,6 +35,7 @@ var serviceCollection = new ServiceCollection()
     // For JS engines, first found engine will be used
     .AddJintJavascriptEngine(options => options.LibraryFolderPath = LibraryFolderPath)
     .AddV8JavascriptEngine(options => options.LibraryFolderPath = LibraryFolderPath);
+
 using var rootServiceProvider = serviceCollection.BuildServiceProvider();
 using var scope = rootServiceProvider.CreateScope();
 var serviceProvider = scope.ServiceProvider;
@@ -338,12 +343,7 @@ static class TestFunctionBlocks
         bindings.Add(new(variableName: oFinalReport.Name, reference: oFinalReportRef, type: EBindingType.Output));
 
         var runRequest = new RunBlockRequest(bindings);
-        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default, cancellationToken);
-
-        var tcs = new TaskCompletionSource();
-        execControl.Completed += (o, e) => tcs.SetResult();
-        execControl.Failed += (o, e) => tcs.SetException(e);
-        await tcs.Task;
+        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default, cancellationToken);
 
         var finalResult = execControl.GetOutput("FinalReport") as EntryValueObject;
         dataStore.UpdateEntry(finalResult.EntryKey, finalResult.Value);
@@ -358,12 +358,7 @@ static class TestFunctionBlocks
         bindings.Add(new(variableName: "Add1Y", value: 10, type: EBindingType.Input));
         var execControl = CreateControl();
         var runRequest = new RunBlockRequest(bindings);
-        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default, cancellationToken);
-
-        var tcs = new TaskCompletionSource();
-        execControl.Completed += (o, e) => tcs.SetResult();
-        execControl.Failed += (o, e) => tcs.SetException(e);
-        await tcs.Task;
+        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default, cancellationToken);
 
         var finalResult = execControl.GetOutput("Result");
         return (double)finalResult.Value;
@@ -378,6 +373,8 @@ static class TestFunctionBlocks
         const int DelayMs = 5000;
         IExecutionControl CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory);
         IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFramework>(block: new(blockDef.Id), blockDef, functionRunner, blockFrameworkFactory);
+
+        await RunLogAndDebug(blockRunner, CreateControl: CreateCompositeControl, timeoutTokenProvider);
 
         Console.WriteLine("DelayJS {0} ms", DelayMs);
         await RunBlockDelay(
@@ -420,7 +417,7 @@ static class TestFunctionBlocks
         var control = CreateControl();
         var bindings = new VariableBinding[] { new("Ms", delayMs, type: EBindingType.Input) };
         var runRequest = new RunBlockRequest(bindings, triggerEvent: null);
-        await blockRunner.Run(runRequest, control, optimizationScopeId: default, cancellationToken);
+        await blockRunner.RunAndWait(runRequest, control, optimizationScopeId: default, cancellationToken);
         Console.WriteLine(string.Join(Environment.NewLine, control.Result.OutputEvents));
     }
 
@@ -430,7 +427,7 @@ static class TestFunctionBlocks
     {
         var control = CreateControl();
         var runRequest = new RunBlockRequest(bindings: Array.Empty<VariableBinding>(), triggerEvent: null);
-        await blockRunner.Run(runRequest, control, optimizationScopeId: default, cancellationToken);
+        await blockRunner.RunAndWait(runRequest, control, optimizationScopeId: default, cancellationToken);
         Console.WriteLine(string.Join(Environment.NewLine, control.Result.OutputEvents));
         Console.WriteLine(control.GetOutput("Result"));
     }
@@ -442,7 +439,7 @@ static class TestFunctionBlocks
         var control = CreateControl();
         var bindings = new VariableBinding[] { new("N", 5, type: EBindingType.Input) };
         var runRequest = new RunBlockRequest(bindings, triggerEvent: null);
-        await blockRunner.Run(runRequest, control, optimizationScopeId: default, cancellationToken);
+        await blockRunner.RunAndWait(runRequest, control, optimizationScopeId: default, cancellationToken);
         Console.WriteLine(string.Join(Environment.NewLine, control.Result.OutputEvents));
         Console.WriteLine(control.GetOutput("Result"));
     }
@@ -454,15 +451,68 @@ static class TestFunctionBlocks
         bindings.Add(new(variableName: "Width", value: 2, type: EBindingType.Input));
         var execControl = CreateControl();
         var runRequest = new RunBlockRequest(bindings: bindings);
-        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default, cancellationToken);
-
-        var tcs = new TaskCompletionSource();
-        execControl.Completed += (o, e) => tcs.SetResult();
-        execControl.Failed += (o, e) => tcs.SetException(e);
-        await tcs.Task;
+        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default, cancellationToken);
 
         var finalResult = execControl.GetOutput("Result");
         Console.WriteLine(finalResult);
+    }
+
+    public static async Task RunLogAndDebug(IBlockRunner blockRunner, Func<CompositeBlockDef, IExecutionControl> CreateControl, Func<CancellationToken> cancellationTokenProvider)
+    {
+        async Task TryRunBlock(IExecutionControl execControl)
+        {
+            try
+            {
+                var runRequest = new RunBlockRequest(bindings: Array.Empty<VariableBinding>());
+                await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default, cancellationToken: cancellationTokenProvider());
+            }
+            catch { }
+        }
+
+        void HandleFailed(object o, Exception ex)
+        {
+            if (o is not IExecutionControl control) return;
+            if (ex is FunctionCompilationError error)
+            {
+                var compErr = error.Error;
+                Console.Error.WriteLine(format:
+@"Compilation error:
++ Block: {0}
++ Description: {1}
++ Location (line, column): ({2}, {3})
++ Is system error: {4}
+
+Original content (error located):
+-----------------",
+                    control.ExceptionFrom.Block.Id,
+                    compErr.Description,
+                    compErr.LineNumber,
+                    compErr.Column,
+                    compErr.IsSystemError);
+                error.PrintError();
+                Console.WriteLine();
+            }
+            else
+            {
+
+            }
+        }
+
+        {
+            var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.CompilationErrorJs));
+            execControl.Failed += HandleFailed;
+            await TryRunBlock(execControl);
+        }
+        {
+            var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.RuntimeErrorJs));
+            execControl.Failed += HandleFailed;
+            await TryRunBlock(execControl);
+        }
+        {
+            var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.RuntimeErrorJsFromCs));
+            execControl.Failed += HandleFailed;
+            await TryRunBlock(execControl);
+        }
     }
 
     public static async Task RunRectanglePerimeter(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, CancellationToken cancellationToken)
@@ -472,12 +522,7 @@ static class TestFunctionBlocks
         bindings.Add(new(variableName: "Width", value: 2, type: EBindingType.Input));
         var execControl = CreateControl();
         var runRequest = new RunBlockRequest(bindings);
-        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default, cancellationToken);
-
-        var tcs = new TaskCompletionSource();
-        execControl.Completed += (o, e) => tcs.SetResult();
-        execControl.Failed += (o, e) => tcs.SetException(e);
-        await tcs.Task;
+        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default, cancellationToken);
 
         var finalResult = execControl.GetOutput("Result");
         Console.WriteLine(finalResult);
@@ -489,12 +534,7 @@ static class TestFunctionBlocks
         bindings.Add(new(variableName: "N", value: 1000, type: EBindingType.Input));
         var execControl = CreateControl();
         var runRequest = new RunBlockRequest(bindings);
-        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default, cancellationToken);
-
-        var tcs = new TaskCompletionSource();
-        execControl.Completed += (o, e) => tcs.SetResult();
-        execControl.Failed += (o, e) => tcs.SetException(e);
-        await tcs.Task;
+        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default, cancellationToken);
 
         var finalResult = execControl.GetOutput("Result");
         Console.WriteLine(finalResult);
@@ -510,12 +550,7 @@ static class TestFunctionBlocks
         bindings.Add(new(variableName: "Add2Y", value: 4, type: EBindingType.Input));
         var execControl = CreateControl();
         var runRequest = new RunBlockRequest(bindings);
-        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default, cancellationToken);
-
-        var tcs = new TaskCompletionSource();
-        execControl.Completed += (o, e) => tcs.SetResult();
-        execControl.Failed += (o, e) => tcs.SetException(e);
-        await tcs.Task;
+        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default, cancellationToken);
 
         var finalResult = execControl.GetOutput("Result");
         Console.WriteLine(finalResult);
