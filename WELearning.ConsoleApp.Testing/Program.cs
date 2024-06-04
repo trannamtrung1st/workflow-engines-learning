@@ -46,7 +46,7 @@ var serviceProvider = scope.ServiceProvider;
 var terminationCts = new CancellationTokenSource();
 var tokensProvider = () =>
 {
-    var timeoutToken = new CancellationTokenSource(TimeSpan.FromSeconds(20)).Token;
+    var timeoutToken = new CancellationTokenSource(TimeSpan.FromSeconds(30)).Token;
     var combinedToken = CancellationTokenSource.CreateLinkedTokenSource(terminationCts.Token, timeoutToken).Token;
     return new RunTokens(timeout: timeoutToken, termination: terminationCts.Token, combined: combinedToken);
 };
