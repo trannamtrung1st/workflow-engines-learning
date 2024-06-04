@@ -8,6 +8,7 @@ using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Constants;
 using WELearning.DynamicCodeExecution.Helpers;
 using WELearning.DynamicCodeExecution.Models;
+using WELearning.Shared.Concurrency.Abstracts;
 
 namespace WELearning.DynamicCodeExecution.Engines;
 
@@ -16,8 +17,8 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
     private static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(30);
     private readonly MemoryCache _assemblyCache;
-    private readonly IKeyedLockManager _lockManager;
-    public CSharpCompiledEngine(IKeyedLockManager lockManager)
+    private readonly ILockManager _lockManager;
+    public CSharpCompiledEngine(ILockManager lockManager)
     {
         _lockManager = lockManager;
         var cacheOption = new MemoryCacheOptions

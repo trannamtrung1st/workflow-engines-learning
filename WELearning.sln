@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WELearning.DynamicCodeExecu
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WELearning.DynamicCodeExecution.Engines.JintJavascript", "WELearning.DynamicCodeExecution.Engines.JintJavascript\WELearning.DynamicCodeExecution.Engines.JintJavascript.csproj", "{2E2D4122-84FF-433A-8B8B-E06D96C53C49}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WELearning.Shared", "WELearning.Shared\WELearning.Shared.csproj", "{937DDAA1-DAD6-459A-A4C8-8C7255972D1B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -51,6 +53,10 @@ Global
 		{2E2D4122-84FF-433A-8B8B-E06D96C53C49}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2E2D4122-84FF-433A-8B8B-E06D96C53C49}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2E2D4122-84FF-433A-8B8B-E06D96C53C49}.Release|Any CPU.Build.0 = Release|Any CPU
+		{937DDAA1-DAD6-459A-A4C8-8C7255972D1B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{937DDAA1-DAD6-459A-A4C8-8C7255972D1B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{937DDAA1-DAD6-459A-A4C8-8C7255972D1B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{937DDAA1-DAD6-459A-A4C8-8C7255972D1B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

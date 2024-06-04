@@ -19,17 +19,18 @@ using WELearning.Core.Reflection.Extensions;
 using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Constants;
 using WELearning.DynamicCodeExecution.Extensions;
+using WELearning.Shared.Concurrency.Extensions;
 
 const string LibraryFolderPath = "/Users/trungtran/MyPlace/Personal/Learning/workflow-engines-learning/local/libs";
 var serviceCollection = new ServiceCollection()
     .AddLogging(cfg => cfg.AddConsole())
+    .AddInMemoryLockManager()
     // FunctionBlock services
     .AddDefaultBlockRunner()
     .AddDefaultFunctionRunner<AppFramework>()
     .AddBlockFrameworkFactory<AppFramework, AppFrameworkFactory>()
     .AddDefaultRuntimeEngineFactory()
     .AddDefaultTypeProvider()
-    .AddKeyedLockManager()
     .AddCSharpCompiledEngine()
     .AddCSharpScriptEngine()
     // For JS engines, first found engine will be used

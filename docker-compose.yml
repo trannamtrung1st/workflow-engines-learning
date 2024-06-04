@@ -1,8 +1,11 @@
 services:
-  service-1:
-    image: hello-world:latest
-    networks:
-      - we-learning
+  redis-1:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./deployment/redis/redis.conf:/data/redis.conf
+    command: ["redis-server", "/data/redis.conf"]
 
 networks:
   we-learning:

@@ -17,6 +17,7 @@ using WELearning.DynamicCodeExecution.Engines.JintJavascript.Models;
 using WELearning.DynamicCodeExecution.Extensions;
 using WELearning.DynamicCodeExecution.Helpers;
 using WELearning.DynamicCodeExecution.Models;
+using WELearning.Shared.Concurrency.Abstracts;
 
 namespace WELearning.DynamicCodeExecution.Engines;
 
@@ -28,8 +29,8 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     private readonly MemoryCache _moduleCache;
     private readonly IOptions<JintOptions> _jintOptions;
     private readonly EngineCache _engineCache;
-    private readonly IKeyedLockManager _lockManager;
-    public JintJavascriptEngine(IOptions<JintOptions> JintOptions, IKeyedLockManager lockManager)
+    private readonly ILockManager _lockManager;
+    public JintJavascriptEngine(IOptions<JintOptions> JintOptions, ILockManager lockManager)
     {
         _lockManager = lockManager;
         var cacheOption = new MemoryCacheOptions
