@@ -16,6 +16,8 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
     private ConcurrentBag<string> _outputEvents;
     private int _runningTasksCount;
 
+    public virtual IExecutionControl ExceptionFrom { get; protected set; }
+
     public override event EventHandler Running;
     public override event EventHandler<Exception> Failed;
     public override event EventHandler Completed;
@@ -43,7 +45,7 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
         try
         {
             _outputEvents = new();
-            PrepareRunningStatus(request);
+            PrepareRunningStatus(request, cancellationToken);
             Running?.Invoke(this, EventArgs.Empty);
             PrepareStates(request.Bindings);
             var startingTriggers = Definition.FindNextBlocks(triggerEvent);
@@ -57,10 +59,23 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
         return Task.CompletedTask;
     }
 
+    protected override void PrepareRunningStatus(RunBlockRequest runRequest, CancellationToken cancellationToken)
+    {
+        ExceptionFrom = null;
+        base.PrepareRunningStatus(runRequest, cancellationToken);
+    }
+
+    protected override void PrepareFailedStatus(Exception ex, IExecutionControl from = null)
+    {
+        ExceptionFrom = from ?? this;
+        base.PrepareFailedStatus(ex, from);
+    }
+
     protected void HandleFailed(Exception ex, IExecutionControl from = null)
     {
-        if (PrepareFailedStatus(ex, from))
-            Failed?.Invoke(this, ex);
+        if (!SetFailedStatus()) return;
+        PrepareFailedStatus(ex, from);
+        Failed?.Invoke(this, ex);
     }
 
     protected virtual void TriggerBlocks(Guid runId, IEnumerable<BlockTrigger> blockTriggers, Guid? optimizationScopeId, CancellationToken cancellationToken)

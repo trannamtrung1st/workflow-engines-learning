@@ -30,8 +30,17 @@ public class BlockFramework : IBlockFramework
     private readonly HashSet<string> _outputEvents;
     public virtual IEnumerable<string> OutputEvents => _outputEvents;
 
-    public virtual Task DelayAsync(int ms) => Task.Delay(ms);
-    public virtual void Delay(int ms) => Task.Delay(ms).Wait();
+    public virtual Task DelayAsync(int ms, CancellationToken? cancellationToken = default)
+    {
+        cancellationToken ??= _control.RunCancellationToken;
+        return Task.Delay(ms, cancellationToken.Value);
+    }
+
+    public virtual void Delay(int ms, CancellationToken? cancellationToken = default)
+    {
+        cancellationToken ??= _control.RunCancellationToken;
+        Task.Delay(ms, cancellationToken.Value).Wait(cancellationToken.Value);
+    }
 
     public virtual IReadBinding In(string name)
         => _inputBindings.GetOrAdd(name, (key) => new InputBinding(key, valueObject: _control.GetInput(name)));

@@ -11,10 +11,10 @@ public interface IExecutionControl
     event EventHandler Completed;
 
     Guid? CurrentRunId { get; }
+    CancellationToken RunCancellationToken { get; }
     BlockInstance Block { get; }
     bool IsIdle { get; }
     Exception Exception { get; }
-    IExecutionControl ExceptionFrom { get; }
     EBlockExecutionStatus Status { get; }
     BlockExecutionResult Result { get; }
     BlockActivity LastActivity { get; }

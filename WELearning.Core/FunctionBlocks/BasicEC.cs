@@ -19,6 +19,7 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
         CurrentState = Definition.ExecutionControlChart?.InitialState;
     }
 
+    public virtual Function RunningFunction { get; protected set; }
     public virtual string CurrentState { get; protected set; }
     private BFBExecutionResult _result;
     public override BlockExecutionResult Result
@@ -27,16 +28,6 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
         protected set => _result = value as BFBExecutionResult;
     }
     BFBExecutionResult IBasicEC.Result => _result;
-
-    public override IExecutionControl ExceptionFrom
-    {
-        get => Exception != null ? this : null;
-        protected set
-        {
-            if (value != null && value != this)
-                throw new InvalidOperationException("Exception should be from this BFB only!");
-        }
-    }
 
     public override event EventHandler Running;
     public override event EventHandler<Exception> Failed;
@@ -69,7 +60,7 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
         {
             IEnumerable<string> outputEvents = Array.Empty<string>();
             var fromState = CurrentState;
-            PrepareRunningStatus(request);
+            PrepareRunningStatus(request, cancellationToken);
             Running?.Invoke(this, EventArgs.Empty);
             PrepareStates(request.Bindings);
 
@@ -86,8 +77,11 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
         }
         catch (Exception ex)
         {
-            if (PrepareFailedStatus(ex, this))
+            if (SetFailedStatus())
+            {
+                PrepareFailedStatus(ex, this);
                 Failed?.Invoke(this, ex);
+            }
             throw;
         }
         finally
@@ -115,7 +109,9 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
         {
             try
             {
+                RunningFunction = condition;
                 var (result, optimizationScope) = await _functionRunner.Run<bool>(condition, globalObject: globalObject, flattenArguments, flattenOutputs, optimizationScopeId.Value, cancellationToken);
+                RunningFunction = null;
                 if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
                 return result;
             }
@@ -127,7 +123,9 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
         {
             try
             {
+                RunningFunction = actionFunction;
                 var optimizationScope = await _functionRunner.Run(actionFunction, globalObject, flattenArguments, flattenOutputs, optimizationScopeId.Value, cancellationToken);
+                RunningFunction = null;
                 if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
             }
             catch (CompilationError ex) { throw new FunctionCompilationError(ex, actionFunction); }

@@ -5,6 +5,7 @@ namespace WELearning.Core.FunctionBlocks.Abstracts;
 
 public interface IBasicEC : IExecutionControl
 {
+    Function RunningFunction { get; }
     BasicBlockDef Definition { get; }
     string CurrentState { get; }
     new BFBExecutionResult Result { get; }

@@ -9,5 +9,7 @@ public interface ICompositeEC : IExecutionControl
     event EventHandler<Exception> ControlFailed;
 
     CompositeBlockDef Definition { get; }
+    IExecutionControl ExceptionFrom { get; }
+
     bool TryGetExecutionControl(string blockId, out IExecutionControl executionControl);
 }

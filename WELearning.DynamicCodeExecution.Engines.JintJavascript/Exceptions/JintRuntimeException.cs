@@ -15,12 +15,11 @@ public class JintRuntimeException : RuntimeException
         var rejectedValue = rejectedException.RejectedValue;
         var stack = rejectedValue.Get("stack").AsString();
         var (Line, Column, Index) = GetStackRootExceptionPosition(content, stack);
-        (Line, Column, Index, bool IsUserContent) = RecalculatePosition(
+        (Line, Column, Index) = RecalculatePosition(
             Line, Column, Index, userContentLineStart, userContentLineEnd, userContentIndexStart, userContentIndexEnd);
         LineNumber = Line;
         this.Column = Column;
         this.Index = Index;
-        this.IsUserContent = IsUserContent;
         Description = rejectedValue.Get("message").AsString();
         RawMessage = rejectedException.Message;
     }
@@ -31,13 +30,12 @@ public class JintRuntimeException : RuntimeException
     {
         _source = SourceSystem;
         var (currentLine, currentColumn) = currentNodePosition;
-        var (Line, Column, Index, IsUserContent) = RecalculatePosition(
+        var (Line, Column, Index) = RecalculatePosition(
             currentLine, exColumn: currentColumn + 1, // [NOTE] Jint wrong calculation
             currentNodeIndex, userContentLineStart, userContentLineEnd, userContentIndexStart, userContentIndexEnd);
         LineNumber = Line;
         this.Column = Column;
         this.Index = Index;
-        this.IsUserContent = IsUserContent;
         Description = systemException.Message;
         RawMessage = systemException.Message;
     }

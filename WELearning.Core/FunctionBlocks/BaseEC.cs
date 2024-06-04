@@ -37,11 +37,11 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
     public BlockInstance Block { get; }
     public TDefinition Definition { get; }
     public virtual Exception Exception { get; protected set; }
-    public virtual IExecutionControl ExceptionFrom { get; protected set; }
     public virtual bool IsIdle => _idleWait.IsSet;
     public virtual EBlockExecutionStatus Status { get; protected set; }
     public virtual BlockExecutionResult Result { get; protected set; }
     public virtual BlockActivity LastActivity { get; protected set; }
+    public virtual CancellationToken RunCancellationToken { get; protected set; }
 
     public abstract event EventHandler Running;
     public abstract event EventHandler<Exception> Failed;
@@ -85,25 +85,29 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
     protected virtual Variable ValidateVariable(string name, EVariableType type)
         => GetVariable(name, type) ?? throw new KeyNotFoundException(name);
 
-    protected virtual void PrepareRunningStatus(RunBlockRequest runRequest)
+    protected virtual void PrepareRunningStatus(RunBlockRequest runRequest, CancellationToken cancellationToken)
     {
         CurrentRunId = runRequest.RunId;
-        Exception = null; ExceptionFrom = null; Result = null;
+        RunCancellationToken = cancellationToken;
+        Exception = null; Result = null;
         Status = EBlockExecutionStatus.Running;
         LastActivity = new BlockActivity(this, runRequest: runRequest);
     }
 
-    protected virtual bool PrepareFailedStatus(Exception ex, IExecutionControl from = null)
+    protected virtual bool SetFailedStatus()
     {
         lock (_handleFailedLock)
         {
             if (Status == EBlockExecutionStatus.Failed) return false;
             Status = EBlockExecutionStatus.Failed;
         }
-        Exception = ex;
-        ExceptionFrom = from ?? this;
-        LastActivity = new BlockActivity(this, runRequest: LastActivity.RunRequest);
         return true;
+    }
+
+    protected virtual void PrepareFailedStatus(Exception ex, IExecutionControl from = null)
+    {
+        Exception = ex;
+        LastActivity = new BlockActivity(this, runRequest: LastActivity.RunRequest);
     }
 
     protected virtual void PrepareCompletedStatus()

@@ -9,13 +9,12 @@ public class JintCompilationError : CompilationError
     public JintCompilationError(ParserException parserException, int userContentLineStart, int userContentLineEnd, int userContentIndexStart, int userContentIndexEnd)
     {
         _parserException = parserException;
-        (int Line, int Column, int Index, bool IsUserContent) = RecalculatePosition(
+        (int Line, int Column, int Index) = RecalculatePosition(
             parserException.LineNumber, parserException.Column, parserException.Index,
             userContentLineStart, userContentLineEnd, userContentIndexStart, userContentIndexEnd);
         LineNumber = Line;
         this.Column = Column;
         this.Index = Index;
-        this.IsUserContent = IsUserContent;
     }
 
     public override string Description => _parserException.Description;

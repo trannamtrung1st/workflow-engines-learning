@@ -2,8 +2,8 @@ namespace WELearning.Core.FunctionBlocks.Framework.Abstracts;
 
 public interface IBlockFramework
 {
-    Task DelayAsync(int ms);
-    void Delay(int ms);
+    Task DelayAsync(int ms, CancellationToken? cancellationToken = default);
+    void Delay(int ms, CancellationToken? cancellationToken = default);
     IReadBinding In(string name);
     IWriteBinding Out(string name);
     IReadWriteBinding InOut(string name);

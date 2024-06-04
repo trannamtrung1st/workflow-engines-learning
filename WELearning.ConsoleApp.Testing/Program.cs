@@ -479,10 +479,10 @@ static class TestFunctionBlocks
             string messageFormat =
 @"=== {0} ===
 + Block: {1}
-+ Description: {2}
-+ Location (line, column): ({3}, {4})
-+ Is system error: {5}
-+ Source: {6}
++ Function: {2}
++ Description: {3}
++ Location (line, column, index): ({4}, {5}, {6})
++ Source: {7}
 
 Original content (error located):
 -----------------";
@@ -491,11 +491,12 @@ Original content (error located):
                 var compErr = error.Error;
                 Console.Error.WriteLine(format: messageFormat,
                     "Compilation error",
-                    control.ExceptionFrom.Block.Id,
+                    (control as ICompositeEC)?.ExceptionFrom.Block.Id ?? control.Block.Id,
+                    (control as IBasicEC)?.RunningFunction?.Id,
                     compErr.Description,
                     compErr.LineNumber,
                     compErr.Column,
-                    compErr.IsUserContent,
+                    compErr.Index,
                     compErr.Source);
                 error.PrintError();
                 Console.WriteLine();
@@ -505,11 +506,12 @@ Original content (error located):
                 var exception = runtimeEx.Exception;
                 Console.Error.WriteLine(format: messageFormat,
                     $"Runtime exception ({exception.Source})",
-                    control.ExceptionFrom.Block.Id,
+                    (control as ICompositeEC)?.ExceptionFrom.Block.Id ?? control.Block.Id,
+                    (control as IBasicEC)?.RunningFunction?.Id,
                     exception.Description,
                     exception.LineNumber,
                     exception.Column,
-                    exception.IsUserContent,
+                    exception.Index,
                     exception.Source);
                 runtimeEx.PrintError();
                 Console.WriteLine();
