@@ -14,10 +14,11 @@ public static class ComplexCFB
 
         var iAdd1X = new Variable("Add1X", dataType: EDataType.Numeric, variableType: EVariableType.Input);
         var iAdd1Y = new Variable("Add1Y", dataType: EDataType.Numeric, variableType: EVariableType.Input);
+        var iDelayMs = new Variable("DelayMs", dataType: EDataType.Int, variableType: EVariableType.Input);
         var oResult = new Variable("Result", dataType: EDataType.Numeric, variableType: EVariableType.Output);
-        cfb.Variables = new Variable[] { iAdd1X, iAdd1Y, oResult };
+        cfb.Variables = new Variable[] { iAdd1X, iAdd1Y, iDelayMs, oResult };
 
-        var eTrigger = new BlockEvent(isInput: true, name: "Trigger", variableNames: new[] { iAdd1X.Name, iAdd1Y.Name });
+        var eTrigger = new BlockEvent(isInput: true, name: "Trigger", variableNames: new[] { iAdd1X.Name, iAdd1Y.Name, iDelayMs.Name });
         var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: new[] { oResult.Name });
         cfb.Events = new[] { eTrigger, eCompleted };
         cfb.DefaultTriggerEvent = eTrigger.Name;

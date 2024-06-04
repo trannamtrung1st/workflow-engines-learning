@@ -146,7 +146,7 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
             if (connection.SourceBlockId != null)
             {
                 var sourceBlock = Definition.Blocks.FirstOrDefault(b => b.Id == connection.SourceBlockId)
-                    ?? throw new KeyNotFoundException(connection.SourceBlockId);
+                    ?? throw new KeyNotFoundException($"Block {connection.SourceBlockId} not found!");
                 var sourceExecControl = GetOrInitExecutionControl(sourceBlock);
                 sourceExecControl.WaitForIdle(cancellationToken);
                 var outputValue = sourceExecControl.GetOutput(connection.SourceVariableName);

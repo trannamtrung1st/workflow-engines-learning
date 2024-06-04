@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Esprima;
 using Jint;
+using Jint.Constraints;
 using Jint.Native;
 using Jint.Native.Object;
 using Jint.Runtime;
@@ -23,6 +24,8 @@ namespace WELearning.DynamicCodeExecution.Engines;
 
 public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 {
+    private const int DefaultMaxStatements = 3_000_000;
+    private const int DefaultMaxLoopCount = 10_000;
     private const string ExportedFunctionName = nameof(IExecutable<object>.Execute);
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
     private static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(30);
@@ -97,6 +100,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                     cfg.AllowClr(assemblies);
                 cfg.DebuggerStatementHandling(Jint.Runtime.Debugger.DebuggerStatementHandling.Script);
                 cfg.DebugMode(debugMode: true);
+                cfg.MaxStatements(DefaultMaxStatements); // [NOTE] be careful with imported libraries
             });
 
             if (types?.Any() == true)
@@ -105,7 +109,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                     engine.SetValue(type.Name, type);
             }
 
-            var wrap = new EngineWrap(engine);
+            var wrap = new EngineWrap(engine, DefaultMaxLoopCount);
             engine.Debugger.Skip += wrap.SetNodePosition;
             engine.Debugger.Break += wrap.SetNodePosition;
             return wrap;
@@ -184,23 +188,8 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                     engineWrap.ResetNodePosition();
                     var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, request.Imports, request.Assemblies, cancellationToken);
                     var exportedFunction = module.Get(ExportedFunctionName);
-                    var finished = false;
-
-                    var cancellationTcs = new TaskCompletionSource();
-                    cancellationToken.Register(() =>
-                    {
-                        if (finished) return;
-                        cancellationTcs.SetException(new TimeoutException("Timed out!"));
-                    });
-
-                    var callTask = CallAsync(exportedFunction, arguments);
-
-                    await Task.WhenAny(cancellationTcs.Task, callTask);
-                    if (cancellationTcs.Task.Exception != null)
-                        throw cancellationTcs.Task.Exception;
-
-                    finished = true;
-                    result = callTask.Result.UnwrapIfPromise();
+                    result = await CallWithHandles(exportedFunction, arguments, cancellationToken);
+                    result = result.UnwrapIfPromise();
                 }, cancellationToken);
             }
             catch (ParserException ex)
@@ -223,6 +212,13 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             }
             catch (Exception ex)
             {
+                if (ex is StatementsCountOverflowException stmCountOverflow)
+                {
+                    var maxStatements = engineWrap.MaxStatementsConstraint.MaxStatements;
+                    ex = new Exception(engineWrap.IsMaxLoopCountReached
+                        ? $"Possible infinite loop detected."
+                        : $"The maximum number of statements executed ({maxStatements}) have been reached.");
+                }
                 var originalEx = (ex as AggregateException)?.InnerException ?? ex;
                 if (engineWrap.CurrentNodePosition.HasValue)
                     throw new JintRuntimeException(
@@ -248,10 +244,26 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         }
     }
 
-    private static async Task<JsValue> CallAsync(JsValue exportedFunction, JsValue[] arguments)
+    private static async Task<JsValue> CallWithHandles(JsValue exportedFunction, JsValue[] arguments, CancellationToken cancellationToken)
     {
-        await Task.Yield();
-        return exportedFunction.Call(arguments: arguments);
+        var tcs = new TaskCompletionSource<JsValue>();
+        try
+        {
+            JsValue result = null;
+            var currentThread = Thread.CurrentThread;
+            cancellationToken.Register(() =>
+            {
+                lock (tcs) { tcs.TrySetException(new TimeoutException("Execution timed out!")); }
+                currentThread.Interrupt();
+            });
+            result = exportedFunction.Call(arguments: arguments);
+            lock (tcs) { tcs.TrySetResult(result); }
+        }
+        catch (Exception ex)
+        {
+            lock (tcs) { tcs.TrySetException(ex); }
+        }
+        return await tcs.Task;
     }
 
     private static (IEnumerable<string> Names, JsValue[] Values) GetCombineArguments<TArg>(Engine engine, TArg arguments, List<(string Name, object Value)> flattenArguments, List<string> flattenOutputs)
@@ -377,34 +389,54 @@ return {OutVariable};" : string.Empty;
 
     class EngineWrap : IDisposable
     {
+        private Dictionary<Esprima.Ast.Node, int> _nodesCount;
         private readonly SemaphoreSlim _lock;
-        public EngineWrap(Engine engine)
+        public EngineWrap(Engine engine, int maxLoopCount)
         {
             _lock = new(1);
+            _nodesCount = new();
+            MaxLoopCount = maxLoopCount;
             Engine = engine;
+            MaxStatementsConstraint = engine.Constraints.Find<MaxStatementsConstraint>();
             Id = Guid.NewGuid();
             ResetNodePosition();
         }
 
         public Engine Engine { get; }
         public Guid Id { get; }
-        public Position? CurrentNodePosition { get; set; }
-        public int CurrentNodeIndex { get; set; }
+        public Position? CurrentNodePosition { get; private set; }
+        public int CurrentNodeIndex { get; private set; }
+        public int MaxLoopCount { get; }
+        public bool IsMaxLoopCountReached { get; private set; }
+        public MaxStatementsConstraint MaxStatementsConstraint { get; }
 
         public void Dispose()
         {
+            _nodesCount = null;
             _lock.Dispose();
             Engine.Dispose();
         }
 
         public void ResetNodePosition()
         {
+            _nodesCount.Clear();
             CurrentNodeIndex = -1;
             CurrentNodePosition = null;
         }
 
         public StepMode SetNodePosition(object o, DebugInformation e)
         {
+            if (e.CurrentNode != null)
+            {
+                if (!_nodesCount.TryGetValue(e.CurrentNode, out int count))
+                    _nodesCount[e.CurrentNode] = count;
+                var nodeCount = _nodesCount[e.CurrentNode] = count + 1;
+                if (nodeCount > MaxLoopCount)
+                {
+                    MaxStatementsConstraint.MaxStatements = MaxLoopCount;
+                    IsMaxLoopCountReached = true;
+                }
+            }
             CurrentNodeIndex = e.CurrentNode?.Range.Start ?? -1;
             CurrentNodePosition = e.CurrentNode?.Location.Start;
             return default;

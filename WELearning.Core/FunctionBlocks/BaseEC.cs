@@ -83,7 +83,7 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
     public virtual IEnumerable<Variable> GetVariables() => Definition.Variables;
 
     protected virtual Variable ValidateVariable(string name, EVariableType type)
-        => GetVariable(name, type) ?? throw new KeyNotFoundException(name);
+        => GetVariable(name, type) ?? throw new KeyNotFoundException($"Variable {name} not found!");
 
     protected virtual void PrepareRunningStatus(RunBlockRequest runRequest, CancellationToken cancellationToken)
     {

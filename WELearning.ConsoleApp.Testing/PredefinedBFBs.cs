@@ -49,6 +49,7 @@ static class PredefinedBFBs
         DelayCsCompiled = CreateBlockDelayCsCompiled();
         DelayCsScript = CreateBlockDelayCsScript();
         DelayJs = CreateBlockDelayJs();
+        DelayInfiniteJs = CreateBlockDelayInfiniteJs();
         FactorialCsScript = CreateBlockFactorialCsScript();
         ConcatTwoStringsJs = CreateBlockConcatTwoStringsJs();
         CompilationErrorJs = CreateCompilationError();
@@ -68,6 +69,7 @@ static class PredefinedBFBs
     public static readonly BasicBlockDef DelayCsCompiled;
     public static readonly BasicBlockDef DelayCsScript;
     public static readonly BasicBlockDef DelayJs;
+    public static readonly BasicBlockDef DelayInfiniteJs;
     public static readonly BasicBlockDef FactorialCsScript;
     public static readonly BasicBlockDef ConcatTwoStringsJs;
     public static readonly BasicBlockDef CompilationErrorJs;
@@ -574,6 +576,18 @@ static class PredefinedBFBs
             delayScript: @$"
             FB.Delay(Ms);
             _events = ['Completed'];
+            ",
+            imports: null, assemblies: null
+        );
+    }
+
+    private static BasicBlockDef CreateBlockDelayInfiniteJs()
+    {
+        return CreateBlockDelay(
+            runtime: ERuntime.Javascript,
+            delayScript: @$"
+            FB.Delay(Ms);
+            while (true) {{ var a = 1; }}
             ",
             imports: null, assemblies: null
         );

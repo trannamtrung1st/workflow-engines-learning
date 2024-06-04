@@ -42,7 +42,7 @@ var serviceCollection = new ServiceCollection()
 using var rootServiceProvider = serviceCollection.BuildServiceProvider();
 using var scope = rootServiceProvider.CreateScope();
 var serviceProvider = scope.ServiceProvider;
-var timeoutTokenProvider = () => new CancellationTokenSource(TimeSpan.FromSeconds(100)).Token;
+var timeoutTokenProvider = () => new CancellationTokenSource(TimeSpan.FromSeconds(20)).Token;
 
 await TestEngines.BenchmarkLoops(serviceProvider, timeoutTokenProvider);
 Console.WriteLine();
@@ -186,7 +186,7 @@ static class TestEngines
                 arguments: new { TestAsync },
                 flattenArguments: new (string, object)[] { (nameof(TestAsync), TestAsync) },
                 flattenOutputs: null,
-                imports: new[] { "import './fetch.min.js'", "import './lodash.min.js';", "import './axios.min.js';" },
+                imports: new[] { "import './lodash.min.js';" },
                 types: null,
                 assemblies: null
             ), cancellationToken: cancellationToken);
@@ -214,12 +214,6 @@ static class TestEngines
 
 static class TestFunctionBlocks
 {
-    private static readonly CompositeBlockDef JsComplexCFB = ComplexCFB.Build(
-        bAddDef: PredefinedBFBs.AddJs,
-        bMultiplyDef: PredefinedBFBs.MultiplyJs,
-        bRandomDef: PredefinedBFBs.RandomJs,
-        bDelayDef: PredefinedBFBs.DelayJs);
-
     public static async Task BenchmarkComplexCFB(IServiceProvider serviceProvider, Func<CancellationToken> timeoutTokenProvider)
     {
         Console.WriteLine("=== Benchmark complex CFB ===");
@@ -250,8 +244,13 @@ static class TestFunctionBlocks
         Task<double> RunCsScript() => RunComplexCFB(
             blockRunner, CreateControl: () => CreateControl(blockDef: csScriptCFB), cancellationToken: timeoutTokenProvider());
 
+        var jsCFB = ComplexCFB.Build(
+            bAddDef: PredefinedBFBs.AddJs,
+            bMultiplyDef: PredefinedBFBs.MultiplyJs,
+            bRandomDef: PredefinedBFBs.RandomJs,
+            bDelayDef: PredefinedBFBs.DelayJs);
         Task<double> RunJs() => RunComplexCFB(
-            blockRunner, CreateControl: () => CreateControl(blockDef: JsComplexCFB), cancellationToken: timeoutTokenProvider());
+            blockRunner, CreateControl: () => CreateControl(blockDef: jsCFB), cancellationToken: timeoutTokenProvider());
 
         var sw = Stopwatch.StartNew();
         await Loop(FirstLoop, func: RunCsCompiled);
@@ -516,6 +515,15 @@ Original content (error located):
                 runtimeEx.PrintError();
                 Console.WriteLine();
             }
+            else
+            {
+                Console.Error.WriteLine(format: messageFormat,
+                    $"System exception",
+                    (control as ICompositeEC)?.ExceptionFrom.Block.Id ?? control.Block.Id,
+                    (control as IBasicEC)?.RunningFunction?.Id,
+                    ex.Message, -1, -1, -1, ex.Source);
+                Console.WriteLine();
+            }
         }
 
         {
@@ -562,8 +570,14 @@ Original content (error located):
             var bindings = new HashSet<VariableBinding>();
             bindings.Add(new(variableName: "Add1X", value: 5, type: EBindingType.Input));
             bindings.Add(new(variableName: "Add1Y", value: 10, type: EBindingType.Input));
+            bindings.Add(new(variableName: "DelayMs", value: 3000, type: EBindingType.Input));
 
-            var execControl = CreateControl(JsComplexCFB);
+            var jsCFB = ComplexCFB.Build(
+                bAddDef: PredefinedBFBs.AddJs,
+                bMultiplyDef: PredefinedBFBs.MultiplyJs,
+                bRandomDef: PredefinedBFBs.RandomJs,
+                bDelayDef: PredefinedBFBs.DelayInfiniteJs);
+            var execControl = CreateControl(jsCFB);
             execControl.Running += (o, e) => LogBlockActivity(o);
             execControl.Completed += (o, e) => LogBlockActivity(o);
             execControl.Failed += (o, e) => LogBlockActivity(o);
