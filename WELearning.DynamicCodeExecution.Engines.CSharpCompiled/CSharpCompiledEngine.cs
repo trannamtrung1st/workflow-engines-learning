@@ -17,8 +17,8 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
     private static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(30);
     private readonly MemoryCache _assemblyCache;
-    private readonly ILockManager _lockManager;
-    public CSharpCompiledEngine(ILockManager lockManager)
+    private readonly IInMemoryLockManager _lockManager;
+    public CSharpCompiledEngine(IInMemoryLockManager lockManager)
     {
         _lockManager = lockManager;
         var cacheOption = new MemoryCacheOptions

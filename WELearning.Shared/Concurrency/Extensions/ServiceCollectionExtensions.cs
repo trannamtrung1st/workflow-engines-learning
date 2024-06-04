@@ -7,6 +7,11 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddInMemoryLockManager(this IServiceCollection services)
     {
-        return services.AddSingleton<ILockManager, InMemoryLockManager>();
+        return services.AddSingleton<IInMemoryLockManager, InMemoryLockManager>();
+    }
+
+    public static IServiceCollection AddDefaultDistributedLockManager(this IServiceCollection services)
+    {
+        return services.AddSingleton<IDistributedLockManager, InMemoryLockManager>();
     }
 }

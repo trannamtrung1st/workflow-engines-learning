@@ -25,6 +25,7 @@ const string LibraryFolderPath = "/Users/trungtran/MyPlace/Personal/Learning/wor
 var serviceCollection = new ServiceCollection()
     .AddLogging(cfg => cfg.AddConsole())
     .AddInMemoryLockManager()
+    .AddDefaultDistributedLockManager()
     // FunctionBlock services
     .AddDefaultBlockRunner()
     .AddDefaultFunctionRunner<AppFramework>()

@@ -29,8 +29,8 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     private readonly MemoryCache _moduleCache;
     private readonly IOptions<JintOptions> _jintOptions;
     private readonly EngineCache _engineCache;
-    private readonly ILockManager _lockManager;
-    public JintJavascriptEngine(IOptions<JintOptions> JintOptions, ILockManager lockManager)
+    private readonly IInMemoryLockManager _lockManager;
+    public JintJavascriptEngine(IOptions<JintOptions> JintOptions, IInMemoryLockManager lockManager)
     {
         _lockManager = lockManager;
         var cacheOption = new MemoryCacheOptions

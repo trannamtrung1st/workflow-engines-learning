@@ -3,7 +3,7 @@ using WELearning.Shared.Concurrency.Abstracts;
 
 namespace WELearning.Shared.Concurrency;
 
-public class InMemoryLockManager : ILockManager
+public class InMemoryLockManager : IInMemoryLockManager, IDistributedLockManager
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(60);
     private readonly ConcurrentDictionary<string, LockObject> _lockMap;
@@ -13,7 +13,7 @@ public class InMemoryLockManager : ILockManager
         _lockMap = new();
     }
 
-    public ILock CreateLock(string key, TimeSpan? expiry = null, TimeSpan? timeout = null, int retries = 3)
+    public ILock Acquire(string key, TimeSpan? expiry = null, TimeSpan? timeout = null, int retries = 3)
     {
         var timeoutCts = new CancellationTokenSource(timeout ?? DefaultTimeout);
         LockObject lockObj;
@@ -40,44 +40,27 @@ public class InMemoryLockManager : ILockManager
 
     public void MutexAccess(string key, Action action)
     {
-        using var mutex = CreateLock(key);
+        using var mutex = Acquire(key);
         action();
     }
 
     public async Task MutexAccess(string key, Func<Task> action)
     {
-        using var mutex = CreateLock(key);
+        using var mutex = Acquire(key);
         await action();
     }
 
-    private void Release(LockObject lockObj, bool timedOut)
+    private void Release(LockObject lockObj)
     {
         lock (_lockMap)
         {
-            bool shouldRemove = false;
-            try
+            lockObj.ActiveCount--;
+            if (lockObj.ActiveCount <= 0)
             {
-                if (timedOut)
-                {
-                    lockObj.ActiveCount = 0;
-                    shouldRemove = true;
-                }
-                else
-                {
-                    lockObj.ActiveCount--;
-                    if (lockObj.ActiveCount <= 0)
-                        shouldRemove = true;
-                    else lockObj.SetReady();
-                }
+                _lockMap.Remove(lockObj.Key, out _);
+                lockObj.HandleLockRemoved();
             }
-            finally
-            {
-                if (shouldRemove)
-                {
-                    _lockMap.Remove(lockObj.Key, out _);
-                    lockObj.HandleLockRemoved();
-                }
-            }
+            else lockObj.SetReady();
         }
     }
 
@@ -86,14 +69,14 @@ public class InMemoryLockManager : ILockManager
         private static readonly TimeSpan DefaultExpiry = TimeSpan.FromSeconds(30);
         private readonly Func<CancellationTokenSource> _expiryCtsProvider;
         private CancellationTokenSource _currentCts;
-        private readonly Action<LockObject, bool> _onRelease;
+        private readonly Action<LockObject> _onRelease;
 
-        public LockObject(string key, Action<LockObject, bool> onRelease, TimeSpan? expiry = null)
+        public LockObject(string key, Action<LockObject> onRelease, TimeSpan? expiry = null)
         {
             _expiryCtsProvider = () =>
             {
                 var cts = new CancellationTokenSource(expiry ?? DefaultExpiry);
-                cts.Token.Register(() => Release(timedOut: true));
+                cts.Token.Register(Release);
                 return cts;
             };
             _onRelease = onRelease;
@@ -106,9 +89,9 @@ public class InMemoryLockManager : ILockManager
         public int ActiveCount { get; set; }
         public ManualResetEventSlim ReadyEvent { get; }
 
-        public void Dispose() => Release(timedOut: false);
+        public void Dispose() => Release();
 
-        public void Release(bool timedOut) => _onRelease(this, timedOut);
+        public void Release() => _onRelease(this);
 
         public void SetAcquired()
         {
