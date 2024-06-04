@@ -166,52 +166,92 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         var combinedAssemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types)?.ToArray();
         var (engineWrap, optimizationScope) = PrepareEngine(combinedAssemblies, request.Types, request.OptimizationScopeId, cancellationToken);
         JsValue result = default;
-        var ((content, lineStart, lineEnd, indexStart, indexEnd), arguments) = PreprocessContent(request, engineWrap.Engine);
+
+        void DisposeEngine()
+        {
+            if (optimizationScope == null)
+                engineWrap.Dispose();
+            else optimizationScope.Dispose();
+        }
 
         try
         {
-            await engineWrap.SafeAccessEngine(async (engine) =>
+            var ((content, lineStart, lineEnd, indexStart, indexEnd), arguments) = PreprocessContent(request, engineWrap.Engine);
+            try
             {
-                engineWrap.ResetNodePosition();
-                var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, request.Imports, request.Assemblies, cancellationToken);
-                var exportedFunction = module.Get(ExportedFunctionName);
-                result = exportedFunction.Call(arguments: arguments);
-                result = result.UnwrapIfPromise();
-            }, cancellationToken);
-        }
-        catch (ParserException ex)
-        {
-            throw new JintCompilationError(
-                parserException: ex,
-                userContentLineStart: lineStart,
-                userContentLineEnd: lineEnd,
-                userContentIndexStart: indexStart,
-                userContentIndexEnd: indexEnd);
-        }
-        catch (PromiseRejectedException ex)
-        {
-            throw new JintRuntimeException(ex,
-                content: content,
-                userContentLineStart: lineStart,
-                userContentLineEnd: lineEnd,
-                userContentIndexStart: indexStart,
-                userContentIndexEnd: indexEnd);
-        }
-        catch (Exception ex)
-        {
-            if (engineWrap.CurrentNodePosition.HasValue)
-                throw new JintRuntimeException(
-                    systemException: ex,
-                    currentNodePosition: engineWrap.CurrentNodePosition.Value,
-                    currentNodeIndex: engineWrap.CurrentNodeIndex,
+                await engineWrap.SafeAccessEngine(async (engine) =>
+                {
+                    engineWrap.ResetNodePosition();
+                    var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, request.Imports, request.Assemblies, cancellationToken);
+                    var exportedFunction = module.Get(ExportedFunctionName);
+                    var finished = false;
+
+                    var cancellationTcs = new TaskCompletionSource();
+                    cancellationToken.Register(() =>
+                    {
+                        if (finished) return;
+                        cancellationTcs.SetException(new TimeoutException("Timed out!"));
+                    });
+
+                    var callTask = CallAsync(exportedFunction, arguments);
+
+                    await Task.WhenAny(cancellationTcs.Task, callTask);
+                    if (cancellationTcs.Task.Exception != null)
+                        throw cancellationTcs.Task.Exception;
+
+                    finished = true;
+                    result = callTask.Result.UnwrapIfPromise();
+                }, cancellationToken);
+            }
+            catch (ParserException ex)
+            {
+                throw new JintCompilationError(
+                    parserException: ex,
                     userContentLineStart: lineStart,
                     userContentLineEnd: lineEnd,
                     userContentIndexStart: indexStart,
                     userContentIndexEnd: indexEnd);
-            else throw;
-        }
+            }
+            catch (PromiseRejectedException ex)
+            {
+                throw new JintRuntimeException(ex,
+                    content: content,
+                    userContentLineStart: lineStart,
+                    userContentLineEnd: lineEnd,
+                    userContentIndexStart: indexStart,
+                    userContentIndexEnd: indexEnd);
+            }
+            catch (Exception ex)
+            {
+                var originalEx = (ex as AggregateException)?.InnerException ?? ex;
+                if (engineWrap.CurrentNodePosition.HasValue)
+                    throw new JintRuntimeException(
+                        systemException: originalEx,
+                        currentNodePosition: engineWrap.CurrentNodePosition.Value,
+                        currentNodeIndex: engineWrap.CurrentNodeIndex,
+                        userContentLineStart: lineStart,
+                        userContentLineEnd: lineEnd,
+                        userContentIndexStart: indexStart,
+                        userContentIndexEnd: indexEnd);
+                else throw;
+            }
 
-        return (result, optimizationScope);
+            if (optimizationScope == null)
+                DisposeEngine();
+
+            return (result, optimizationScope);
+        }
+        catch
+        {
+            DisposeEngine();
+            throw;
+        }
+    }
+
+    private static async Task<JsValue> CallAsync(JsValue exportedFunction, JsValue[] arguments)
+    {
+        await Task.Yield();
+        return exportedFunction.Call(arguments: arguments);
     }
 
     private static (IEnumerable<string> Names, JsValue[] Values) GetCombineArguments<TArg>(Engine engine, TArg arguments, List<(string Name, object Value)> flattenArguments, List<string> flattenOutputs)

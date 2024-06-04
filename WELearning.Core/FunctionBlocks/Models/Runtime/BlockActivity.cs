@@ -6,18 +6,6 @@ namespace WELearning.Core.FunctionBlocks.Models.Runtime;
 
 public class BlockActivity
 {
-    public BlockActivity(ICompositeEC control, RunBlockRequest runRequest = null, DateTime timeUtc = default)
-        : this((IExecutionControl)control, runRequest, timeUtc)
-    {
-        ExceptionFrom = control.ExceptionFrom;
-    }
-
-    public BlockActivity(IBasicEC control, RunBlockRequest runRequest = null, DateTime timeUtc = default)
-        : this((IExecutionControl)control, runRequest, timeUtc)
-    {
-        RunningFunction = control.RunningFunction;
-    }
-
     public BlockActivity(IExecutionControl control, RunBlockRequest runRequest = null, DateTime timeUtc = default)
     {
         Control = control;
@@ -26,6 +14,17 @@ public class BlockActivity
         Exception = control.Exception;
         Result = control.Result;
         RunRequest = runRequest;
+
+        if (control is ICompositeEC compositeEC)
+        {
+            ExceptionFrom = compositeEC.ExceptionFrom;
+        }
+        else if (control is IBasicEC basicEC)
+        {
+            ExceptionFrom = null;
+            RunningFunction = basicEC.RunningFunction;
+        }
+
         CalculateRuntime(control.LastActivity);
     }
 
