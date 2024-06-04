@@ -15,6 +15,7 @@ using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Constants;
 using WELearning.DynamicCodeExecution.Engines.JintJavascript.Exceptions;
 using WELearning.DynamicCodeExecution.Engines.JintJavascript.Models;
+using WELearning.DynamicCodeExecution.Exceptions;
 using WELearning.DynamicCodeExecution.Extensions;
 using WELearning.DynamicCodeExecution.Helpers;
 using WELearning.DynamicCodeExecution.Models;
@@ -89,7 +90,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         return (moduleName, contentSizeInBytes);
     }
 
-    private (EngineWrap Engine, OptimizationScope Scope) PrepareEngine(Assembly[] assemblies, IEnumerable<Type> types, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    private (EngineWrap Engine, OptimizationScope Scope) PrepareEngine<TArg>(ExecuteCodeRequest<TArg> request, Assembly[] assemblies)
     {
         EngineWrap CreateNewEngine()
         {
@@ -103,9 +104,9 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                 cfg.MaxStatements(DefaultMaxStatements); // [NOTE] be careful with imported libraries
             });
 
-            if (types?.Any() == true)
+            if (request.Types?.Any() == true)
             {
-                foreach (var type in types)
+                foreach (var type in request.Types)
                     engine.SetValue(type.Name, type);
             }
 
@@ -115,20 +116,20 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             return wrap;
         }
 
-        if (optimizationScopeId == default) return (CreateNewEngine(), null);
+        if (request.OptimizationScopeId == default) return (CreateNewEngine(), null);
         EngineWrap engine;
-        if (!_engineCache.TryGetValue(optimizationScopeId.Value, out var scope))
+        if (!_engineCache.TryGetValue(request.OptimizationScopeId.Value, out var scope))
         {
-            _engineCache.RequestSlot(cancellationToken);
+            _engineCache.RequestSlot(request.Tokens.Combined);
             try
             {
                 engine = CreateNewEngine();
-                scope = new OptimizationScope(engine, optimizationScopeId.Value, ReleaseSlot: _engineCache.ReleaseSlot);
-                _engineCache.SetSlot(optimizationScopeId.Value, scope);
+                scope = new OptimizationScope(engine, request.OptimizationScopeId.Value, ReleaseSlot: _engineCache.ReleaseSlot);
+                _engineCache.SetSlot(request.OptimizationScopeId.Value, scope);
             }
             catch
             {
-                _engineCache.ReleaseSlot(optimizationScopeId.Value);
+                _engineCache.ReleaseSlot(request.OptimizationScopeId.Value);
                 throw;
             }
         }
@@ -152,23 +153,23 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         _engineCache.Dispose();
     }
 
-    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
+    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request)
     {
-        var (result, scope) = await ExecuteCore(request, cancellationToken);
+        var (result, scope) = await ExecuteCore(request);
         var castResult = Cast<TReturn>(result);
         return (castResult, scope);
     }
 
-    public async Task<IDisposable> Execute<TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
+    public async Task<IDisposable> Execute<TArg>(ExecuteCodeRequest<TArg> request)
     {
-        var (_, scope) = await ExecuteCore(request, cancellationToken);
+        var (_, scope) = await ExecuteCore(request);
         return scope;
     }
 
-    protected async Task<(JsValue Result, IDisposable Scope)> ExecuteCore<TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
+    protected async Task<(JsValue Result, IDisposable Scope)> ExecuteCore<TArg>(ExecuteCodeRequest<TArg> request)
     {
         var combinedAssemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types)?.ToArray();
-        var (engineWrap, optimizationScope) = PrepareEngine(combinedAssemblies, request.Types, request.OptimizationScopeId, cancellationToken);
+        var (engineWrap, optimizationScope) = PrepareEngine(request, combinedAssemblies);
         JsValue result = default;
 
         void DisposeEngine()
@@ -186,11 +187,11 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                 await engineWrap.SafeAccessEngine(async (engine) =>
                 {
                     engineWrap.ResetNodePosition();
-                    var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, request.Imports, request.Assemblies, cancellationToken);
+                    var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, request.Imports, request.Assemblies, cancellationToken: request.Tokens.Combined);
                     var exportedFunction = module.Get(ExportedFunctionName);
-                    result = await CallWithHandles(exportedFunction, arguments, cancellationToken);
+                    result = await CallWithHandles(engineWrap, exportedFunction, arguments, tokens: request.Tokens);
                     result = result.UnwrapIfPromise();
-                }, cancellationToken);
+                }, cancellationToken: request.Tokens.Combined);
             }
             catch (ParserException ex)
             {
@@ -244,18 +245,23 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         }
     }
 
-    private static async Task<JsValue> CallWithHandles(JsValue exportedFunction, JsValue[] arguments, CancellationToken cancellationToken)
+    private static async Task<JsValue> CallWithHandles(EngineWrap engineWrap, JsValue exportedFunction, JsValue[] arguments, RunTokens tokens)
     {
         var tcs = new TaskCompletionSource<JsValue>();
+        JsValue result = null;
+        var currentThread = Thread.CurrentThread;
+
+        Action HandleTokensCanceled(Exception ex) => () =>
+        {
+            lock (tcs) { tcs.TrySetException(ex); }
+            currentThread.Interrupt();
+            engineWrap.MaxStatementsConstraint.MaxStatements = 0; // [NOTE] terminate CPU bound logic
+        };
+
         try
         {
-            JsValue result = null;
-            var currentThread = Thread.CurrentThread;
-            cancellationToken.Register(() =>
-            {
-                lock (tcs) { tcs.TrySetException(new TimeoutException("Execution timed out!")); }
-                currentThread.Interrupt();
-            });
+            tokens.Timeout.Register(HandleTokensCanceled(new TimeoutException("Execution timed out!")));
+            tokens.Termination.Register(HandleTokensCanceled(new TerminationException("Received termination request!")));
             result = exportedFunction.Call(arguments: arguments);
             lock (tcs) { tcs.TrySetResult(result); }
         }
@@ -263,6 +269,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         {
             lock (tcs) { tcs.TrySetException(ex); }
         }
+
         return await tcs.Task;
     }
 
@@ -419,7 +426,7 @@ return {OutVariable};" : string.Empty;
 
         public void ResetNodePosition()
         {
-            _nodesCount.Clear();
+            _nodesCount = new();
             CurrentNodeIndex = -1;
             CurrentNodePosition = null;
         }

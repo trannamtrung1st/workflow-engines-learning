@@ -33,7 +33,7 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
         Definition = definition;
     }
 
-    public Guid? CurrentRunId { get; protected set; }
+    public RunBlockRequest CurrentRunRequest { get; protected set; }
     public BlockInstance Block { get; }
     public TDefinition Definition { get; }
     public virtual Exception Exception { get; protected set; }
@@ -41,7 +41,6 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
     public virtual EBlockExecutionStatus Status { get; protected set; }
     public virtual BlockExecutionResult Result { get; protected set; }
     public virtual BlockActivity LastActivity { get; protected set; }
-    public virtual CancellationToken RunCancellationToken { get; protected set; }
 
     public abstract event EventHandler Running;
     public abstract event EventHandler<Exception> Failed;
@@ -85,10 +84,9 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
     protected virtual Variable ValidateVariable(string name, EVariableType type)
         => GetVariable(name, type) ?? throw new KeyNotFoundException($"Variable {name} not found!");
 
-    protected virtual void PrepareRunningStatus(RunBlockRequest runRequest, CancellationToken cancellationToken)
+    protected virtual void PrepareRunningStatus(RunBlockRequest runRequest)
     {
-        CurrentRunId = runRequest.RunId;
-        RunCancellationToken = cancellationToken;
+        CurrentRunRequest = runRequest;
         Exception = null; Result = null;
         Status = EBlockExecutionStatus.Running;
         LastActivity = new BlockActivity(this, runRequest: runRequest);
@@ -177,6 +175,6 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
         _idleWait.Dispose();
     }
 
-    public abstract Task Execute(RunBlockRequest request, Guid? optimizationScopeId, CancellationToken cancellationToken);
+    public abstract Task Execute(RunBlockRequest request, Guid? optimizationScopeId);
     protected abstract void RefreshOutputs();
 }

@@ -10,8 +10,7 @@ public interface IExecutionControl
     event EventHandler<Exception> Failed;
     event EventHandler Completed;
 
-    Guid? CurrentRunId { get; }
-    CancellationToken RunCancellationToken { get; }
+    RunBlockRequest CurrentRunRequest { get; }
     BlockInstance Block { get; }
     bool IsIdle { get; }
     Exception Exception { get; }
@@ -27,7 +26,7 @@ public interface IExecutionControl
     IValueObject GetInternalData(string key);
     void SetReference(string name, EVariableType type, IValueObject reference);
     void SetValue(string name, EVariableType type, object value);
-    Task Execute(RunBlockRequest request, Guid? optimizationScopeId, CancellationToken cancellationToken);
+    Task Execute(RunBlockRequest request, Guid? optimizationScopeId);
     void WaitForIdle(CancellationToken cancellationToken);
     Task MutexAccess(Func<Task> task, CancellationToken cancellationToken);
 }

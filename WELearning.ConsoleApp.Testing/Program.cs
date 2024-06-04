@@ -19,6 +19,7 @@ using WELearning.Core.Reflection.Extensions;
 using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Constants;
 using WELearning.DynamicCodeExecution.Extensions;
+using WELearning.DynamicCodeExecution.Models;
 using WELearning.Shared.Concurrency;
 using WELearning.Shared.Concurrency.Extensions;
 
@@ -42,21 +43,28 @@ var serviceCollection = new ServiceCollection()
 using var rootServiceProvider = serviceCollection.BuildServiceProvider();
 using var scope = rootServiceProvider.CreateScope();
 var serviceProvider = scope.ServiceProvider;
-var timeoutTokenProvider = () => new CancellationTokenSource(TimeSpan.FromSeconds(20)).Token;
+var terminationCts = new CancellationTokenSource();
+var tokensProvider = () =>
+{
+    var timeoutToken = new CancellationTokenSource(TimeSpan.FromSeconds(20)).Token;
+    var combinedToken = CancellationTokenSource.CreateLinkedTokenSource(terminationCts.Token, timeoutToken).Token;
+    return new RunTokens(timeout: timeoutToken, termination: terminationCts.Token, combined: combinedToken);
+};
 
-await TestEngines.BenchmarkLoops(serviceProvider, timeoutTokenProvider);
+await StartInputThread(terminationCts);
+await TestEngines.BenchmarkLoops(serviceProvider, tokensProvider);
 Console.WriteLine();
-await TestFunctionBlocks.BenchmarkComplexCFB(serviceProvider, timeoutTokenProvider);
+await TestFunctionBlocks.BenchmarkComplexCFB(serviceProvider, tokensProvider);
 Console.WriteLine();
-await TestEngines.Run(serviceProvider, timeoutTokenProvider);
+await TestEngines.Run(serviceProvider, tokensProvider);
 Console.WriteLine();
-await TestFunctionBlocks.Run(serviceProvider, timeoutTokenProvider);
+await TestFunctionBlocks.Run(serviceProvider, tokensProvider);
 
 // === Definitions ===
 
 static class TestEngines
 {
-    public static async Task BenchmarkLoops(IServiceProvider serviceProvider, Func<CancellationToken> timeoutTokenProvider)
+    public static async Task BenchmarkLoops(IServiceProvider serviceProvider, Func<RunTokens> tokensProvider)
     {
         Console.WriteLine("=== Benchmark loops ===");
         var runtimeEngineFactory = serviceProvider.GetService<IRuntimeEngineFactory>();
@@ -82,32 +90,32 @@ static class TestEngines
         const int SecondLoop = 1_000_000;
 
         var sw = Stopwatch.StartNew();
-        await LoopCSharpCompiled(FirstLoop, csCompiledEngine, imports: imports, assemblies: compiledAssemblies, cancellationToken: timeoutTokenProvider());
+        await LoopCSharpCompiled(FirstLoop, csCompiledEngine, imports: imports, assemblies: compiledAssemblies, runTokens: tokensProvider());
         Console.WriteLine("C# compiled (1st): {0}", sw.ElapsedMilliseconds);
-        await LoopCSharpCompiled(SecondLoop, csCompiledEngine, imports: imports, assemblies: compiledAssemblies, cancellationToken: timeoutTokenProvider());
+        await LoopCSharpCompiled(SecondLoop, csCompiledEngine, imports: imports, assemblies: compiledAssemblies, runTokens: tokensProvider());
         Console.WriteLine("C# compiled ({0}): {1}", SecondLoop, sw.ElapsedMilliseconds);
 
         sw.Restart();
-        await LoopCSharpScript(FirstLoop, csScriptEngine, cancellationToken: timeoutTokenProvider());
+        await LoopCSharpScript(FirstLoop, csScriptEngine, runTokens: tokensProvider());
         Console.WriteLine("C# script (1st): {0}", sw.ElapsedMilliseconds);
-        await LoopCSharpScript(SecondLoop, csScriptEngine, cancellationToken: timeoutTokenProvider());
+        await LoopCSharpScript(SecondLoop, csScriptEngine, runTokens: tokensProvider());
         Console.WriteLine("C# script ({0}): {1}", SecondLoop, sw.ElapsedMilliseconds);
 
         sw.Restart();
-        await LoopJavascript(FirstLoop, jsEngine, cancellationToken: timeoutTokenProvider());
+        await LoopJavascript(FirstLoop, jsEngine, runTokens: tokensProvider());
         Console.WriteLine("{0} (1st): {1}", jsEngineName, sw.ElapsedMilliseconds);
-        await LoopJavascript(SecondLoop, jsEngine, cancellationToken: timeoutTokenProvider());
+        await LoopJavascript(SecondLoop, jsEngine, runTokens: tokensProvider());
         Console.WriteLine("{0} ({1}): {2}", jsEngineName, SecondLoop, sw.ElapsedMilliseconds);
     }
 
-    public static async Task Run(IServiceProvider serviceProvider, Func<CancellationToken> timeoutTokenProvider)
+    public static async Task Run(IServiceProvider serviceProvider, Func<RunTokens> tokensProvider)
     {
         var runtimeEngineFactory = serviceProvider.GetService<IRuntimeEngineFactory>();
-        // await TestV8Lib(runtimeEngineFactory, cancellationToken: timeoutTokenProvider());
-        await TestJintLib(runtimeEngineFactory, cancellationToken: timeoutTokenProvider());
+        // await TestV8Lib(runtimeEngineFactory, runTokens: tokensProvider());
+        await TestJintLib(runtimeEngineFactory, runTokens: tokensProvider());
     }
 
-    public static async Task LoopCSharpCompiled(int n, IRuntimeEngine runtimeEngine, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken)
+    public static async Task LoopCSharpCompiled(int n, IRuntimeEngine runtimeEngine, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, RunTokens runTokens)
     {
         for (var i = 0; i < n; i++)
         {
@@ -124,12 +132,12 @@ static class TestEngines
                     arguments: new LoopTestArgs { X = i },
                     flattenArguments: null,
                     flattenOutputs: null,
-                    imports: imports, assemblies: assemblies, types: null
-                ), cancellationToken);
+                    imports: imports, assemblies: assemblies, types: null, runTokens
+                ));
         }
     }
 
-    public static async Task LoopCSharpScript(int n, IRuntimeEngine runtimeEngine, CancellationToken cancellationToken)
+    public static async Task LoopCSharpScript(int n, IRuntimeEngine runtimeEngine, RunTokens runTokens)
     {
         for (var i = 0; i < n; i++)
         {
@@ -138,12 +146,12 @@ static class TestEngines
                     content: @$"X * 5", arguments: new LoopTestArgs { X = i },
                     flattenArguments: null,
                     flattenOutputs: null,
-                    imports: null, assemblies: null, types: null
-                ), cancellationToken);
+                    imports: null, assemblies: null, types: null, runTokens
+                ));
         }
     }
 
-    public static async Task LoopJavascript(int n, IRuntimeEngine runtimeEngine, CancellationToken cancellationToken)
+    public static async Task LoopJavascript(int n, IRuntimeEngine runtimeEngine, RunTokens runTokens)
     {
         IDisposable scope = null;
         Guid optimizationScopeId = Guid.NewGuid();
@@ -158,8 +166,8 @@ static class TestEngines
                         flattenArguments: new (string, object)[] { ("X", i) },
                         flattenOutputs: null,
                         imports: null, assemblies: null, types: null,
-                        optimizationScopeId
-                    ), cancellationToken);
+                        runTokens, optimizationScopeId
+                    ));
             }
         }
         finally { scope?.Dispose(); }
@@ -173,7 +181,7 @@ static class TestEngines
         return result;
     };
 
-    public static async Task TestJintLib(IRuntimeEngineFactory engineFactory, CancellationToken cancellationToken)
+    public static async Task TestJintLib(IRuntimeEngineFactory engineFactory, RunTokens runTokens)
     {
         var runtimeEngine = engineFactory.CreateEngine(runtime: ERuntime.Javascript);
         var result = await runtimeEngine.Execute<string, object>(
@@ -187,12 +195,11 @@ static class TestEngines
                 flattenArguments: new (string, object)[] { (nameof(TestAsync), TestAsync) },
                 flattenOutputs: null,
                 imports: new[] { "import './lodash.min.js';" },
-                types: null,
-                assemblies: null
-            ), cancellationToken: cancellationToken);
+                assemblies: null, types: null, runTokens
+            ));
     }
 
-    public static async Task TestV8Lib(IRuntimeEngineFactory engineFactory, CancellationToken cancellationToken)
+    public static async Task TestV8Lib(IRuntimeEngineFactory engineFactory, RunTokens runTokens)
     {
         var runtimeEngine = engineFactory.CreateEngine(runtime: ERuntime.Javascript);
         var result = await runtimeEngine.Execute<string, object>(
@@ -206,15 +213,14 @@ static class TestEngines
                 flattenArguments: new (string, object)[] { (nameof(TestAsync), TestAsync) },
                 flattenOutputs: null,
                 imports: new[] { "import { fetch } from 'fetch.min.js'", "import 'lodash.min.js'", "import 'axios.min.js'" },
-                types: null,
-                assemblies: null
-            ), cancellationToken: cancellationToken);
+                assemblies: null, types: null, runTokens
+            ));
     }
 }
 
 static class TestFunctionBlocks
 {
-    public static async Task BenchmarkComplexCFB(IServiceProvider serviceProvider, Func<CancellationToken> timeoutTokenProvider)
+    public static async Task BenchmarkComplexCFB(IServiceProvider serviceProvider, Func<RunTokens> tokensProvider)
     {
         Console.WriteLine("=== Benchmark complex CFB ===");
         const int FirstLoop = 1;
@@ -234,7 +240,7 @@ static class TestFunctionBlocks
         IExecutionControl CreateControl(CompositeBlockDef blockDef) => new CompositeEC<AppFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory);
 
         Task<double> RunCsCompiled() => RunComplexCFB(
-            blockRunner, CreateControl: () => CreateControl(blockDef: csCompiledCFB), cancellationToken: timeoutTokenProvider());
+            blockRunner, CreateControl: () => CreateControl(blockDef: csCompiledCFB), runTokens: tokensProvider());
 
         var csScriptCFB = ComplexCFB.Build(
             bAddDef: PredefinedBFBs.AddCsScript,
@@ -242,7 +248,7 @@ static class TestFunctionBlocks
             bRandomDef: PredefinedBFBs.RandomCsScript,
             bDelayDef: PredefinedBFBs.DelayCsScript);
         Task<double> RunCsScript() => RunComplexCFB(
-            blockRunner, CreateControl: () => CreateControl(blockDef: csScriptCFB), cancellationToken: timeoutTokenProvider());
+            blockRunner, CreateControl: () => CreateControl(blockDef: csScriptCFB), runTokens: tokensProvider());
 
         var jsCFB = ComplexCFB.Build(
             bAddDef: PredefinedBFBs.AddJs,
@@ -250,7 +256,7 @@ static class TestFunctionBlocks
             bRandomDef: PredefinedBFBs.RandomJs,
             bDelayDef: PredefinedBFBs.DelayJs);
         Task<double> RunJs() => RunComplexCFB(
-            blockRunner, CreateControl: () => CreateControl(blockDef: jsCFB), cancellationToken: timeoutTokenProvider());
+            blockRunner, CreateControl: () => CreateControl(blockDef: jsCFB), runTokens: tokensProvider());
 
         var sw = Stopwatch.StartNew();
         await Loop(FirstLoop, func: RunCsCompiled);
@@ -317,7 +323,7 @@ static class TestFunctionBlocks
     }
 
     public static async Task RunEntryReport(
-        IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, CancellationToken cancellationToken)
+        IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, RunTokens runTokens)
     {
         var dataStore = new DataStore();
         var temperatureEntry = dataStore.GetEntry("Temperature");
@@ -345,8 +351,8 @@ static class TestFunctionBlocks
         bindings.Add(new(variableName: oReport.Name, reference: oReportRef, type: EBindingType.Output));
         bindings.Add(new(variableName: oFinalReport.Name, reference: oFinalReportRef, type: EBindingType.Output));
 
-        var runRequest = new RunBlockRequest(bindings);
-        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default, cancellationToken);
+        var runRequest = new RunBlockRequest(bindings, runTokens);
+        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
 
         var finalResult = execControl.GetOutput("FinalReport") as EntryValueObject;
         dataStore.UpdateEntry(finalResult.EntryKey, finalResult.Value);
@@ -354,20 +360,20 @@ static class TestFunctionBlocks
         Console.WriteLine("Result: {0} | {1}", finalResult, finalReportEntry);
     }
 
-    public static async Task<double> RunComplexCFB(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, CancellationToken cancellationToken)
+    public static async Task<double> RunComplexCFB(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, RunTokens runTokens)
     {
         var bindings = new HashSet<VariableBinding>();
         bindings.Add(new(variableName: "Add1X", value: 5, type: EBindingType.Input));
         bindings.Add(new(variableName: "Add1Y", value: 10, type: EBindingType.Input));
         var execControl = CreateControl();
-        var runRequest = new RunBlockRequest(bindings);
-        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default, cancellationToken);
+        var runRequest = new RunBlockRequest(bindings, runTokens);
+        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
 
         var finalResult = execControl.GetOutput("Result");
         return (double)finalResult.Value;
     }
 
-    public static async Task Run(IServiceProvider serviceProvider, Func<CancellationToken> timeoutTokenProvider)
+    public static async Task Run(IServiceProvider serviceProvider, Func<RunTokens> tokensProvider)
     {
         var blockRunner = serviceProvider.GetService<IBlockRunner>();
         var engineFactory = serviceProvider.GetService<IRuntimeEngineFactory>();
@@ -377,97 +383,97 @@ static class TestFunctionBlocks
         ICompositeEC CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory);
         IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFramework>(block: new(blockDef.Id), blockDef, functionRunner, blockFrameworkFactory);
 
-        await RunLogAndDebug(blockRunner, CreateControl: CreateCompositeControl, timeoutTokenProvider);
+        await RunLogAndDebug(blockRunner, CreateControl: CreateCompositeControl, tokensProvider);
 
         Console.WriteLine("DelayJS {0} ms", DelayMs);
         await RunBlockDelay(
             blockRunner, CreateControl: () => CreateBasicControl(blockDef: PredefinedBFBs.DelayJs),
-            delayMs: DelayMs, cancellationToken: timeoutTokenProvider());
+            delayMs: DelayMs, runTokens: tokensProvider());
 
-        await RunBlockRandomDouble(blockRunner, CreateControl: () => CreateBasicControl(blockDef: PredefinedBFBs.RandomCsScript), cancellationToken: timeoutTokenProvider());
+        await RunBlockRandomDouble(blockRunner, CreateControl: () => CreateBasicControl(blockDef: PredefinedBFBs.RandomCsScript), runTokens: tokensProvider());
 
-        await RunBlockFactorial(blockRunner, CreateControl: () => CreateBasicControl(blockDef: PredefinedBFBs.FactorialCsScript), cancellationToken: timeoutTokenProvider());
+        await RunBlockFactorial(blockRunner, CreateControl: () => CreateBasicControl(blockDef: PredefinedBFBs.FactorialCsScript), runTokens: tokensProvider());
 
         var rectangleAreaCFB = RectangleAreaCFB.Build(
             bMultiplyDef: PredefinedBFBs.MultiplyCsScript
         );
-        await RunRectangleArea(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: rectangleAreaCFB), cancellationToken: timeoutTokenProvider());
+        await RunRectangleArea(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: rectangleAreaCFB), runTokens: tokensProvider());
 
         await RunRectanglePerimeter(blockRunner,
             CreateControl: () => CreateCompositeControl(blockDef: RectanglePerimeterCFB.Build(
                 bAddDef: PredefinedBFBs.AddCsScript, bMultiplyDef: PredefinedBFBs.MultiplyCsCompiled
             )),
-            cancellationToken: timeoutTokenProvider());
+            runTokens: tokensProvider());
 
         var rectanglePerimeterJs = RectanglePerimeterCFB.Build(
             bAddDef: PredefinedBFBs.AddJs, bMultiplyDef: PredefinedBFBs.MultiplyCsCompiled
         );
-        await RunRectanglePerimeter(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: rectanglePerimeterJs), cancellationToken: timeoutTokenProvider());
+        await RunRectanglePerimeter(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: rectanglePerimeterJs), runTokens: tokensProvider());
         Console.WriteLine("\n{0}\n", JsonSerializer.Serialize(rectanglePerimeterJs, Program.DefaultJsonOpts));
 
-        await RunLoopCFB(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: LoopCFB.Build()), cancellationToken: timeoutTokenProvider());
+        await RunLoopCFB(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: LoopCFB.Build()), runTokens: tokensProvider());
 
-        await RunDependencyWait(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: DependencyWaitCFB.Build()), cancellationToken: timeoutTokenProvider());
+        await RunDependencyWait(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: DependencyWaitCFB.Build()), runTokens: tokensProvider());
 
         Console.WriteLine("Test run entry report: ");
-        await RunEntryReport(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: EntryReportCFB.Build()), cancellationToken: timeoutTokenProvider());
+        await RunEntryReport(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: EntryReportCFB.Build()), runTokens: tokensProvider());
     }
 
     public static async Task RunBlockDelay(
         IBlockRunner blockRunner, Func<IExecutionControl> CreateControl,
-        int delayMs, CancellationToken cancellationToken)
+        int delayMs, RunTokens runTokens)
     {
         var control = CreateControl();
         var bindings = new VariableBinding[] { new("Ms", delayMs, type: EBindingType.Input) };
-        var runRequest = new RunBlockRequest(bindings, triggerEvent: null);
-        await blockRunner.RunAndWait(runRequest, control, optimizationScopeId: default, cancellationToken);
+        var runRequest = new RunBlockRequest(bindings, runTokens, triggerEvent: null);
+        await blockRunner.RunAndWait(runRequest, control, optimizationScopeId: default);
         Console.WriteLine(string.Join(Environment.NewLine, control.Result.OutputEvents));
     }
 
     public static async Task RunBlockRandomDouble(
         IBlockRunner blockRunner, Func<IExecutionControl> CreateControl,
-        CancellationToken cancellationToken)
+        RunTokens runTokens)
     {
         var control = CreateControl();
-        var runRequest = new RunBlockRequest(bindings: Array.Empty<VariableBinding>(), triggerEvent: null);
-        await blockRunner.RunAndWait(runRequest, control, optimizationScopeId: default, cancellationToken);
+        var runRequest = new RunBlockRequest(bindings: Array.Empty<VariableBinding>(), runTokens, triggerEvent: null);
+        await blockRunner.RunAndWait(runRequest, control, optimizationScopeId: default);
         Console.WriteLine(string.Join(Environment.NewLine, control.Result.OutputEvents));
         Console.WriteLine(control.GetOutput("Result"));
     }
 
     public static async Task RunBlockFactorial(
         IBlockRunner blockRunner, Func<IExecutionControl> CreateControl,
-        CancellationToken cancellationToken)
+        RunTokens runTokens)
     {
         var control = CreateControl();
         var bindings = new VariableBinding[] { new("N", 5, type: EBindingType.Input) };
-        var runRequest = new RunBlockRequest(bindings, triggerEvent: null);
-        await blockRunner.RunAndWait(runRequest, control, optimizationScopeId: default, cancellationToken);
+        var runRequest = new RunBlockRequest(bindings, runTokens, triggerEvent: null);
+        await blockRunner.RunAndWait(runRequest, control, optimizationScopeId: default);
         Console.WriteLine(string.Join(Environment.NewLine, control.Result.OutputEvents));
         Console.WriteLine(control.GetOutput("Result"));
     }
 
-    public static async Task RunRectangleArea(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, CancellationToken cancellationToken)
+    public static async Task RunRectangleArea(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, RunTokens runTokens)
     {
         var bindings = new HashSet<VariableBinding>();
         bindings.Add(new(variableName: "Length", value: 5, type: EBindingType.Input));
         bindings.Add(new(variableName: "Width", value: 2, type: EBindingType.Input));
         var execControl = CreateControl();
-        var runRequest = new RunBlockRequest(bindings: bindings);
-        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default, cancellationToken);
+        var runRequest = new RunBlockRequest(bindings, runTokens);
+        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
 
         var finalResult = execControl.GetOutput("Result");
         Console.WriteLine(finalResult);
     }
 
-    public static async Task RunLogAndDebug(IBlockRunner blockRunner, Func<CompositeBlockDef, ICompositeEC> CreateControl, Func<CancellationToken> cancellationTokenProvider)
+    public static async Task RunLogAndDebug(IBlockRunner blockRunner, Func<CompositeBlockDef, ICompositeEC> CreateControl, Func<RunTokens> tokensProvider)
     {
         async Task TryRunBlock(IExecutionControl execControl)
         {
             try
             {
-                var runRequest = new RunBlockRequest(bindings: Array.Empty<VariableBinding>());
-                await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default, cancellationToken: cancellationTokenProvider());
+                var runRequest = new RunBlockRequest(bindings: Array.Empty<VariableBinding>(), tokens: tokensProvider());
+                await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
             }
             catch { }
         }
@@ -570,7 +576,7 @@ Original content (error located):
             var bindings = new HashSet<VariableBinding>();
             bindings.Add(new(variableName: "Add1X", value: 5, type: EBindingType.Input));
             bindings.Add(new(variableName: "Add1Y", value: 10, type: EBindingType.Input));
-            bindings.Add(new(variableName: "DelayMs", value: 3000, type: EBindingType.Input));
+            bindings.Add(new(variableName: "DelayMs", value: 10000, type: EBindingType.Input));
 
             var jsCFB = ComplexCFB.Build(
                 bAddDef: PredefinedBFBs.AddJs,
@@ -587,8 +593,8 @@ Original content (error located):
 
             try
             {
-                var runRequest = new RunBlockRequest(bindings);
-                await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default, cancellationToken: cancellationTokenProvider());
+                var runRequest = new RunBlockRequest(bindings, tokens: tokensProvider());
+                await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
                 var finalResult = execControl.GetOutput("Result");
                 Console.WriteLine("Complex CFB result: {0}", finalResult);
             }
@@ -596,32 +602,32 @@ Original content (error located):
         }
     }
 
-    public static async Task RunRectanglePerimeter(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, CancellationToken cancellationToken)
+    public static async Task RunRectanglePerimeter(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, RunTokens runTokens)
     {
         var bindings = new HashSet<VariableBinding>();
         bindings.Add(new(variableName: "Length", value: 5, type: EBindingType.Input));
         bindings.Add(new(variableName: "Width", value: 2, type: EBindingType.Input));
         var execControl = CreateControl();
-        var runRequest = new RunBlockRequest(bindings);
-        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default, cancellationToken);
+        var runRequest = new RunBlockRequest(bindings, runTokens);
+        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
 
         var finalResult = execControl.GetOutput("Result");
         Console.WriteLine(finalResult);
     }
 
-    public static async Task RunLoopCFB(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, CancellationToken cancellationToken)
+    public static async Task RunLoopCFB(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, RunTokens runTokens)
     {
         var bindings = new HashSet<VariableBinding>();
         bindings.Add(new(variableName: "N", value: 1000, type: EBindingType.Input));
         var execControl = CreateControl();
-        var runRequest = new RunBlockRequest(bindings);
-        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default, cancellationToken);
+        var runRequest = new RunBlockRequest(bindings, runTokens);
+        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
 
         var finalResult = execControl.GetOutput("Result");
         Console.WriteLine(finalResult);
     }
 
-    public static async Task RunDependencyWait(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, CancellationToken cancellationToken)
+    public static async Task RunDependencyWait(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, RunTokens runTokens)
     {
         var bindings = new HashSet<VariableBinding>();
         bindings.Add(new(variableName: "DelayMs", value: 3000, type: EBindingType.Input));
@@ -630,8 +636,8 @@ Original content (error located):
         bindings.Add(new(variableName: "Add2X", value: 3, type: EBindingType.Input));
         bindings.Add(new(variableName: "Add2Y", value: 4, type: EBindingType.Input));
         var execControl = CreateControl();
-        var runRequest = new RunBlockRequest(bindings);
-        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default, cancellationToken);
+        var runRequest = new RunBlockRequest(bindings, runTokens);
+        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
 
         var finalResult = execControl.GetOutput("Result");
         Console.WriteLine(finalResult);
@@ -687,5 +693,24 @@ partial class Program
     {
         DefaultJsonOpts = new JsonSerializerOptions { WriteIndented = true };
         DefaultJsonOpts.Converters.Add(new JsonStringEnumConverter());
+    }
+
+    public static async Task StartInputThread(CancellationTokenSource terminationCts)
+    {
+        var thread = new Thread(() =>
+        {
+            Console.WriteLine("\nPress 'x' to terminate execution\n");
+            char keyChar;
+            do
+            {
+                keyChar = (char)Console.Read();
+                if (keyChar == 'x')
+                    terminationCts.Cancel();
+            }
+            while (keyChar != 'x');
+        });
+        thread.IsBackground = true;
+        thread.Start();
+        await Task.Delay(2000);
     }
 }

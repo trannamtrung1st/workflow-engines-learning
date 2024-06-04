@@ -38,18 +38,18 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
         _outputEvents = new();
     }
 
-    public override Task Execute(RunBlockRequest request, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    public override Task Execute(RunBlockRequest request, Guid? optimizationScopeId)
     {
         EnterOrThrow();
         var triggerEvent = GetTriggerOrDefault(request.TriggerEvent);
         try
         {
             _outputEvents = new();
-            PrepareRunningStatus(request, cancellationToken);
+            PrepareRunningStatus(request);
             Running?.Invoke(this, EventArgs.Empty);
             PrepareStates(request.Bindings);
             var startingTriggers = Definition.FindNextBlocks(triggerEvent);
-            TriggerBlocks(runId: request.RunId, blockTriggers: startingTriggers, optimizationScopeId, cancellationToken);
+            TriggerBlocks(blockTriggers: startingTriggers, optimizationScopeId);
         }
         catch (Exception ex)
         {
@@ -59,10 +59,10 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
         return Task.CompletedTask;
     }
 
-    protected override void PrepareRunningStatus(RunBlockRequest runRequest, CancellationToken cancellationToken)
+    protected override void PrepareRunningStatus(RunBlockRequest runRequest)
     {
         ExceptionFrom = null;
-        base.PrepareRunningStatus(runRequest, cancellationToken);
+        base.PrepareRunningStatus(runRequest);
     }
 
     protected override void PrepareFailedStatus(Exception ex, IExecutionControl from = null)
@@ -78,7 +78,7 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
         Failed?.Invoke(this, ex);
     }
 
-    protected virtual void TriggerBlocks(Guid runId, IEnumerable<BlockTrigger> blockTriggers, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    protected virtual void TriggerBlocks(IEnumerable<BlockTrigger> blockTriggers, Guid? optimizationScopeId)
     {
         foreach (var trigger in blockTriggers)
         {
@@ -86,23 +86,25 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
             {
                 var block = Definition.Blocks.FirstOrDefault(b => b.Id == trigger.BlockId);
                 if (block == null) throw new KeyNotFoundException($"Block {trigger.BlockId} not found!");
-                _ = RunTaskAsync(async (cancellationToken) =>
+                _ = RunTaskAsync(async () =>
                 {
                     var execControl = GetOrInitExecutionControl(block);
                     var triggerEvent = trigger.TriggerEvent ?? Definition.GetDefinition(block.DefinitionId).DefaultTriggerEvent;
-                    var blockBindings = PrepareBindings(triggerEvent, block, cancellationToken);
-                    var runRequest = new RunBlockRequest(runId, blockBindings, triggerEvent);
-                    await _blockRunner.Run(runRequest, execControl, optimizationScopeId, cancellationToken);
+                    var blockBindings = PrepareBindings(triggerEvent, block);
+                    var runRequest = new RunBlockRequest(
+                        runId: CurrentRunRequest.RunId, blockBindings,
+                        tokens: CurrentRunRequest.Tokens,
+                        triggerEvent: triggerEvent);
+                    await _blockRunner.Run(runRequest, execControl, optimizationScopeId);
                     var nextBlockTriggers = Definition.FindNextBlocks(block.Id, outputEvents: execControl.Result.OutputEvents);
-                    TriggerBlocks(runId, nextBlockTriggers, optimizationScopeId, cancellationToken);
-                }, cancellationToken);
+                    TriggerBlocks(nextBlockTriggers, optimizationScopeId);
+                });
             }
             else _outputEvents.Add(trigger.TriggerEvent);
         }
     }
 
-    protected virtual IEnumerable<VariableBinding> PrepareBindings(
-        string triggerEvent, BlockInstance block, CancellationToken cancellationToken)
+    protected virtual IEnumerable<VariableBinding> PrepareBindings(string triggerEvent, BlockInstance block)
     {
         var bindings = new List<VariableBinding>();
         var inputEvent = Definition.GetDefinition(block.DefinitionId).Events.FirstOrDefault(ev => ev.Name == triggerEvent && ev.IsInput);
@@ -148,9 +150,9 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
                 var sourceBlock = Definition.Blocks.FirstOrDefault(b => b.Id == connection.SourceBlockId)
                     ?? throw new KeyNotFoundException($"Block {connection.SourceBlockId} not found!");
                 var sourceExecControl = GetOrInitExecutionControl(sourceBlock);
-                sourceExecControl.WaitForIdle(cancellationToken);
+                sourceExecControl.WaitForIdle(CurrentRunRequest.Tokens.Combined);
                 var outputValue = sourceExecControl.GetOutput(connection.SourceVariableName);
-                outputValue.WaitValueSet(cancellationToken);
+                outputValue.WaitValueSet(CurrentRunRequest.Tokens.Combined);
                 sourceValue = outputValue;
             }
             else
@@ -161,11 +163,11 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
             if ((bindingVariable.DataType == EDataType.Reference || bindingVariable.DataType == EDataType.Any)
                 && !blockBindings.Any(b => b.VariableName == connection.VariableName && b.Reference != null))
                 reference = sourceValue.CloneFor(bindingVariable);
-            else value = sourceValue.Value;
+            else value = sourceValue.ValueSet ? sourceValue.Value : bindingVariable.DefaultValue;
 
             blockBindings.Add(new(
                 variableName: connection.VariableName,
-                value: sourceValue.Value,
+                value: value,
                 reference: reference,
                 type: EBindingType.Input));
         }
@@ -259,12 +261,12 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
         HandleFailed(ex, sender as IExecutionControl);
     }
 
-    protected Task RunTaskAsync(Func<CancellationToken, Task> func, CancellationToken cancellationToken)
+    protected Task RunTaskAsync(Func<Task> func)
     {
         StartTask();
         return Task.Factory.StartNew(async () =>
         {
-            try { await func(cancellationToken); }
+            try { await func(); }
             catch (Exception ex) { HandleFailed(ex); }
             finally { CompleteTask(); }
         }, creationOptions: TaskCreationOptions.LongRunning);

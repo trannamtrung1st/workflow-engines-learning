@@ -33,8 +33,7 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
     public override event EventHandler<Exception> Failed;
     public override event EventHandler Completed;
 
-    protected virtual async Task<BlockStateTransition> FindTransition(
-        string triggerEvent, Func<Function, CancellationToken, Task<bool>> Evaluate, CancellationToken cancellationToken)
+    protected virtual async Task<BlockStateTransition> FindTransition(string triggerEvent, Func<Function, Task<bool>> Evaluate)
     {
         foreach (var transition in Definition.ExecutionControlChart.StateTransitions)
         {
@@ -42,7 +41,7 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
                 && transition.TriggerEventName == triggerEvent
                 && (
                     transition.TriggerCondition == null
-                    || await Evaluate(transition.TriggerCondition, cancellationToken)
+                    || await Evaluate(transition.TriggerCondition)
                 ))
             {
                 return transition;
@@ -51,7 +50,7 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
         return null;
     }
 
-    public override async Task Execute(RunBlockRequest request, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    public override async Task Execute(RunBlockRequest request, Guid? optimizationScopeId)
     {
         EnterOrThrow();
         var triggerEvent = GetTriggerOrDefault(request.TriggerEvent);
@@ -60,14 +59,14 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
         {
             IEnumerable<string> outputEvents = Array.Empty<string>();
             var fromState = CurrentState;
-            PrepareRunningStatus(request, cancellationToken);
+            PrepareRunningStatus(request);
             Running?.Invoke(this, EventArgs.Empty);
             PrepareStates(request.Bindings);
 
             if (Definition.ExecutionControlChart != null)
             {
                 optimizationScopes = new HashSet<IDisposable>();
-                outputEvents = await TriggerStateMachine(triggerEvent, optimizationScopes, optimizationScopeId, cancellationToken);
+                outputEvents = await TriggerStateMachine(triggerEvent, optimizationScopes, optimizationScopeId);
             }
 
             var finalState = CurrentState;
@@ -93,8 +92,8 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
         }
     }
 
-    protected virtual async Task<IEnumerable<string>> TriggerStateMachine(string triggerEvent,
-        HashSet<IDisposable> optimizationScopes, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    protected virtual async Task<IEnumerable<string>> TriggerStateMachine(
+        string triggerEvent, HashSet<IDisposable> optimizationScopes, Guid? optimizationScopeId)
     {
         optimizationScopeId ??= Guid.NewGuid();
         var blockFramework = _blockFrameworkFactory.Create(this);
@@ -105,12 +104,14 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
         FlattenInputs(flattenArguments);
         FlattenOutputs(flattenOutputs);
 
-        async Task<bool> Evaluate(Function condition, CancellationToken cancellationToken)
+        async Task<bool> Evaluate(Function condition)
         {
             try
             {
                 RunningFunction = condition;
-                var (result, optimizationScope) = await _functionRunner.Run<bool>(condition, globalObject: globalObject, flattenArguments, flattenOutputs, optimizationScopeId.Value, cancellationToken);
+                var (result, optimizationScope) = await _functionRunner.Run<bool>(
+                    condition, globalObject: globalObject, flattenArguments, flattenOutputs,
+                    optimizationScopeId.Value, tokens: CurrentRunRequest.Tokens);
                 RunningFunction = null;
                 if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
                 return result;
@@ -119,12 +120,14 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
             catch (RuntimeException ex) { throw new FunctionRuntimeException(ex, condition); }
         }
 
-        async Task RunAction(Function actionFunction, CancellationToken cancellationToken)
+        async Task RunAction(Function actionFunction)
         {
             try
             {
                 RunningFunction = actionFunction;
-                var optimizationScope = await _functionRunner.Run(actionFunction, globalObject, flattenArguments, flattenOutputs, optimizationScopeId.Value, cancellationToken);
+                var optimizationScope = await _functionRunner.Run(
+                    actionFunction, globalObject, flattenArguments, flattenOutputs,
+                    optimizationScopeId.Value, tokens: CurrentRunRequest.Tokens);
                 RunningFunction = null;
                 if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
             }
@@ -133,7 +136,7 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
         }
 
         var outputEvents = new HashSet<string>();
-        var transition = await FindTransition(triggerEvent, Evaluate, cancellationToken);
+        var transition = await FindTransition(triggerEvent, Evaluate);
         if (transition == null) throw new KeyNotFoundException($"Transition for event {triggerEvent} not found!");
 
         do
@@ -145,11 +148,11 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
                 {
                     var actionFunction = Definition.Functions.FirstOrDefault(l => l.Id == actionFunctionId);
                     if (actionFunction == null) throw new KeyNotFoundException($"Action function {actionFunction} not found!");
-                    await RunAction(actionFunction, cancellationToken);
+                    await RunAction(actionFunction);
                 }
             }
             TryAddEvents(outputEvents, transition.DefaultOutputEvents);
-            transition = await FindTransition(BlockStateTransition.DirectTransitionEvent, Evaluate, cancellationToken);
+            transition = await FindTransition(BlockStateTransition.DirectTransitionEvent, Evaluate);
         } while (transition != null);
 
         TryAddEvents(outputEvents, blockFramework.OutputEvents);

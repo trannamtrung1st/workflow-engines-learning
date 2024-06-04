@@ -30,24 +30,24 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.CSharpCompiled;
 
-    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
+    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request)
     {
         var assemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types);
-        var assembly = await LoadOrCompile(request.Content, request.Imports, assemblies, cancellationToken);
+        var assembly = await LoadOrCompile(request.Content, request.Imports, assemblies, cancellationToken: request.Tokens.Combined);
         var baseType = typeof(IExecutable<TReturn, TArg>);
         var execType = assembly.ExportedTypes.FirstOrDefault(t => t.IsClass && baseType.IsAssignableFrom(t));
         var instance = (IExecutable<TReturn, TArg>)Activator.CreateInstance(execType);
-        var result = await instance.Execute(request.Arguments, cancellationToken);
+        var result = await instance.Execute(request.Arguments, cancellationToken: request.Tokens.Combined);
         return (result, default);
     }
 
-    public async Task<IDisposable> Execute<TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
+    public async Task<IDisposable> Execute<TArg>(ExecuteCodeRequest<TArg> request)
     {
         var assemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types);
-        var assembly = await LoadOrCompile(request.Content, request.Imports, assemblies, cancellationToken);
+        var assembly = await LoadOrCompile(request.Content, request.Imports, assemblies, cancellationToken: request.Tokens.Combined);
         var execType = assembly.ExportedTypes.FirstOrDefault(t => t.IsClass && typeof(IExecutable<TArg>).IsAssignableFrom(t));
         var instance = (IExecutable<TArg>)Activator.CreateInstance(execType);
-        await instance.Execute(request.Arguments, cancellationToken);
+        await instance.Execute(request.Arguments, cancellationToken: request.Tokens.Combined);
         return default;
     }
 
@@ -112,7 +112,7 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
         return assembly;
     }
 
-    private Assembly EmitToMemory(CSharpCompilation compilation, CancellationToken cancellationToken)
+    private static Assembly EmitToMemory(CSharpCompilation compilation, CancellationToken cancellationToken)
     {
         // [OPT] add file emit
         using var peStream = new MemoryStream();

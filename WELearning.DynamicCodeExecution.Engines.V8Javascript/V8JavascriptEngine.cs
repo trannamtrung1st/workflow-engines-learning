@@ -162,12 +162,12 @@ public class V8JavascriptEngine : IRuntimeEngine, IDisposable
             item.Dispose();
     }
 
-    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
+    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request)
     {
         var combinedTypes = ReflectionHelper.CombineTypes(request.Assemblies, request.Types);
-        var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, request.OptimizationScopeId, cancellationToken);
+        var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, request.OptimizationScopeId, cancellationToken: request.Tokens.Combined);
         TryAddArguments(engine, request.Arguments);
-        var script = await GetScript(engine, optimizationScope, request.Content, request.Imports, request.Assemblies, cancellationToken);
+        var script = await GetScript(engine, optimizationScope, request.Content, request.Imports, request.Assemblies, cancellationToken: request.Tokens.Combined);
         var evalResult = engine.Evaluate(script);
         TReturn result;
         if (evalResult is Task<object> task)
@@ -177,12 +177,12 @@ public class V8JavascriptEngine : IRuntimeEngine, IDisposable
         return (result, optimizationScope);
     }
 
-    public async Task<IDisposable> Execute<TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
+    public async Task<IDisposable> Execute<TArg>(ExecuteCodeRequest<TArg> request)
     {
         var combinedTypes = ReflectionHelper.CombineTypes(request.Assemblies, request.Types);
-        var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, request.OptimizationScopeId, cancellationToken);
+        var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, request.OptimizationScopeId, cancellationToken: request.Tokens.Combined);
         TryAddArguments(engine, request.Arguments);
-        var script = await GetScript(engine, optimizationScope, request.Content, request.Imports, request.Assemblies, cancellationToken);
+        var script = await GetScript(engine, optimizationScope, request.Content, request.Imports, request.Assemblies, cancellationToken: request.Tokens.Combined);
         var result = engine.Evaluate(script);
         if (result is Task task) await task;
         return optimizationScope;

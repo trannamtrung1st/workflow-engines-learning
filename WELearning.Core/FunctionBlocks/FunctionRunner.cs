@@ -6,6 +6,7 @@ using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
 using WELearning.Core.Reflection.Abstracts;
 using WELearning.DynamicCodeExecution.Abstracts;
+using WELearning.DynamicCodeExecution.Models;
 
 namespace WELearning.Core.FunctionBlocks;
 
@@ -24,8 +25,7 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework> where TFra
     public async Task<(TReturn Result, IDisposable OptimizationScope)> Run<TReturn>(
         Function function, BlockGlobalObject<TFramework> globalObject,
         IEnumerable<(string Name, object Value)> flattenArguments,
-        IEnumerable<string> flattenOutputs,
-        Guid? optimizationScopeId, CancellationToken cancellationToken)
+        IEnumerable<string> flattenOutputs, Guid? optimizationScopeId, RunTokens tokens)
     {
         var engine = _engineFactory.CreateEngine(runtime: function.Runtime);
         var assemblies = function.Assemblies != null ? _typeProvider.GetAssemblies(function.Assemblies) : null;
@@ -38,11 +38,10 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework> where TFra
                 flattenArguments: flattenArguments,
                 flattenOutputs: flattenOutputs,
                 imports: function.Imports,
-                assemblies, types,
+                assemblies, types, tokens,
                 optimizationScopeId: optimizationScopeId,
                 useRawContent: function.UseRawContent
-            ),
-            cancellationToken: cancellationToken
+            )
         );
         return result;
     }
@@ -50,8 +49,7 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework> where TFra
     public async Task<IDisposable> Run(
         Function function, BlockGlobalObject<TFramework> globalObject,
         IEnumerable<(string Name, object Value)> flattenArguments,
-        IEnumerable<string> flattenOutputs,
-        Guid? optimizationScopeId, CancellationToken cancellationToken)
+        IEnumerable<string> flattenOutputs, Guid? optimizationScopeId, RunTokens tokens)
     {
         var engine = _engineFactory.CreateEngine(runtime: function.Runtime);
         var assemblies = function.Assemblies != null ? _typeProvider.GetAssemblies(function.Assemblies) : null;
@@ -64,11 +62,10 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework> where TFra
                 flattenArguments: flattenArguments,
                 flattenOutputs: flattenOutputs,
                 imports: function.Imports,
-                assemblies, types,
+                assemblies, types, tokens,
                 optimizationScopeId: optimizationScopeId,
                 useRawContent: function.UseRawContent
-            ),
-            cancellationToken: cancellationToken
+            )
         );
         globalObject.FB.HandleDynamicResult(result);
         return scope;

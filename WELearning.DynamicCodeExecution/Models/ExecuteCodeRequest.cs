@@ -4,7 +4,10 @@ namespace WELearning.DynamicCodeExecution.Models;
 
 public class ExecuteCodeRequest<TArg>
 {
-    public ExecuteCodeRequest(string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments, IEnumerable<string> flattenOutputs, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types, Guid? optimizationScopeId = default, bool useRawContent = false)
+    public ExecuteCodeRequest(
+        string content, TArg arguments, IEnumerable<(string Name, object Value)> flattenArguments,
+        IEnumerable<string> flattenOutputs, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, IEnumerable<Type> types,
+        RunTokens tokens, Guid? optimizationScopeId = default, bool useRawContent = false)
     {
         Content = content;
         Arguments = arguments;
@@ -13,6 +16,7 @@ public class ExecuteCodeRequest<TArg>
         Imports = imports;
         Assemblies = assemblies;
         Types = types;
+        Tokens = tokens;
         OptimizationScopeId = optimizationScopeId;
         UseRawContent = useRawContent;
     }
@@ -25,5 +29,6 @@ public class ExecuteCodeRequest<TArg>
     public IEnumerable<Assembly> Assemblies { get; }
     public IEnumerable<Type> Types { get; }
     public Guid? OptimizationScopeId { get; }
+    public RunTokens Tokens { get; }
     public bool UseRawContent { get; }
 }

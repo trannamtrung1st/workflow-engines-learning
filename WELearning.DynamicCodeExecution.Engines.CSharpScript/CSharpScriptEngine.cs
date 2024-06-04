@@ -30,10 +30,10 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.CSharpScript;
 
-    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
+    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request)
     {
         var assemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types);
-        var (CacheKey, CacheSize) = await GetScriptCacheEntry(request.Content, request.Imports, assemblies, cancellationToken);
+        var (CacheKey, CacheSize) = await GetScriptCacheEntry(request.Content, request.Imports, assemblies, cancellationToken: request.Tokens.Combined);
 
         Script<TReturn> script = null;
         _lockManager.MutexAccess(CacheKey, () =>
@@ -43,19 +43,19 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
                 ConfigureCacheEntry(entry, CacheSize);
                 var scriptOptions = PrepareScriptOptions(request.Imports, assemblies);
                 var script = CSharpScript.Create<TReturn>(request.Content, scriptOptions, globalsType: typeof(TArg));
-                script.Compile(cancellationToken);
+                script.Compile(cancellationToken: request.Tokens.Combined);
                 return script;
             });
         });
 
-        var result = await script.RunAsync(globals: request.Arguments, cancellationToken: cancellationToken);
+        var result = await script.RunAsync(globals: request.Arguments, cancellationToken: request.Tokens.Combined);
         return (result.ReturnValue, default);
     }
 
-    public async Task<IDisposable> Execute<TArg>(ExecuteCodeRequest<TArg> request, CancellationToken cancellationToken)
+    public async Task<IDisposable> Execute<TArg>(ExecuteCodeRequest<TArg> request)
     {
         var assemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types);
-        var (CacheKey, CacheSize) = await GetScriptCacheEntry(request.Content, request.Imports, assemblies, cancellationToken);
+        var (CacheKey, CacheSize) = await GetScriptCacheEntry(request.Content, request.Imports, assemblies, cancellationToken: request.Tokens.Combined);
 
         Script script = null;
         _lockManager.MutexAccess(CacheKey, () =>
@@ -65,12 +65,12 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
                 ConfigureCacheEntry(entry, CacheSize);
                 var scriptOptions = PrepareScriptOptions(request.Imports, assemblies);
                 var script = CSharpScript.Create(request.Content, scriptOptions, globalsType: typeof(TArg));
-                script.Compile(cancellationToken);
+                script.Compile(cancellationToken: request.Tokens.Combined);
                 return script;
             });
         });
 
-        var result = await script.RunAsync(globals: request.Arguments, cancellationToken: cancellationToken);
+        var result = await script.RunAsync(globals: request.Arguments, cancellationToken: request.Tokens.Combined);
         return default;
     }
 
