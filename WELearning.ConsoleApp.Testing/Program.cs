@@ -19,6 +19,7 @@ using WELearning.Core.Reflection.Extensions;
 using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Constants;
 using WELearning.DynamicCodeExecution.Extensions;
+using WELearning.Shared.Concurrency;
 using WELearning.Shared.Concurrency.Extensions;
 
 const string LibraryFolderPath = "/Users/trungtran/MyPlace/Personal/Learning/workflow-engines-learning/local/libs";
@@ -618,6 +619,42 @@ Original content (error located):
 
         var finalResult = execControl.GetOutput("Result");
         Console.WriteLine(finalResult);
+    }
+}
+
+static class Misc
+{
+    public static async Task TestInMemoryLock()
+    {
+        using var lockManager = new InMemoryLockManager();
+
+        Task Run(string threadName)
+        {
+            return Task.Run(async () =>
+            {
+                try
+                {
+                    using var @lock = lockManager.Acquire("TEST", expiry: TimeSpan.FromSeconds(7), timeout: TimeSpan.FromSeconds(10));
+                    Console.WriteLine($"{threadName} acquired");
+                    await Task.Delay(15000);
+                    Console.WriteLine($"{threadName} completed");
+                }
+                catch (Exception e)
+                when (
+                    ((e as AggregateException)?.InnerException ?? e) is TaskCanceledException
+                    || ((e as AggregateException)?.InnerException ?? e) is OperationCanceledException
+                )
+                {
+                    Console.WriteLine($"{threadName} timed out");
+                }
+            });
+        }
+
+        var tasks = new Task[] { Run("T1"), Run("T2"), Run("T3") };
+        foreach (var task in tasks)
+        {
+            try { await task; } catch { }
+        }
     }
 }
 

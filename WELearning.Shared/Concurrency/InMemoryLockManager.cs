@@ -3,7 +3,7 @@ using WELearning.Shared.Concurrency.Abstracts;
 
 namespace WELearning.Shared.Concurrency;
 
-public class InMemoryLockManager : IInMemoryLockManager, IDistributedLockManager
+public class InMemoryLockManager : IInMemoryLockManager, IDistributedLockManager, IDisposable
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(60);
     private readonly ConcurrentDictionary<string, LockObject> _lockMap;
@@ -36,6 +36,13 @@ public class InMemoryLockManager : IInMemoryLockManager, IDistributedLockManager
             }
             lockObj.ReadyEvent.Wait(cancellationToken: timeoutCts.Token);
         }
+    }
+
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
+        foreach (var @lock in _lockMap.Values)
+            @lock.Release();
     }
 
     public void MutexAccess(string key, Action action)
