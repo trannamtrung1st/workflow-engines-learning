@@ -84,7 +84,6 @@ public static class ObjectAndFunctionsCFB
                 SourceBlockId = bInputs.Id,
                 SourceVariableName = "Input"
             });
-            // [TODO] add reuse functions
             dataConnections.Add(new(blockId: bOutputs.Id, variableName: "Output", displayName: null, bindingType: EBindingType.Input)
             {
                 SourceBlockId = bLogInput.Id,

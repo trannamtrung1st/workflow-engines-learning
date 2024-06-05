@@ -7,10 +7,10 @@ using WELearning.Core.FunctionBlocks.Constants;
 
 static class PredefinedBFBs
 {
-    private static readonly string AppFrameworkAssembly = typeof(AppFramework).Assembly.FullName;
-    private static readonly IEnumerable<string> DefaultCsCompiledAssemblies;
-    private static readonly IEnumerable<string> DefaultCsCompiledImports;
-    private static readonly IEnumerable<string> DefaultCsScriptAssemblies;
+    public static readonly string AppFrameworkAssembly = typeof(AppFunctionFramework).Assembly.FullName;
+    public static readonly IEnumerable<string> DefaultCsCompiledAssemblies;
+    public static readonly IEnumerable<string> DefaultCsCompiledImports;
+    public static readonly IEnumerable<string> DefaultCsScriptAssemblies;
 
     static PredefinedBFBs()
     {
@@ -143,7 +143,7 @@ static class PredefinedBFBs
             name: "Run",
             content: string.Join(
                 separator: Environment.NewLine,
-                values: passThroughVars.Select(p => @$"await FB.Out(""{p.Out.Name}"").Write({p.In.Name});")),
+                values: passThroughVars.Select(p => @$"await OUT[""{p.Out.Name}""].Write({p.In.Name});")),
             runtime: ERuntime.Javascript,
             imports: null, assemblies: null, types: null);
         bPassThrough.Functions = new[] { fRun };
@@ -186,18 +186,18 @@ static class PredefinedBFBs
         return CreateBlockMultiply(
             runtime: ERuntime.CSharpScript,
             multiplyScript: @$"
-            var x = FB.In(""X"").AsDouble();
-            var y = FB.In(""Y"").AsDouble();
+            var x = IN[""X""].AsDouble();
+            var y = IN[""Y""].AsDouble();
             var result = x * y;
-            await FB.Out(""Result"").Write(result);
-            await FB.Publish(""Completed"");
+            await OUT[""Result""].Write(result);
+            await Publish(""Completed"");
             ",
             handleInvalidScript: @$"
             FB.LogWarning(""Invalid arguments X, Y"");
-            await FB.Publish(""Completed"");
+            await Publish(""Completed"");
             ",
             invalidConditionScript: @$"
-            var x = FB.In(""X""); var y = FB.In(""Y"");
+            var x = IN[""X""]; var y = IN[""Y""];
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
             ",
             imports: null, assemblies: DefaultCsScriptAssemblies
@@ -208,19 +208,19 @@ static class PredefinedBFBs
     {
         return CreateBlockMultiply(
             runtime: ERuntime.CSharpCompiled,
-            multiplyScript: BaseCompiledFunction<AppFramework>.WrapScript(@$"
-            var x = FB.In(""X"").AsDouble();
-            var y = FB.In(""Y"").AsDouble();
+            multiplyScript: BaseCompiledFunction<AppFunctionFramework>.WrapScript(@$"
+            var x = IN[""X""].AsDouble();
+            var y = IN[""Y""].AsDouble();
             var result = x * y;
-            await FB.Out(""Result"").Write(result);
-            await FB.Publish(""Completed"");
+            await OUT[""Result""].Write(result);
+            await Publish(""Completed"");
             "),
-            handleInvalidScript: BaseCompiledFunction<AppFramework>.WrapScript(@$"
+            handleInvalidScript: BaseCompiledFunction<AppFunctionFramework>.WrapScript(@$"
             FB.LogWarning(""Invalid arguments X, Y"");
-            await FB.Publish(""Completed"");
+            await Publish(""Completed"");
             "),
-            invalidConditionScript: BaseCompiledFunction<bool, AppFramework>.WrapScript(@$"
-            var x = FB.In(""X""); var y = FB.In(""Y"");
+            invalidConditionScript: BaseCompiledFunction<bool, AppFunctionFramework>.WrapScript(@$"
+            var x = IN[""X""]; var y = IN[""Y""];
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
             "),
             imports: DefaultCsCompiledImports, assemblies: DefaultCsCompiledAssemblies
@@ -232,18 +232,15 @@ static class PredefinedBFBs
         return CreateBlockMultiply(
             runtime: ERuntime.Javascript,
             multiplyScript: @$"
-            const x = FB.In(""X"").AsDouble();
-            const y = FB.In(""Y"").AsDouble();
-            const result = x * y;
-            await FB.Out(""Result"").Write(result);
-            await FB.Publish(""Completed"");
+            Result = X * Y;
+            await Publish('Completed');
             ",
             handleInvalidScript: @$"
             FB.LogWarning(""Invalid arguments X, Y"");
-            await FB.Publish(""Completed"");
+            await Publish('Completed');
             ",
             invalidConditionScript: @$"
-            const x = FB.In(""X""); const y = FB.In(""Y"");
+            const x = IN.X; const y = IN.Y;
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
             ",
             imports: null, assemblies: null
@@ -329,17 +326,17 @@ static class PredefinedBFBs
         return CreateBlockAdd(
             runtime: ERuntime.CSharpScript,
             addScript: @$"
-            var x = FB.In(""X"").AsDouble();
-            var y = FB.In(""Y"").AsDouble();
+            var x = IN[""X""].AsDouble();
+            var y = IN[""Y""].AsDouble();
             var result = x + y;
-            await FB.Out(""Result"").Write(result);
+            await OUT[""Result""].Write(result);
             ",
             handleInvalidScript: @$"
             FB.LogWarning(""Invalid arguments X, Y"");
-            await FB.Publish(""Completed"");
+            await Publish(""Completed"");
             ",
             invalidConditionScript: @$"
-            var x = FB.In(""X""); var y = FB.In(""Y"");
+            var x = IN[""X""]; var y = IN[""Y""];
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
             ",
             imports: null, assemblies: DefaultCsScriptAssemblies
@@ -350,18 +347,18 @@ static class PredefinedBFBs
     {
         return CreateBlockAdd(
             runtime: ERuntime.CSharpCompiled,
-            addScript: BaseCompiledFunction<AppFramework>.WrapScript(@$"
-            var x = FB.In(""X"").AsDouble();
-            var y = FB.In(""Y"").AsDouble();
+            addScript: BaseCompiledFunction<AppFunctionFramework>.WrapScript(@$"
+            var x = IN[""X""].AsDouble();
+            var y = IN[""Y""].AsDouble();
             var result = x + y;
-            await FB.Out(""Result"").Write(result);
+            await OUT[""Result""].Write(result);
             "),
-            handleInvalidScript: BaseCompiledFunction<AppFramework>.WrapScript(@$"
+            handleInvalidScript: BaseCompiledFunction<AppFunctionFramework>.WrapScript(@$"
             FB.LogWarning(""Invalid arguments X, Y"");
-            await FB.Publish(""Completed"");
+            await Publish(""Completed"");
             "),
-            invalidConditionScript: BaseCompiledFunction<bool, AppFramework>.WrapScript(@$"
-            var x = FB.In(""X""); var y = FB.In(""Y"");
+            invalidConditionScript: BaseCompiledFunction<bool, AppFunctionFramework>.WrapScript(@$"
+            var x = IN[""X""]; var y = IN[""Y""];
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
             "),
             imports: DefaultCsCompiledImports, assemblies: DefaultCsCompiledAssemblies
@@ -379,7 +376,7 @@ static class PredefinedBFBs
             throw new Error('Invalid arguments');
             ",
             invalidConditionScript: @$"
-            const x = FB.In(""X""); const y = FB.In(""Y"");
+            const x = IN.X; const y = IN.Y;
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
             ",
             imports: null, assemblies: null
@@ -463,8 +460,8 @@ static class PredefinedBFBs
             runtime: ERuntime.CSharpScript,
             randomScript: @$"
             var result = FB.NextRandomDouble();
-            await FB.Out(""Result"").Write(result);
-            await FB.Publish(""Completed"");
+            await OUT[""Result""].Write(result);
+            await Publish(""Completed"");
             ",
             imports: null, assemblies: DefaultCsScriptAssemblies
         );
@@ -474,10 +471,10 @@ static class PredefinedBFBs
     {
         return CreateBlockRandom(
             runtime: ERuntime.CSharpCompiled,
-            randomScript: BaseCompiledFunction<AppFramework>.WrapScript(@$"
+            randomScript: BaseCompiledFunction<AppFunctionFramework>.WrapScript(@$"
             var result = FB.NextRandomDouble();
-            await FB.Out(""Result"").Write(result);
-            await FB.Publish(""Completed"");
+            await OUT[""Result""].Write(result);
+            await Publish(""Completed"");
             "),
             imports: DefaultCsCompiledImports, assemblies: DefaultCsCompiledAssemblies
         );
@@ -488,9 +485,8 @@ static class PredefinedBFBs
         return CreateBlockRandom(
             runtime: ERuntime.Javascript,
             randomScript: @$"
-            const result = FB.NextRandomDouble();
-            await FB.Out(""Result"").Write(result);
-            await FB.Publish(""Completed"");
+            Result = FB.NextRandomDouble();
+            await Publish('Completed');
             ",
             imports: null, assemblies: null
         );
@@ -550,9 +546,9 @@ static class PredefinedBFBs
         return CreateBlockDelay(
             runtime: ERuntime.CSharpScript,
             delayScript: @$"
-            var ms = FB.In(""Ms"").AsInt();
+            var ms = IN[""Ms""].AsInt();
             await FB.DelayAsync(ms);
-            await FB.Publish(""Completed"");
+            await Publish(""Completed"");
             ",
             imports: null, assemblies: DefaultCsScriptAssemblies
         );
@@ -562,10 +558,10 @@ static class PredefinedBFBs
     {
         return CreateBlockDelay(
             runtime: ERuntime.CSharpCompiled,
-            delayScript: BaseCompiledFunction<AppFramework>.WrapScript(@$"
-            var ms = FB.In(""Ms"").AsInt();
+            delayScript: BaseCompiledFunction<AppFunctionFramework>.WrapScript(@$"
+            var ms = IN[""Ms""].AsInt();
             await FB.DelayAsync(ms);
-            await FB.Publish(""Completed"");
+            await Publish(""Completed"");
             "),
             imports: DefaultCsCompiledImports, assemblies: DefaultCsCompiledAssemblies
         );
@@ -577,7 +573,7 @@ static class PredefinedBFBs
             runtime: ERuntime.Javascript,
             delayScript: @$"
             FB.Delay(Ms);
-            _events = ['Completed'];
+            await Publish('Completed');
             ",
             imports: null, assemblies: null
         );
@@ -663,8 +659,7 @@ static class PredefinedBFBs
             id: "Run",
             name: "Run",
             content: @$"
-            var result = X + Delimiter + Y;
-            await FB.Out(""Result"").Write(result);
+            Result = X + Delimiter + Y;
             ",
             runtime: ERuntime.Javascript,
             imports: null, assemblies: null, types: null);
@@ -718,7 +713,7 @@ static class PredefinedBFBs
             name: "Run",
             content: @$"
             // [factor, result]
-            await FB.Internal(""State"").Write(new[] {{ 1, 1 }});
+            await INTERNAL[""State""].Write(new[] {{ 1, 1 }});
             ",
             runtime: ERuntime.CSharpScript,
             imports: null, assemblies: assemblies, types: null);
@@ -726,9 +721,9 @@ static class PredefinedBFBs
             id: "Loop",
             name: "Loop",
             content: @$"
-            var state = (int[])FB.Internal(""State"").Value;
+            var state = (int[])INTERNAL[""State""].Value;
             var factor = state[0] + 1;
-            await FB.Internal(""State"").Write(new[] {{ factor, state[1] * factor }});
+            await INTERNAL[""State""].Write(new[] {{ factor, state[1] * factor }});
             ",
             runtime: ERuntime.CSharpScript,
             imports: null, assemblies: assemblies, types: null);
@@ -736,9 +731,9 @@ static class PredefinedBFBs
             id: "Output",
             name: "Output",
             content: @$"
-            var state = (int[])FB.Internal(""State"").Value;
-            await FB.Out(""Result"").Write(state[1]);                
-            await FB.Publish(""{eCompleted.Name}"");
+            var state = (int[])INTERNAL[""State""].Value;
+            await OUT[""Result""].Write(state[1]);                
+            await Publish(""{eCompleted.Name}"");
             ",
             runtime: ERuntime.CSharpScript,
             imports: null, assemblies: assemblies, types: null);
@@ -763,8 +758,8 @@ static class PredefinedBFBs
                     id: "LoopingCondition",
                     name: "Looping condition",
                     content: @$"
-                        var n = FB.In(""N"").AsInt();
-                        var state = (int[])FB.Internal(""State"").Value;
+                        var n = IN[""N""].AsInt();
+                        var state = (int[])INTERNAL[""State""].Value;
                         return state[0] < n;
                     ",
                     runtime: ERuntime.CSharpScript,

@@ -1,15 +1,15 @@
 namespace WELearning.DynamicCodeExecution.Models;
 
-public struct RunTokens
+public readonly struct RunTokens
 {
-    public RunTokens(CancellationToken timeout, CancellationToken termination, CancellationToken combined) : this()
+    public RunTokens(CancellationToken timeout, CancellationToken termination) : this()
     {
         Timeout = timeout;
         Termination = termination;
-        Combined = combined;
+        Combined = CancellationTokenSource.CreateLinkedTokenSource(timeout, termination).Token;
     }
 
-    public CancellationToken Timeout { get; set; }
-    public CancellationToken Termination { get; set; }
-    public CancellationToken Combined { get; set; }
+    public CancellationToken Timeout { get; }
+    public CancellationToken Termination { get; }
+    public CancellationToken Combined { get; }
 }

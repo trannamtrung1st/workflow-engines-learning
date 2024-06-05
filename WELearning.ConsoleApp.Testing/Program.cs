@@ -31,10 +31,11 @@ var serviceCollection = new ServiceCollection()
     .AddDefaultDistributedLockManager()
     // FunctionBlock services
     .AddDefaultBlockRunner()
-    .AddDefaultFunctionRunner<AppFramework>()
-    .AddBlockFrameworkFactory<AppFramework, AppFrameworkFactory>()
+    .AddDefaultFunctionRunner()
+    .AddDefaultBlockFrameworkFactory()
     .AddDefaultRuntimeEngineFactory()
     .AddDefaultTypeProvider()
+    .AddTransientFunctionFramework<AppFunctionFramework>()
     .AddCSharpCompiledEngine()
     .AddCSharpScriptEngine()
     // For JS engines, first found engine will be used
@@ -48,8 +49,7 @@ var terminationCts = new CancellationTokenSource();
 var tokensProvider = () =>
 {
     var timeoutToken = new CancellationTokenSource(TimeSpan.FromSeconds(30)).Token;
-    var combinedToken = CancellationTokenSource.CreateLinkedTokenSource(terminationCts.Token, timeoutToken).Token;
-    return new RunTokens(timeout: timeoutToken, termination: terminationCts.Token, combined: combinedToken);
+    return new RunTokens(timeout: timeoutToken, termination: terminationCts.Token);
 };
 
 await StartInputThread(terminationCts);
@@ -229,8 +229,9 @@ static class TestFunctionBlocks
         const int ThirdLoop = 700;
         var blockRunner = serviceProvider.GetService<IBlockRunner>();
         var engineFactory = serviceProvider.GetService<IRuntimeEngineFactory>();
-        var functionRunner = serviceProvider.GetService<IFunctionRunner<AppFramework>>();
-        var blockFrameworkFactory = serviceProvider.GetService<IBlockFrameworkFactory<AppFramework>>();
+        var functionRunner = serviceProvider.GetService<IFunctionRunner>();
+        var blockFrameworkFactory = serviceProvider.GetService<IBlockFrameworkFactory>();
+        var functionFramework = serviceProvider.GetService<AppFunctionFramework>();
         var jsEngine = engineFactory.CreateEngine(ERuntime.Javascript);
         var jsEngineName = jsEngine.GetType().Name;
         var csCompiledCFB = ComplexCFB.Build(
@@ -238,7 +239,7 @@ static class TestFunctionBlocks
             bMultiplyDef: PredefinedBFBs.MultiplyCsCompiled,
             bRandomDef: PredefinedBFBs.RandomCsCompiled,
             bDelayDef: PredefinedBFBs.DelayCsCompiled);
-        IExecutionControl CreateControl(CompositeBlockDef blockDef) => new CompositeEC<AppFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory);
+        IExecutionControl CreateControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFramework);
 
         Task<double> RunCsCompiled() => RunComplexCFB(
             blockRunner, CreateControl: () => CreateControl(blockDef: csCompiledCFB), runTokens: tokensProvider());
@@ -378,11 +379,12 @@ static class TestFunctionBlocks
     {
         var blockRunner = serviceProvider.GetService<IBlockRunner>();
         var engineFactory = serviceProvider.GetService<IRuntimeEngineFactory>();
-        var functionRunner = serviceProvider.GetService<IFunctionRunner<AppFramework>>();
-        var blockFrameworkFactory = serviceProvider.GetService<IBlockFrameworkFactory<AppFramework>>();
+        var functionRunner = serviceProvider.GetService<IFunctionRunner>();
+        var blockFrameworkFactory = serviceProvider.GetService<IBlockFrameworkFactory>();
+        var functionFramework = serviceProvider.GetService<AppFunctionFramework>();
         const int DelayMs = 5000;
-        ICompositeEC CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory);
-        IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFramework>(block: new(blockDef.Id), blockDef, functionRunner, blockFrameworkFactory);
+        ICompositeEC CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFramework);
+        IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFunctionFramework>(block: new(blockDef.Id), blockDef, functionRunner, blockFrameworkFactory, functionFramework);
 
         await RunObjectAndFunctions(blockRunner, CreateControl: () => CreateCompositeControl(ObjectAndFunctionsCFB.Build()), runTokens: tokensProvider());
 

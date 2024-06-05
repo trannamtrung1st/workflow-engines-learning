@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using WELearning.Core.FunctionBlocks.Abstracts;
+using WELearning.Core.FunctionBlocks.Framework;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 
 namespace WELearning.Core.FunctionBlocks.Extensions;
@@ -11,15 +12,19 @@ public static class ServiceCollectionExtensions
         return services.AddTransient<IBlockRunner, BlockRunner>();
     }
 
-    public static IServiceCollection AddDefaultFunctionRunner<TFramework>(this IServiceCollection services)
-        where TFramework : IBlockFramework
+    public static IServiceCollection AddDefaultFunctionRunner(this IServiceCollection services)
     {
-        return services.AddTransient<IFunctionRunner<TFramework>, FunctionRunner<TFramework>>();
+        return services.AddTransient<IFunctionRunner, FunctionRunner>();
     }
 
-    public static IServiceCollection AddBlockFrameworkFactory<TFramework, TBlockFrameworkFactory>(this IServiceCollection services)
-        where TBlockFrameworkFactory : class, IBlockFrameworkFactory<TFramework>
+    public static IServiceCollection AddTransientFunctionFramework<TFunctionFramework>(this IServiceCollection services)
+        where TFunctionFramework : class
     {
-        return services.AddSingleton<IBlockFrameworkFactory<TFramework>, TBlockFrameworkFactory>();
+        return services.AddTransient<TFunctionFramework>();
+    }
+
+    public static IServiceCollection AddDefaultBlockFrameworkFactory(this IServiceCollection services)
+    {
+        return services.AddSingleton<IBlockFrameworkFactory, BlockFrameworkFactory>();
     }
 }

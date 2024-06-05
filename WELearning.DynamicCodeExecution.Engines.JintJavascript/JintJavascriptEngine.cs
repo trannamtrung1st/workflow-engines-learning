@@ -27,7 +27,6 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 {
     private const int DefaultMaxStatements = 3_000_000;
     private const int DefaultMaxLoopCount = 10_000;
-    private const string ExportedFunctionName = nameof(IExecutable<object>.Execute);
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
     private static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(30);
     private readonly MemoryCache _moduleCache;
@@ -188,7 +187,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                 {
                     engineWrap.ResetNodePosition();
                     var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, request.Imports, request.Assemblies, cancellationToken: request.Tokens.Combined);
-                    var exportedFunction = module.Get(ExportedFunctionName);
+                    var exportedFunction = module.Get(JsEngineConstants.ExportedFunctionName);
                     result = await CallWithHandles(engineWrap, exportedFunction, arguments, tokens: request.Tokens);
                     result = result.UnwrapIfPromise();
                 }, cancellationToken: request.Tokens.Combined);
@@ -273,22 +272,21 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         return await tcs.Task;
     }
 
-    private static (IEnumerable<string> Names, JsValue[] Values) GetCombineArguments<TArg>(Engine engine, TArg arguments, List<(string Name, object Value)> flattenArguments, List<string> flattenOutputs)
+    private static (IEnumerable<string> Names, JsValue[] Values) GetArgumentKvps<TArg>(Engine engine, TArg arguments, List<(string Name, object Value)> flattenArguments)
     {
         var argumentValues = new List<JsValue>();
         var finalArguments = new List<string>();
         flattenArguments ??= new();
-        flattenOutputs ??= new();
+
+        if (flattenArguments.Count == 0)
+            flattenArguments.Add((JsEngineConstants.DefaultArgumentsName, arguments));
+
         for (int i = 0; i < flattenArguments.Count; i++)
         {
             finalArguments.Add(flattenArguments[i].Name);
-            flattenOutputs.Remove(flattenArguments[i].Name);
             argumentValues.Add(JsValue.FromObject(engine, flattenArguments[i].Value));
         }
-        for (int i = 0; i < flattenOutputs.Count; i++)
-            finalArguments.Add(flattenOutputs[i]);
-        if (argumentValues.Count == 0)
-            argumentValues.Add(JsValue.FromObjectWithType(engine, arguments, typeof(TArg)));
+
         return (finalArguments, argumentValues.ToArray());
     }
 
@@ -297,10 +295,9 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     {
         const string OutVariable = "__APP_OUT__";
         var flattenOutputs = request.FlattenOutputs?.ToList();
-        var (inputArguments, values) = GetCombineArguments(
+        var (inputArguments, values) = GetArgumentKvps(
             engine: engine, arguments: request.Arguments,
-            flattenArguments: request.FlattenArguments?.ToList(),
-            flattenOutputs: flattenOutputs);
+            flattenArguments: request.FlattenArguments?.ToList());
         var flattenOutputsStr = flattenOutputs?.Any() == true ?
 @$"const {OutVariable} = {{{string.Join(',', flattenOutputs)}}};
 Object.keys({OutVariable}).forEach(key => {{
@@ -313,9 +310,9 @@ return {OutVariable};" : string.Empty;
         var contentInfo = request.UseRawContent
             ? (request.Content, 1, contentLineCount, 0, request.Content.Length - 1)
             : JavascriptHelper.WrapModuleFunction(
-            script: request.Content,
-            returnStatements: flattenOutputsStr,
-            inputVariables: inputArguments);
+                script: request.Content,
+                returnStatements: flattenOutputsStr,
+                inputVariables: inputArguments);
         return (contentInfo, values);
     }
 

@@ -138,7 +138,7 @@ public static class LoopCFB
 
     static BasicBlockDef CreateLoopControllerBlock()
     {
-        var assemblies = new[] { typeof(AppFramework).Assembly.FullName };
+        var assemblies = PredefinedBFBs.DefaultCsScriptAssemblies;
         var bLoopController = new BasicBlockDef(id: $"{nameof(LoopCFB)}_LoopController", name: "Loop controller");
 
         var iN = new Variable("N", EDataType.Int, EVariableType.Input);
@@ -157,13 +157,13 @@ public static class LoopCFB
             id: "Trigger",
             name: "Trigger",
             content: @$"
-            await FB.Out(""Result"").Write(0.0);
-            var n = FB.In(""N"").AsInt();
+            await OUT[""Result""].Write(0.0);
+            var n = IN[""N""].AsInt();
             FB.Log(""Loop: N is"", n);
             if (n > 0) 
-                await FB.Publish(""Loop"");
+                await Publish(""Loop"");
             else 
-                await FB.Publish(""Completed"");
+                await Publish(""Completed"");
             ",
             runtime: ERuntime.CSharpScript,
             imports: null, assemblies: assemblies, types: null);
@@ -171,12 +171,12 @@ public static class LoopCFB
             id: "Loop",
             name: "Loop",
             content: @$"
-            var currentResult = FB.In(""Result"").AsInt();
-            var n = FB.In(""N"").AsInt();
+            var currentResult = IN[""Result""].AsInt();
+            var n = IN[""N""].AsInt();
             if (currentResult < n) 
-                await FB.Publish(""Loop"");
+                await Publish(""Loop"");
             else 
-                await FB.Publish(""Completed"");
+                await Publish(""Completed"");
             ",
             runtime: ERuntime.CSharpScript,
             imports: null, assemblies: assemblies, types: null);
@@ -210,7 +210,7 @@ public static class LoopCFB
                         id: "Running2IdleCondition",
                         name: "Running to idle condition",
                         content: @$"
-                            var n = FB.In(""N"").AsInt();
+                            var n = IN[""N""].AsInt();
                             return n <= 0;
                         ",
                         runtime: ERuntime.CSharpScript,
@@ -224,8 +224,8 @@ public static class LoopCFB
                         id: "Looping2IdleCondition",
                         name: "Looping to idle condition",
                         content: @$"
-                            var n = FB.In(""N"").AsInt();
-                            var result = FB.In(""Result"").AsDouble();
+                            var n = IN[""N""].AsInt();
+                            var result = IN[""Result""].AsDouble();
                             return result >= n;
                         ",
                         runtime: ERuntime.CSharpScript,

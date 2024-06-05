@@ -10,11 +10,11 @@ using WELearning.DynamicCodeExecution.Models;
 
 namespace WELearning.Core.FunctionBlocks;
 
-public class FunctionRunner<TFramework> : IFunctionRunner<TFramework> where TFramework : IBlockFramework
+public class FunctionRunner : IFunctionRunner
 {
     private readonly IRuntimeEngineFactory _engineFactory;
     private readonly ITypeProvider _typeProvider;
-    private static readonly Assembly[] DefaultAssemblies = new[] { typeof(FunctionRunner<TFramework>).Assembly };
+    private static readonly Assembly[] DefaultAssemblies = new[] { typeof(FunctionRunner).Assembly };
 
     public FunctionRunner(IRuntimeEngineFactory engineFactory, ITypeProvider typeProvider)
     {
@@ -22,8 +22,8 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework> where TFra
         _typeProvider = typeProvider;
     }
 
-    public async Task<(TReturn Result, IDisposable OptimizationScope)> Run<TReturn>(
-        Function function, BlockGlobalObject<TFramework> globalObject,
+    public async Task<(TReturn Result, IDisposable OptimizationScope)> Run<TReturn, TFunctionFramework>(
+        Function function, BlockGlobalObject<TFunctionFramework> globalObject,
         IEnumerable<(string Name, object Value)> flattenArguments,
         IEnumerable<string> flattenOutputs, Guid? optimizationScopeId, RunTokens tokens)
     {
@@ -31,7 +31,7 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework> where TFra
         var assemblies = function.Assemblies != null ? _typeProvider.GetAssemblies(function.Assemblies) : null;
         assemblies = assemblies != null ? assemblies.Concat(DefaultAssemblies) : DefaultAssemblies;
         var types = function.Types != null ? _typeProvider.GetTypes(function.Types) : null;
-        var result = await engine.Execute<TReturn, BlockGlobalObject<TFramework>>(
+        var result = await engine.Execute<TReturn, BlockGlobalObject<TFunctionFramework>>(
             request: new(
                 content: function.Content,
                 arguments: globalObject,
@@ -46,8 +46,8 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework> where TFra
         return result;
     }
 
-    public async Task<IDisposable> Run(
-        Function function, BlockGlobalObject<TFramework> globalObject,
+    public async Task<IDisposable> Run<TFunctionFramework>(
+        Function function, IBlockFramework blockFramework, BlockGlobalObject<TFunctionFramework> globalObject,
         IEnumerable<(string Name, object Value)> flattenArguments,
         IEnumerable<string> flattenOutputs, Guid? optimizationScopeId, RunTokens tokens)
     {
@@ -55,7 +55,7 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework> where TFra
         var assemblies = function.Assemblies != null ? _typeProvider.GetAssemblies(function.Assemblies) : null;
         assemblies = assemblies != null ? assemblies.Concat(DefaultAssemblies) : DefaultAssemblies;
         var types = function.Types != null ? _typeProvider.GetTypes(function.Types) : null;
-        var (result, scope) = await engine.Execute<dynamic, BlockGlobalObject<TFramework>>(
+        var (result, scope) = await engine.Execute<dynamic, BlockGlobalObject<TFunctionFramework>>(
             request: new(
                 content: function.Content,
                 arguments: globalObject,
@@ -67,7 +67,7 @@ public class FunctionRunner<TFramework> : IFunctionRunner<TFramework> where TFra
                 useRawContent: function.UseRawContent
             )
         );
-        globalObject.FB.HandleDynamicResult(result);
+        blockFramework.HandleDynamicResult(result);
         return scope;
     }
 }

@@ -7,13 +7,12 @@ public static class JavascriptHelper
 {
     public static (string Content, int LineStart, int LineEnd, int IndexStart, int IndexEnd) WrapModuleFunction(
         string script, string returnStatements = null, string topStatements = null,
-        string bottomStatements = null,
-        string functionName = nameof(IExecutable<object>.Execute),
-        string globalVar = "_FB_", IEnumerable<string> inputVariables = null
+        string bottomStatements = null, string functionName = nameof(IExecutable<object>.Execute),
+        IEnumerable<string> inputVariables = null
     )
     {
         string nl = Environment.NewLine;
-        var argumentsStr = inputVariables?.Any() == true ? string.Join(',', inputVariables) : globalVar;
+        var argumentsStr = inputVariables?.Any() == true ? string.Join(',', inputVariables) : null;
         var topContent = $"{topStatements}{nl}export async function {functionName}({argumentsStr}) {{";
         var bottomContent = $"}}{nl}{bottomStatements}";
         var finalContent = $"{topContent}\n{script}\n{returnStatements}\n{bottomContent}";

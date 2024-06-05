@@ -8,14 +8,19 @@ using WELearning.DynamicCodeExecution.Exceptions;
 
 namespace WELearning.Core.FunctionBlocks;
 
-public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, IDisposable where TFramework : IBlockFramework
+public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDisposable
+    where TFunctionFramework : class
 {
+    private readonly TFunctionFramework _functionFramework;
+
     public BasicEC(
         BlockInstance block,
         BasicBlockDef definition,
-        IFunctionRunner<TFramework> functionRunner,
-        IBlockFrameworkFactory<TFramework> blockFrameworkFactory) : base(block, definition, functionRunner, blockFrameworkFactory)
+        IFunctionRunner functionRunner,
+        IBlockFrameworkFactory blockFrameworkFactory,
+        TFunctionFramework functionFramework) : base(block, definition, functionRunner, blockFrameworkFactory)
     {
+        _functionFramework = functionFramework;
         CurrentState = Definition.ExecutionControlChart?.InitialState;
     }
 
@@ -96,20 +101,18 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
         string triggerEvent, HashSet<IDisposable> optimizationScopes, Guid? optimizationScopeId)
     {
         optimizationScopeId ??= Guid.NewGuid();
+        var outputEvents = new HashSet<string>();
+        Task Publish(string @event) { outputEvents.Add(@event); return Task.CompletedTask; }
         var blockFramework = _blockFrameworkFactory.Create(this);
-        var globalObject = new BlockGlobalObject<TFramework>(blockFramework);
-        var flattenArguments = new List<(string, object)>();
-        var flattenOutputs = new List<string>() { BuiltInVariables.EventsOutputVariable };
-        flattenArguments.Add((nameof(BlockGlobalObject<TFramework>.FB), blockFramework));
-        FlattenInputs(flattenArguments);
-        FlattenOutputs(flattenOutputs);
+        var (flattenArguments, flattenOutputs) = PrepareArguments(blockFramework, Publish);
+        var globalObject = new BlockGlobalObject<TFunctionFramework>(_functionFramework, blockFramework, Publish);
 
         async Task<bool> Evaluate(Function condition)
         {
             try
             {
                 RunningFunction = condition;
-                var (result, optimizationScope) = await _functionRunner.Run<bool>(
+                var (result, optimizationScope) = await _functionRunner.Run<bool, TFunctionFramework>(
                     condition, globalObject: globalObject, flattenArguments, flattenOutputs,
                     optimizationScopeId.Value, tokens: CurrentRunRequest.Tokens);
                 RunningFunction = null;
@@ -126,7 +129,7 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
             {
                 RunningFunction = actionFunction;
                 var optimizationScope = await _functionRunner.Run(
-                    actionFunction, globalObject, flattenArguments, flattenOutputs,
+                    actionFunction, blockFramework, globalObject, flattenArguments, flattenOutputs,
                     optimizationScopeId.Value, tokens: CurrentRunRequest.Tokens);
                 RunningFunction = null;
                 if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
@@ -135,7 +138,6 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
             catch (RuntimeException ex) { throw new FunctionRuntimeException(ex, actionFunction); }
         }
 
-        var outputEvents = new HashSet<string>();
         var transition = await FindTransition(triggerEvent, Evaluate);
         if (transition == null) throw new KeyNotFoundException($"Transition for event {triggerEvent} not found!");
 
@@ -155,7 +157,6 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
             transition = await FindTransition(BlockStateTransition.DirectTransitionEvent, Evaluate);
         } while (transition != null);
 
-        TryAddEvents(outputEvents, blockFramework.OutputEvents);
         return outputEvents;
     }
 
@@ -172,10 +173,49 @@ public class BasicEC<TFramework> : BaseEC<TFramework, BasicBlockDef>, IBasicEC, 
         }
     }
 
-    private void TryAddEvents(HashSet<string> events, IEnumerable<string> outputEvents)
+    private static void TryAddEvents(HashSet<string> events, IEnumerable<string> outputEvents)
     {
         if (outputEvents?.Any() != true) return;
         foreach (var ev in outputEvents)
             events.Add(ev);
     }
+
+    protected virtual (List<(string, object)> FlattenArguments, List<string> FlattenOutputs) PrepareArguments(
+        IBlockFramework blockFramework, Func<string, Task> Publish)
+    {
+        var flattenVars = new HashSet<string>();
+        var flattenArguments = new List<(string, object)>
+        {
+            (BuiltInVariables.FB, _functionFramework),
+            (BuiltInVariables.Publish, Publish),
+            (BuiltInVariables.IN, blockFramework.InputBindings),
+            (BuiltInVariables.OUT, blockFramework.OutputBindings),
+            (BuiltInVariables.INOUT, blockFramework.InOutBindings),
+            (BuiltInVariables.INTERNAL, blockFramework.InternalBindings),
+        };
+        var flattenOutputs = new List<string>();
+        var variables = Definition.Variables;
+
+        foreach (var variable in variables)
+        {
+            if (!flattenVars.Add(variable.Name)) continue;
+            var valueObject = GetValueObject(variable.Name, variable.VariableType);
+            var refBinding = blockFramework.GetBindingFor(valueObject);
+
+            if (variable.CanOutput())
+                flattenOutputs.Add(variable.Name);
+
+            switch (variable.DataType)
+            {
+                case Core.Constants.EDataType.Reference:
+                    flattenArguments.Add((variable.Name, refBinding));
+                    break;
+                default:
+                    flattenArguments.Add((variable.Name, valueObject.Value));
+                    break;
+            }
+        }
+        return (flattenArguments, flattenOutputs);
+    }
+
 }

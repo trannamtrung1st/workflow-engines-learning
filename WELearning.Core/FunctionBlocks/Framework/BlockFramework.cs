@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Dynamic;
-using Microsoft.Extensions.Logging;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
@@ -9,16 +8,14 @@ namespace WELearning.Core.FunctionBlocks.Framework;
 
 public class BlockFramework : IBlockFramework
 {
-    private readonly ILogger<BlockFramework> _logger;
     protected readonly IExecutionControl _control;
-    protected readonly ConcurrentDictionary<string, InputBinding> _inputBindings;
-    protected readonly ConcurrentDictionary<string, OutputBinding> _outputBindings;
-    protected readonly ConcurrentDictionary<string, InOutBinding> _inOutBindings;
-    protected readonly ConcurrentDictionary<string, InternalBinding> _internalBindings;
+    protected readonly ConcurrentDictionary<string, IReadBinding> _inputBindings;
+    protected readonly ConcurrentDictionary<string, IWriteBinding> _outputBindings;
+    protected readonly ConcurrentDictionary<string, IReadWriteBinding> _inOutBindings;
+    protected readonly ConcurrentDictionary<string, IReadWriteBinding> _internalBindings;
 
-    public BlockFramework(IExecutionControl control, ILogger<BlockFramework> logger)
+    public BlockFramework(IExecutionControl control)
     {
-        _logger = logger;
         _control = control;
         _inputBindings = new();
         _outputBindings = new();
@@ -30,81 +27,60 @@ public class BlockFramework : IBlockFramework
     private readonly HashSet<string> _outputEvents;
     public virtual IEnumerable<string> OutputEvents => _outputEvents;
 
-    public virtual Task DelayAsync(int ms) => Task.Delay(ms);
+    public IReadOnlyDictionary<string, IReadBinding> InputBindings => _inputBindings;
+    public IReadOnlyDictionary<string, IWriteBinding> OutputBindings => _outputBindings;
+    public IReadOnlyDictionary<string, IReadWriteBinding> InOutBindings => _inOutBindings;
+    public IReadOnlyDictionary<string, IReadWriteBinding> InternalBindings => _internalBindings;
 
-    public virtual void Delay(int ms) => DelayAsync(ms).Wait();
-
-    public virtual IReadBinding In(string name)
-        => _inputBindings.GetOrAdd(name, (key) => new InputBinding(key, valueObject: _control.GetInput(name)));
-
-    public virtual IWriteBinding Out(string name)
-        => _outputBindings.GetOrAdd(name, (key) => new OutputBinding(key, valueObject: _control.GetOutput(name)));
-
-    public virtual IReadWriteBinding InOut(string name)
-        => _inOutBindings.GetOrAdd(name, (key) => new InOutBinding(key, valueObject: _control.GetInOut(name)));
-
-    public virtual IReadWriteBinding Internal(string name)
-        => _internalBindings.GetOrAdd(name, (key) => new InternalBinding(key, valueObject: _control.GetInternalData(name)));
-
-    public virtual Task Publish(string eventName)
+    public virtual object GetBindingFor(IValueObject valueObject)
     {
-        _outputEvents.Add(eventName);
-        return Task.CompletedTask;
+        var variable = valueObject.Variable;
+        var name = variable.Name;
+        switch (variable.VariableType)
+        {
+            case EVariableType.Input: return In(name);
+            case EVariableType.Output: return Out(name);
+            case EVariableType.InOut:
+                {
+                    var binding = InOut(name);
+                    _inputBindings[name] = binding;
+                    _outputBindings[name] = binding;
+                    return binding;
+                }
+            case EVariableType.Internal: return Internal(name);
+            default: throw new NotSupportedException($"Variable type {variable.VariableType} not supported!");
+        }
     }
 
-    public virtual Task HandleDynamicResult(dynamic result)
+    public virtual async Task HandleDynamicResult(dynamic result)
     {
-        if (result is not ExpandoObject expObj) return Task.CompletedTask;
+        if (result is not ExpandoObject expObj) return;
         foreach (var kvp in expObj)
         {
-            switch (kvp.Key)
+            var variable = _control.GetVariable(kvp.Key, Constants.EVariableType.Output)
+                ?? _control.GetVariable(kvp.Key, Constants.EVariableType.InOut)
+                ?? _control.GetVariable(kvp.Key, Constants.EVariableType.Internal);
+            IWriteBinding writeBinding = null;
+            switch (variable.VariableType)
             {
-                case BuiltInVariables.EventsOutputVariable:
-                    {
-                        var events = kvp.Value as IEnumerable<object>;
-                        if (events?.Any() == true)
-                            foreach (var ev in events)
-                                if (ev is string evStr)
-                                    _outputEvents.Add(evStr);
-                        break;
-                    }
-                default:
-                    {
-                        var variable = _control.GetVariable(kvp.Key, Constants.EVariableType.Output)
-                            ?? _control.GetVariable(kvp.Key, Constants.EVariableType.InOut)
-                            ?? _control.GetVariable(kvp.Key, Constants.EVariableType.Internal);
-                        IWriteBinding writeBinding = null;
-                        switch (variable.VariableType)
-                        {
-                            case Constants.EVariableType.Output: writeBinding = Out(kvp.Key); break;
-                            case Constants.EVariableType.InOut: writeBinding = InOut(kvp.Key); break;
-                            case Constants.EVariableType.Internal: writeBinding = Internal(kvp.Key); break;
-                        }
-                        writeBinding?.Write(kvp.Value);
-                        break;
-                    }
+                case EVariableType.Output: writeBinding = Out(kvp.Key); break;
+                case EVariableType.InOut: writeBinding = InOut(kvp.Key); break;
+                case EVariableType.Internal: writeBinding = Internal(kvp.Key); break;
             }
+            if (writeBinding != null)
+                await writeBinding.Write(kvp.Value);
         }
-        return Task.CompletedTask;
     }
 
-    public virtual void Log(params object[] data)
-    {
-        var message = GetLogMessage(data);
-        _logger.LogInformation(message);
-    }
+    protected virtual IReadBinding In(string name)
+        => _inputBindings.GetOrAdd(name, (key) => new InputBinding(key, valueObject: _control.GetInput(name)));
 
-    public virtual void LogError(params object[] data)
-    {
-        var message = GetLogMessage(data);
-        _logger.LogError(message);
-    }
+    protected virtual IWriteBinding Out(string name)
+        => _outputBindings.GetOrAdd(name, (key) => new OutputBinding(key, valueObject: _control.GetOutput(name)));
 
-    public virtual void LogWarning(params object[] data)
-    {
-        var message = GetLogMessage(data);
-        _logger.LogWarning(message);
-    }
+    protected virtual IReadWriteBinding InOut(string name)
+        => _inOutBindings.GetOrAdd(name, (key) => new InOutBinding(key, valueObject: _control.GetInOut(name)));
 
-    public static string GetLogMessage(object[] data) => string.Join(' ', data);
+    protected virtual IReadWriteBinding Internal(string name)
+        => _internalBindings.GetOrAdd(name, (key) => new InternalBinding(key, valueObject: _control.GetInternalData(name)));
 }

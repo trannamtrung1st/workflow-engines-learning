@@ -19,7 +19,6 @@ namespace WELearning.DynamicCodeExecution.Engines;
 public class V8JavascriptEngine : IRuntimeEngine, IDisposable
 {
     private const string ArgumentsVar = "args";
-    private const string ExportedFunctionName = nameof(IExecutable<object>.Execute);
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
     private const long DefaultMaxEngineCacheCount = 1_000;
     private static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(30);
@@ -58,8 +57,8 @@ public class V8JavascriptEngine : IRuntimeEngine, IDisposable
         content = AddImports(content, imports);
         var moduleId = $"System_{ModuleName}";
         var wrappedCode = @$"
-            import {{ {ExportedFunctionName} }} from '{moduleId}';
-            {ExportedFunctionName}({ArgumentsVar})";
+            import {{ {JsEngineConstants.ExportedFunctionName} }} from '{moduleId}';
+            {JsEngineConstants.ExportedFunctionName}({ArgumentsVar})";
 
         var moduleLoaded = scope?.ModuleLoaded.Contains(ModuleName) == true;
         if (!moduleLoaded)

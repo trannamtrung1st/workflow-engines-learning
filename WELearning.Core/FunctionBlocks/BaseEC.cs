@@ -8,21 +8,19 @@ using WELearning.Core.FunctionBlocks.Models.Runtime;
 
 namespace WELearning.Core.FunctionBlocks;
 
-public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisposable
-    where TFramework : IBlockFramework
-    where TDefinition : BaseBlockDef
+public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where TDefinition : BaseBlockDef
 {
     private readonly object _handleFailedLock = new();
     protected readonly ConcurrentDictionary<Variable, IValueObject> _valueMap;
     protected readonly SemaphoreSlim _mutexLock;
     protected readonly ManualResetEventSlim _idleWait;
-    protected readonly IFunctionRunner<TFramework> _functionRunner;
-    protected readonly IBlockFrameworkFactory<TFramework> _blockFrameworkFactory;
+    protected readonly IFunctionRunner _functionRunner;
+    protected readonly IBlockFrameworkFactory _blockFrameworkFactory;
     public BaseEC(
         BlockInstance block,
         TDefinition definition,
-        IFunctionRunner<TFramework> functionRunner,
-        IBlockFrameworkFactory<TFramework> blockFrameworkFactory)
+        IFunctionRunner functionRunner,
+        IBlockFrameworkFactory blockFrameworkFactory)
     {
         _functionRunner = functionRunner;
         _blockFrameworkFactory = blockFrameworkFactory;
@@ -140,23 +138,6 @@ public abstract class BaseEC<TFramework, TDefinition> : IExecutionControl, IDisp
             var variableType = binding.Type.ToVariableType();
             SetValue(binding.VariableName, variableType, binding.Value);
         }
-    }
-
-    protected virtual void FlattenInputs(List<(string, object)> flatten)
-    {
-        var variables = Definition.Variables.Where(v => v.CanInput());
-        foreach (var variable in variables)
-        {
-            if (_valueMap.TryGetValue(variable, out var valueObject))
-                flatten.Add((variable.Name, valueObject.Value));
-        }
-    }
-
-    protected virtual void FlattenOutputs(List<string> flatten)
-    {
-        var variables = Definition.Variables.Where(v => v.CanOutput());
-        foreach (var variable in variables)
-            flatten.Add(variable.Name);
     }
 
     public virtual void WaitForIdle(CancellationToken cancellationToken) => _idleWait.Wait(cancellationToken);

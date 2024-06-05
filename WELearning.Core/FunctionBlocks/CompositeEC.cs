@@ -9,8 +9,10 @@ using WELearning.Core.FunctionBlocks.Models.Runtime;
 
 namespace WELearning.Core.FunctionBlocks;
 
-public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, ICompositeEC, IDisposable where TFramework : IBlockFramework
+public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompositeEC, IDisposable
+    where TFunctionFramework : class
 {
+    private readonly TFunctionFramework _functionFramework;
     private readonly IBlockRunner _blockRunner;
     private ConcurrentDictionary<string, IExecutionControl> _blockExecControlMap;
     private ConcurrentBag<string> _outputEvents;
@@ -29,9 +31,11 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
         BlockInstance block,
         CompositeBlockDef definition,
         IBlockRunner blockRunner,
-        IFunctionRunner<TFramework> functionRunner,
-        IBlockFrameworkFactory<TFramework> blockFrameworkFactory) : base(block, definition, functionRunner, blockFrameworkFactory)
+        IFunctionRunner functionRunner,
+        IBlockFrameworkFactory blockFrameworkFactory,
+        TFunctionFramework functionFramework) : base(block, definition, functionRunner, blockFrameworkFactory)
     {
+        _functionFramework = functionFramework;
         _blockRunner = blockRunner;
         _runningTasksCount = 0;
         _blockExecControlMap = new();
@@ -160,7 +164,7 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
                 sourceValue = GetInput(connection.SourceVariableName);
             }
 
-            if ((bindingVariable.DataType == EDataType.Reference || bindingVariable.DataType == EDataType.Any)
+            if (bindingVariable.DataType == EDataType.Reference
                 && !blockBindings.Any(b => b.VariableName == connection.VariableName && b.Reference != null))
                 reference = sourceValue.CloneFor(bindingVariable);
             else value = sourceValue.ValueSet ? sourceValue.Value : bindingVariable.DefaultValue;
@@ -241,9 +245,9 @@ public class CompositeEC<TFramework> : BaseEC<TFramework, CompositeBlockDef>, IC
             var definition = Definition.GetDefinition(block.DefinitionId);
             IExecutionControl execControl;
             if (definition is BasicBlockDef basicBlockDef)
-                execControl = new BasicEC<TFramework>(block, definition: basicBlockDef, _functionRunner, _blockFrameworkFactory);
+                execControl = new BasicEC<TFunctionFramework>(block, definition: basicBlockDef, _functionRunner, _blockFrameworkFactory, _functionFramework);
             else if (definition is CompositeBlockDef compositeBlockDef)
-                execControl = new CompositeEC<TFramework>(block, definition: compositeBlockDef, _blockRunner, _functionRunner, _blockFrameworkFactory);
+                execControl = new CompositeEC<TFunctionFramework>(block, definition: compositeBlockDef, _blockRunner, _functionRunner, _blockFrameworkFactory, _functionFramework);
             else throw new NotSupportedException($"Definition of type {definition.GetType().FullName} not supported!");
             execControl.Running += HandleControlRunning;
             execControl.Completed += HandleControlCompleted;

@@ -109,7 +109,6 @@ public class RawValueObject : IValueObject, IDisposable
             case EDataType.Double: return AsDouble();
             case EDataType.Numeric: return AsDouble();
             case EDataType.Object: return Value;
-            case EDataType.Reference: return this;
             case EDataType.String: return Value?.ToString();
             default: throw new NotSupportedException($"Data type {dataType} is not supported for this value!");
         }
