@@ -55,6 +55,7 @@ static class PredefinedBFBs
         CompilationErrorJs = CreateCompilationError();
         RuntimeExceptionJs = CreateRuntimeExceptionJs();
         RuntimeExceptionJsFromCs = CreateRuntimeExceptionJsFromCs();
+        LogInputJs = CreateBlockLogInput();
     }
 
     public static readonly BasicBlockDef MultiplyCsCompiled;
@@ -75,6 +76,7 @@ static class PredefinedBFBs
     public static readonly BasicBlockDef CompilationErrorJs;
     public static readonly BasicBlockDef RuntimeExceptionJs;
     public static readonly BasicBlockDef RuntimeExceptionJsFromCs;
+    public static readonly BasicBlockDef LogInputJs;
 
     public static BasicBlockDef CreateInOutBlock(params Variable[] variables)
     {
@@ -836,12 +838,24 @@ let a = 5;"
     }
     #endregion
 
-    private static BasicBlockDef CreateBlockSimple(string id, string name, string content)
+    private static BasicBlockDef CreateBlockLogInput()
+    {
+        return CreateBlockSimple(id: "LogInput", name: "Log input",
+            content: @"
+            const json = JSON.stringify(Data);
+            FB.Log(json, Data.X, Data.Y, Data.Z);",
+            variables: new Variable("Data", EDataType.Any, EVariableType.InOut));
+    }
+
+    private static BasicBlockDef CreateBlockSimple(string id, string name, string content,
+        params Variable[] variables)
     {
         var bConcat = new BasicBlockDef(id: id, name: name);
-        bConcat.Variables = Array.Empty<Variable>();
-        var eTrigger = new BlockEvent(isInput: true, name: "Trigger", variableNames: Array.Empty<string>());
-        var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: Array.Empty<string>());
+        bConcat.Variables = variables;
+        var inVars = variables.Where(v => v.CanInOut()).Select(v => v.Name);
+        var outVars = variables.Where(v => v.CanOutput()).Select(v => v.Name);
+        var eTrigger = new BlockEvent(isInput: true, name: "Trigger", variableNames: inVars);
+        var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: outVars);
         bConcat.Events = new[] { eTrigger, eCompleted };
         bConcat.DefaultTriggerEvent = eTrigger.Name;
 

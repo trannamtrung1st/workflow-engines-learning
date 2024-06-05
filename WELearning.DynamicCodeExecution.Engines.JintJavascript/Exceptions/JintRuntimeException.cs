@@ -14,6 +14,7 @@ public class JintRuntimeException : RuntimeException
         _source = SourceUser;
         var rejectedValue = rejectedException.RejectedValue;
         var stack = rejectedValue.Get("stack").AsString();
+        UnderlyingException = rejectedException;
         var (Line, Column, Index) = GetStackRootExceptionPosition(content, stack);
         (Line, Column, Index) = RecalculatePosition(
             Line, Column, Index, userContentLineStart, userContentLineEnd, userContentIndexStart, userContentIndexEnd);
@@ -30,6 +31,7 @@ public class JintRuntimeException : RuntimeException
     {
         _source = SourceSystem;
         var (currentLine, currentColumn) = currentNodePosition;
+        UnderlyingException = systemException;
         var (Line, Column, Index) = RecalculatePosition(
             currentLine, exColumn: currentColumn + 1, // [NOTE] Jint wrong calculation
             currentNodeIndex, userContentLineStart, userContentLineEnd, userContentIndexStart, userContentIndexEnd);

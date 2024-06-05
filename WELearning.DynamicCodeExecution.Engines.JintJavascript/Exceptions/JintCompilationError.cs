@@ -9,6 +9,7 @@ public class JintCompilationError : CompilationError
     public JintCompilationError(ParserException parserException, int userContentLineStart, int userContentLineEnd, int userContentIndexStart, int userContentIndexEnd)
     {
         _parserException = parserException;
+        UnderlyingException = parserException;
         (int Line, int Column, int Index) = RecalculatePosition(
             parserException.LineNumber, parserException.Column, parserException.Index,
             userContentLineStart, userContentLineEnd, userContentIndexStart, userContentIndexEnd);

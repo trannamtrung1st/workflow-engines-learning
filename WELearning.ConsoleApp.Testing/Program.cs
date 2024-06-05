@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using WELearning.ConsoleApp.Testing.CompositeBlocks;
+using WELearning.ConsoleApp.Testing.Entities;
 using WELearning.ConsoleApp.Testing.ValueObjects;
 using WELearning.Core.FunctionBlocks;
 using WELearning.Core.FunctionBlocks.Abstracts;
@@ -383,6 +384,8 @@ static class TestFunctionBlocks
         ICompositeEC CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory);
         IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFramework>(block: new(blockDef.Id), blockDef, functionRunner, blockFrameworkFactory);
 
+        await RunObjectAndFunctions(blockRunner, CreateControl: () => CreateCompositeControl(ObjectAndFunctionsCFB.Build()), runTokens: tokensProvider());
+
         await RunLogAndDebug(blockRunner, CreateControl: CreateCompositeControl, tokensProvider);
 
         Console.WriteLine("DelayJS {0} ms", DelayMs);
@@ -463,6 +466,23 @@ static class TestFunctionBlocks
         await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
 
         var finalResult = execControl.GetOutput("Result");
+        Console.WriteLine(finalResult);
+    }
+
+    public static async Task RunObjectAndFunctions(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, RunTokens runTokens)
+    {
+        var bindings = new HashSet<VariableBinding>();
+        bindings.Add(new(variableName: "Input", value: new
+        {
+            X = 5,
+            Y = 1,
+            Z = new EntryEntity("Name", "Trung")
+        }, type: EBindingType.Input));
+        var execControl = CreateControl();
+        var runRequest = new RunBlockRequest(bindings, runTokens);
+        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
+
+        var finalResult = execControl.GetOutput("Output");
         Console.WriteLine(finalResult);
     }
 
