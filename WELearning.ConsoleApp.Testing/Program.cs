@@ -103,8 +103,8 @@ static class TestEngines
             typeof(IExecutable<>).Namespace
         };
         const int FirstLoop = 1;
-        // const int SecondLoop = 100_000;
-        const int SecondLoop = 1_000_000;
+        const int SecondLoop = 100_000;
+        // const int SecondLoop = 1_000_000; // [NOTE] high memory usage
 
         var sw = Stopwatch.StartNew();
         await LoopCSharpCompiled(FirstLoop, csCompiledEngine, imports: imports, assemblies: compiledAssemblies, runTokens: tokensProvider());
