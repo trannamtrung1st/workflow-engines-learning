@@ -4,7 +4,7 @@ using WELearning.Core.FunctionBlocks.Models.Runtime;
 
 namespace WELearning.Core.FunctionBlocks.Abstracts;
 
-public interface IExecutionControl
+public interface IExecutionControl : IDisposable
 {
     event EventHandler Running;
     event EventHandler<Exception> Failed;

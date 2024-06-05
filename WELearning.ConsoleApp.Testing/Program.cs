@@ -333,7 +333,7 @@ static class TestFunctionBlocks
         var reportEntry = dataStore.GetEntry("Report");
         var finalReportEntry = dataStore.GetEntry("FinalReport");
         var bindings = new HashSet<VariableBinding>();
-        var execControl = CreateControl();
+        using var execControl = CreateControl();
 
         var iTemp = execControl.GetVariable("Temperature", EVariableType.Input);
         var iHumidity = execControl.GetVariable("Humidity", EVariableType.Input);
@@ -367,7 +367,7 @@ static class TestFunctionBlocks
         var bindings = new HashSet<VariableBinding>();
         bindings.Add(new(variableName: "Add1X", value: 5, type: EBindingType.Input));
         bindings.Add(new(variableName: "Add1Y", value: 10, type: EBindingType.Input));
-        var execControl = CreateControl();
+        using var execControl = CreateControl();
         var runRequest = new RunBlockRequest(bindings, runTokens);
         await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
 
@@ -428,34 +428,34 @@ static class TestFunctionBlocks
         IBlockRunner blockRunner, Func<IExecutionControl> CreateControl,
         int delayMs, RunTokens runTokens)
     {
-        var control = CreateControl();
+        using var execControl = CreateControl();
         var bindings = new VariableBinding[] { new("Ms", delayMs, type: EBindingType.Input) };
         var runRequest = new RunBlockRequest(bindings, runTokens, triggerEvent: null);
-        await blockRunner.RunAndWait(runRequest, control, optimizationScopeId: default);
-        Console.WriteLine(string.Join(Environment.NewLine, control.Result.OutputEvents));
+        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
+        Console.WriteLine(string.Join(Environment.NewLine, execControl.Result.OutputEvents));
     }
 
     public static async Task RunBlockRandomDouble(
         IBlockRunner blockRunner, Func<IExecutionControl> CreateControl,
         RunTokens runTokens)
     {
-        var control = CreateControl();
+        using var execControl = CreateControl();
         var runRequest = new RunBlockRequest(bindings: Array.Empty<VariableBinding>(), runTokens, triggerEvent: null);
-        await blockRunner.RunAndWait(runRequest, control, optimizationScopeId: default);
-        Console.WriteLine(string.Join(Environment.NewLine, control.Result.OutputEvents));
-        Console.WriteLine(control.GetOutput("Result"));
+        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
+        Console.WriteLine(string.Join(Environment.NewLine, execControl.Result.OutputEvents));
+        Console.WriteLine(execControl.GetOutput("Result"));
     }
 
     public static async Task RunBlockFactorial(
         IBlockRunner blockRunner, Func<IExecutionControl> CreateControl,
         RunTokens runTokens)
     {
-        var control = CreateControl();
+        using var execControl = CreateControl();
         var bindings = new VariableBinding[] { new("N", 5, type: EBindingType.Input) };
         var runRequest = new RunBlockRequest(bindings, runTokens, triggerEvent: null);
-        await blockRunner.RunAndWait(runRequest, control, optimizationScopeId: default);
-        Console.WriteLine(string.Join(Environment.NewLine, control.Result.OutputEvents));
-        Console.WriteLine(control.GetOutput("Result"));
+        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
+        Console.WriteLine(string.Join(Environment.NewLine, execControl.Result.OutputEvents));
+        Console.WriteLine(execControl.GetOutput("Result"));
     }
 
     public static async Task RunRectangleArea(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, RunTokens runTokens)
@@ -463,7 +463,7 @@ static class TestFunctionBlocks
         var bindings = new HashSet<VariableBinding>();
         bindings.Add(new(variableName: "Length", value: 5, type: EBindingType.Input));
         bindings.Add(new(variableName: "Width", value: 2, type: EBindingType.Input));
-        var execControl = CreateControl();
+        using var execControl = CreateControl();
         var runRequest = new RunBlockRequest(bindings, runTokens);
         await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
 
@@ -480,7 +480,7 @@ static class TestFunctionBlocks
             Y = 1,
             Z = new EntryEntity("Name", "Trung")
         }, type: EBindingType.Input));
-        var execControl = CreateControl();
+        using var execControl = CreateControl();
         var runRequest = new RunBlockRequest(bindings, runTokens);
         await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
 
@@ -555,17 +555,17 @@ Original content (error located):
         }
 
         {
-            var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.CompilationErrorJs));
+            using var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.CompilationErrorJs));
             execControl.Failed += LogFailure;
             await TryRunBlock(execControl);
         }
         {
-            var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.RuntimeExceptionJs));
+            using var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.RuntimeExceptionJs));
             execControl.Failed += LogFailure;
             await TryRunBlock(execControl);
         }
         {
-            var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.RuntimeExceptionJsFromCs));
+            using var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.RuntimeExceptionJsFromCs));
             execControl.Failed += LogFailure;
             await TryRunBlock(execControl);
         }
@@ -605,7 +605,7 @@ Original content (error located):
                 bMultiplyDef: PredefinedBFBs.MultiplyJs,
                 bRandomDef: PredefinedBFBs.RandomJs,
                 bDelayDef: PredefinedBFBs.DelayInfiniteJs);
-            var execControl = CreateControl(jsCFB);
+            using var execControl = CreateControl(jsCFB);
             execControl.Running += (o, e) => LogBlockActivity(o);
             execControl.Completed += (o, e) => LogBlockActivity(o);
             execControl.Failed += (o, e) => LogBlockActivity(o);
@@ -629,7 +629,7 @@ Original content (error located):
         var bindings = new HashSet<VariableBinding>();
         bindings.Add(new(variableName: "Length", value: 5, type: EBindingType.Input));
         bindings.Add(new(variableName: "Width", value: 2, type: EBindingType.Input));
-        var execControl = CreateControl();
+        using var execControl = CreateControl();
         var runRequest = new RunBlockRequest(bindings, runTokens);
         await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
 
@@ -641,7 +641,7 @@ Original content (error located):
     {
         var bindings = new HashSet<VariableBinding>();
         bindings.Add(new(variableName: "N", value: 1000, type: EBindingType.Input));
-        var execControl = CreateControl();
+        using var execControl = CreateControl();
         var runRequest = new RunBlockRequest(bindings, runTokens);
         await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
 
@@ -657,7 +657,7 @@ Original content (error located):
         bindings.Add(new(variableName: "Add1Y", value: 2, type: EBindingType.Input));
         bindings.Add(new(variableName: "Add2X", value: 3, type: EBindingType.Input));
         bindings.Add(new(variableName: "Add2Y", value: 4, type: EBindingType.Input));
-        var execControl = CreateControl();
+        using var execControl = CreateControl();
         var runRequest = new RunBlockRequest(bindings, runTokens);
         await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
 
