@@ -39,8 +39,7 @@ var serviceCollection = new ServiceCollection()
     .AddCSharpCompiledEngine()
     .AddCSharpScriptEngine()
     // For JS engines, first found engine will be used
-    .AddJintJavascriptEngine(options => options.LibraryFolderPath = LibraryFolderPath)
-    .AddV8JavascriptEngine(options => options.LibraryFolderPath = LibraryFolderPath);
+    .AddJintJavascriptEngine(options => options.LibraryFolderPath = LibraryFolderPath);
 
 using var rootServiceProvider = serviceCollection.BuildServiceProvider();
 var terminationCts = new CancellationTokenSource();
@@ -52,11 +51,9 @@ var tokensProvider = () =>
 
 async Task ExecuteWithScope(Func<IServiceProvider, Task> func)
 {
-    using (var scope = rootServiceProvider.CreateScope())
-    {
-        var serviceProvider = scope.ServiceProvider;
-        await func(serviceProvider);
-    }
+    using var scope = rootServiceProvider.CreateScope();
+    var serviceProvider = scope.ServiceProvider;
+    await func(serviceProvider);
 }
 
 await StartInputThread(terminationCts);
@@ -84,7 +81,7 @@ static class TestEngines
     public static async Task BenchmarkLoops(IServiceProvider serviceProvider, Func<RunTokens> tokensProvider)
     {
         Console.WriteLine("=== Benchmark loops ===");
-        var runtimeEngineFactory = serviceProvider.GetService<IRuntimeEngineFactory>();
+        var runtimeEngineFactory = serviceProvider.GetRequiredService<IRuntimeEngineFactory>();
         var csCompiledEngine = runtimeEngineFactory.CreateEngine(ERuntime.CSharpCompiled);
         var csScriptEngine = runtimeEngineFactory.CreateEngine(ERuntime.CSharpScript);
         var jsEngine = runtimeEngineFactory.CreateEngine(ERuntime.Javascript);
@@ -127,7 +124,7 @@ static class TestEngines
 
     public static async Task Run(IServiceProvider serviceProvider, Func<RunTokens> tokensProvider)
     {
-        var runtimeEngineFactory = serviceProvider.GetService<IRuntimeEngineFactory>();
+        var runtimeEngineFactory = serviceProvider.GetRequiredService<IRuntimeEngineFactory>();
         // await TestV8Lib(runtimeEngineFactory, runTokens: tokensProvider());
         await TestJintLib(runtimeEngineFactory, runTokens: tokensProvider());
     }
@@ -243,11 +240,11 @@ static class TestFunctionBlocks
         const int FirstLoop = 1;
         const int SecondLoop = 300;
         const int ThirdLoop = 700;
-        var blockRunner = serviceProvider.GetService<IBlockRunner>();
-        var engineFactory = serviceProvider.GetService<IRuntimeEngineFactory>();
-        var functionRunner = serviceProvider.GetService<IFunctionRunner>();
-        var blockFrameworkFactory = serviceProvider.GetService<IBlockFrameworkFactory>();
-        var functionFramework = serviceProvider.GetService<AppFunctionFramework>();
+        var blockRunner = serviceProvider.GetRequiredService<IBlockRunner>();
+        var engineFactory = serviceProvider.GetRequiredService<IRuntimeEngineFactory>();
+        var functionRunner = serviceProvider.GetRequiredService<IFunctionRunner>();
+        var blockFrameworkFactory = serviceProvider.GetRequiredService<IBlockFrameworkFactory>();
+        var functionFramework = serviceProvider.GetRequiredService<AppFunctionFramework>();
         var jsEngine = engineFactory.CreateEngine(ERuntime.Javascript);
         var jsEngineName = jsEngine.GetType().Name;
         var csCompiledCFB = ComplexCFB.Build(
@@ -393,11 +390,11 @@ static class TestFunctionBlocks
 
     public static async Task Run(IServiceProvider serviceProvider, Func<RunTokens> tokensProvider)
     {
-        var blockRunner = serviceProvider.GetService<IBlockRunner>();
-        var engineFactory = serviceProvider.GetService<IRuntimeEngineFactory>();
-        var functionRunner = serviceProvider.GetService<IFunctionRunner>();
-        var blockFrameworkFactory = serviceProvider.GetService<IBlockFrameworkFactory>();
-        var functionFramework = serviceProvider.GetService<AppFunctionFramework>();
+        var blockRunner = serviceProvider.GetRequiredService<IBlockRunner>();
+        var engineFactory = serviceProvider.GetRequiredService<IRuntimeEngineFactory>();
+        var functionRunner = serviceProvider.GetRequiredService<IFunctionRunner>();
+        var blockFrameworkFactory = serviceProvider.GetRequiredService<IBlockFrameworkFactory>();
+        var functionFramework = serviceProvider.GetRequiredService<AppFunctionFramework>();
         const int DelayMs = 5000;
         ICompositeEC CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFramework);
         IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFunctionFramework>(block: new(blockDef.Id), blockDef, functionRunner, blockFrameworkFactory, functionFramework);
