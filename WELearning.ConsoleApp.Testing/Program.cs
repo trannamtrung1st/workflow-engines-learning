@@ -43,8 +43,6 @@ var serviceCollection = new ServiceCollection()
     .AddV8JavascriptEngine(options => options.LibraryFolderPath = LibraryFolderPath);
 
 using var rootServiceProvider = serviceCollection.BuildServiceProvider();
-using var scope = rootServiceProvider.CreateScope();
-var serviceProvider = scope.ServiceProvider;
 var terminationCts = new CancellationTokenSource();
 var tokensProvider = () =>
 {
@@ -52,14 +50,32 @@ var tokensProvider = () =>
     return new RunTokens(timeout: timeoutToken, termination: terminationCts.Token);
 };
 
+async Task ExecuteWithScope(Func<IServiceProvider, Task> func)
+{
+    using (var scope = rootServiceProvider.CreateScope())
+    {
+        var serviceProvider = scope.ServiceProvider;
+        await func(serviceProvider);
+    }
+}
+
 await StartInputThread(terminationCts);
-await TestEngines.BenchmarkLoops(serviceProvider, tokensProvider);
+
+await ExecuteWithScope((serviceProvider) =>
+    TestEngines.BenchmarkLoops(serviceProvider, tokensProvider));
 Console.WriteLine();
-await TestFunctionBlocks.BenchmarkComplexCFB(serviceProvider, tokensProvider);
+
+await ExecuteWithScope((serviceProvider) =>
+    TestFunctionBlocks.BenchmarkComplexCFB(serviceProvider, tokensProvider));
 Console.WriteLine();
-await TestEngines.Run(serviceProvider, tokensProvider);
+
+await ExecuteWithScope((serviceProvider) =>
+    TestEngines.Run(serviceProvider, tokensProvider));
 Console.WriteLine();
-await TestFunctionBlocks.Run(serviceProvider, tokensProvider);
+
+await ExecuteWithScope((serviceProvider) =>
+    TestFunctionBlocks.Run(serviceProvider, tokensProvider));
+Console.WriteLine();
 
 // === Definitions ===
 
