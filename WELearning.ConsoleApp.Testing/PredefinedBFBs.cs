@@ -190,11 +190,11 @@ static class PredefinedBFBs
             var y = IN[""Y""].AsDouble();
             var result = x * y;
             await OUT[""Result""].Write(result);
-            await Publish(""Completed"");
+            await PUBLISH(""Completed"");
             ",
             handleInvalidScript: @$"
             FB.LogWarning(""Invalid arguments X, Y"");
-            await Publish(""Completed"");
+            await PUBLISH(""Completed"");
             ",
             invalidConditionScript: @$"
             var x = IN[""X""]; var y = IN[""Y""];
@@ -213,11 +213,11 @@ static class PredefinedBFBs
             var y = IN[""Y""].AsDouble();
             var result = x * y;
             await OUT[""Result""].Write(result);
-            await Publish(""Completed"");
+            await PUBLISH(""Completed"");
             "),
             handleInvalidScript: BaseCompiledFunction<AppFunctionFramework>.WrapScript(@$"
             FB.LogWarning(""Invalid arguments X, Y"");
-            await Publish(""Completed"");
+            await PUBLISH(""Completed"");
             "),
             invalidConditionScript: BaseCompiledFunction<bool, AppFunctionFramework>.WrapScript(@$"
             var x = IN[""X""]; var y = IN[""Y""];
@@ -233,11 +233,11 @@ static class PredefinedBFBs
             runtime: ERuntime.Javascript,
             multiplyScript: @$"
             Result = X * Y;
-            await Publish('Completed');
+            await PUBLISH('Completed');
             ",
             handleInvalidScript: @$"
             FB.LogWarning(""Invalid arguments X, Y"");
-            await Publish('Completed');
+            await PUBLISH('Completed');
             ",
             invalidConditionScript: @$"
             const x = IN.X; const y = IN.Y;
@@ -333,7 +333,7 @@ static class PredefinedBFBs
             ",
             handleInvalidScript: @$"
             FB.LogWarning(""Invalid arguments X, Y"");
-            await Publish(""Completed"");
+            await PUBLISH(""Completed"");
             ",
             invalidConditionScript: @$"
             var x = IN[""X""]; var y = IN[""Y""];
@@ -355,7 +355,7 @@ static class PredefinedBFBs
             "),
             handleInvalidScript: BaseCompiledFunction<AppFunctionFramework>.WrapScript(@$"
             FB.LogWarning(""Invalid arguments X, Y"");
-            await Publish(""Completed"");
+            await PUBLISH(""Completed"");
             "),
             invalidConditionScript: BaseCompiledFunction<bool, AppFunctionFramework>.WrapScript(@$"
             var x = IN[""X""]; var y = IN[""Y""];
@@ -461,7 +461,7 @@ static class PredefinedBFBs
             randomScript: @$"
             var result = FB.NextRandomDouble();
             await OUT[""Result""].Write(result);
-            await Publish(""Completed"");
+            await PUBLISH(""Completed"");
             ",
             imports: null, assemblies: DefaultCsScriptAssemblies
         );
@@ -474,7 +474,7 @@ static class PredefinedBFBs
             randomScript: BaseCompiledFunction<AppFunctionFramework>.WrapScript(@$"
             var result = FB.NextRandomDouble();
             await OUT[""Result""].Write(result);
-            await Publish(""Completed"");
+            await PUBLISH(""Completed"");
             "),
             imports: DefaultCsCompiledImports, assemblies: DefaultCsCompiledAssemblies
         );
@@ -486,7 +486,7 @@ static class PredefinedBFBs
             runtime: ERuntime.Javascript,
             randomScript: @$"
             Result = FB.NextRandomDouble();
-            await Publish('Completed');
+            await PUBLISH('Completed');
             ",
             imports: null, assemblies: null
         );
@@ -548,7 +548,7 @@ static class PredefinedBFBs
             delayScript: @$"
             var ms = IN[""Ms""].AsInt();
             await FB.DelayAsync(ms);
-            await Publish(""Completed"");
+            await PUBLISH(""Completed"");
             ",
             imports: null, assemblies: DefaultCsScriptAssemblies
         );
@@ -561,7 +561,7 @@ static class PredefinedBFBs
             delayScript: BaseCompiledFunction<AppFunctionFramework>.WrapScript(@$"
             var ms = IN[""Ms""].AsInt();
             await FB.DelayAsync(ms);
-            await Publish(""Completed"");
+            await PUBLISH(""Completed"");
             "),
             imports: DefaultCsCompiledImports, assemblies: DefaultCsCompiledAssemblies
         );
@@ -573,7 +573,7 @@ static class PredefinedBFBs
             runtime: ERuntime.Javascript,
             delayScript: @$"
             FB.Delay(Ms);
-            await Publish('Completed');
+            await PUBLISH('Completed');
             ",
             imports: null, assemblies: null
         );
@@ -733,7 +733,7 @@ static class PredefinedBFBs
             content: @$"
             var state = (int[])INTERNAL[""State""].Value;
             await OUT[""Result""].Write(state[1]);                
-            await Publish(""{eCompleted.Name}"");
+            await PUBLISH(""{eCompleted.Name}"");
             ",
             runtime: ERuntime.CSharpScript,
             imports: null, assemblies: assemblies, types: null);

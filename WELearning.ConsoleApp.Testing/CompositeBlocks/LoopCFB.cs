@@ -161,9 +161,9 @@ public static class LoopCFB
             var n = IN[""N""].AsInt();
             FB.Log(""Loop: N is"", n);
             if (n > 0) 
-                await Publish(""Loop"");
+                await PUBLISH(""Loop"");
             else 
-                await Publish(""Completed"");
+                await PUBLISH(""Completed"");
             ",
             runtime: ERuntime.CSharpScript,
             imports: null, assemblies: assemblies, types: null);
@@ -174,9 +174,9 @@ public static class LoopCFB
             var currentResult = IN[""Result""].AsInt();
             var n = IN[""N""].AsInt();
             if (currentResult < n) 
-                await Publish(""Loop"");
+                await PUBLISH(""Loop"");
             else 
-                await Publish(""Completed"");
+                await PUBLISH(""Completed"");
             ",
             runtime: ERuntime.CSharpScript,
             imports: null, assemblies: assemblies, types: null);

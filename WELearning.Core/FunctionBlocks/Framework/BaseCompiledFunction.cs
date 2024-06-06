@@ -11,7 +11,7 @@ public abstract class BaseCompiledFunction<TBlockFramework> : IExecutable<object
     public IReadOnlyDictionary<string, IWriteBinding> OUT;
     public IReadOnlyDictionary<string, IReadWriteBinding> INOUT;
     public IReadOnlyDictionary<string, IReadWriteBinding> INTERNAL;
-    public Func<string, Task> Publish;
+    public Func<string, Task> PUBLISH;
 
     public Task<object> Execute(BlockGlobalObject<TBlockFramework> global, CancellationToken cancellationToken)
     {
@@ -20,7 +20,7 @@ public abstract class BaseCompiledFunction<TBlockFramework> : IExecutable<object
         OUT = global.OUT;
         INOUT = global.INOUT;
         INTERNAL = global.INTERNAL;
-        Publish = global.Publish;
+        PUBLISH = global.PUBLISH;
         return Handle(cancellationToken);
     }
 
@@ -48,7 +48,7 @@ public abstract class BaseCompiledFunction<TReturn, TBlockFramework> : IExecutab
     public IReadOnlyDictionary<string, IWriteBinding> OUT;
     public IReadOnlyDictionary<string, IReadWriteBinding> INOUT;
     public IReadOnlyDictionary<string, IReadWriteBinding> INTERNAL;
-    public Func<string, Task> Publish;
+    public Func<string, Task> PUBLISH;
 
     public Task<TReturn> Execute(BlockGlobalObject<TBlockFramework> global, CancellationToken cancellationToken)
     {
@@ -57,7 +57,7 @@ public abstract class BaseCompiledFunction<TReturn, TBlockFramework> : IExecutab
         OUT = global.OUT;
         INOUT = global.INOUT;
         INTERNAL = global.INTERNAL;
-        Publish = global.Publish;
+        PUBLISH = global.PUBLISH;
         return Handle(cancellationToken);
     }
 

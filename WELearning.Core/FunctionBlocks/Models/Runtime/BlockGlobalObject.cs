@@ -6,14 +6,14 @@ public class BlockGlobalObject<TFunctionFramework>
 {
     public BlockGlobalObject(TFunctionFramework framework,
         IBlockFramework blockFramework,
-        Func<string, Task> publish)
+        Func<string, Task> publishFunc)
     {
         FB = framework;
         IN = blockFramework.InputBindings;
         OUT = blockFramework.OutputBindings;
         INOUT = blockFramework.InOutBindings;
         INTERNAL = blockFramework.InternalBindings;
-        Publish = publish;
+        PUBLISH = publishFunc;
     }
 
     public TFunctionFramework FB { get; }
@@ -21,5 +21,5 @@ public class BlockGlobalObject<TFunctionFramework>
     public IReadOnlyDictionary<string, IWriteBinding> OUT { get; }
     public IReadOnlyDictionary<string, IReadWriteBinding> INOUT { get; }
     public IReadOnlyDictionary<string, IReadWriteBinding> INTERNAL { get; }
-    public Func<string, Task> Publish { get; }
+    public Func<string, Task> PUBLISH { get; }
 }

@@ -181,13 +181,13 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
     }
 
     protected virtual (List<(string, object)> FlattenArguments, List<string> FlattenOutputs) PrepareArguments(
-        IBlockFramework blockFramework, Func<string, Task> Publish)
+        IBlockFramework blockFramework, Func<string, Task> publishFunc)
     {
         var flattenVars = new HashSet<string>();
         var flattenArguments = new List<(string, object)>
         {
             (BuiltInVariables.FB, _functionFramework),
-            (BuiltInVariables.Publish, Publish),
+            (BuiltInVariables.PUBLISH, publishFunc),
             (BuiltInVariables.IN, blockFramework.InputBindings),
             (BuiltInVariables.OUT, blockFramework.OutputBindings),
             (BuiltInVariables.INOUT, blockFramework.InOutBindings),
