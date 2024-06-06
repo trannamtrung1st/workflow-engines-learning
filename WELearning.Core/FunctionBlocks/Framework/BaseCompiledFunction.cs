@@ -7,11 +7,11 @@ namespace WELearning.Core.FunctionBlocks.Framework;
 public abstract class BaseCompiledFunction<TBlockFramework> : IExecutable<object, BlockGlobalObject<TBlockFramework>>
 {
     protected TBlockFramework FB;
-    public IReadOnlyDictionary<string, IReadBinding> IN;
-    public IReadOnlyDictionary<string, IWriteBinding> OUT;
-    public IReadOnlyDictionary<string, IReadWriteBinding> INOUT;
-    public IReadOnlyDictionary<string, IReadWriteBinding> INTERNAL;
-    public Func<string, Task> PUBLISH;
+    protected IReadOnlyDictionary<string, IReadBinding> IN;
+    protected IReadOnlyDictionary<string, IWriteBinding> OUT;
+    protected IReadOnlyDictionary<string, IReadWriteBinding> INOUT;
+    protected IReadOnlyDictionary<string, IReadWriteBinding> INTERNAL;
+    protected IOutputEventPublisher EVENTS;
 
     public Task<object> Execute(BlockGlobalObject<TBlockFramework> global, CancellationToken cancellationToken)
     {
@@ -20,7 +20,7 @@ public abstract class BaseCompiledFunction<TBlockFramework> : IExecutable<object
         OUT = global.OUT;
         INOUT = global.INOUT;
         INTERNAL = global.INTERNAL;
-        PUBLISH = global.PUBLISH;
+        EVENTS = global.EVENTS;
         return Handle(cancellationToken);
     }
 
@@ -44,11 +44,11 @@ public class Function : BaseCompiledFunction<{frameworkTypeName}>
 public abstract class BaseCompiledFunction<TReturn, TBlockFramework> : IExecutable<TReturn, BlockGlobalObject<TBlockFramework>>
 {
     protected TBlockFramework FB;
-    public IReadOnlyDictionary<string, IReadBinding> IN;
-    public IReadOnlyDictionary<string, IWriteBinding> OUT;
-    public IReadOnlyDictionary<string, IReadWriteBinding> INOUT;
-    public IReadOnlyDictionary<string, IReadWriteBinding> INTERNAL;
-    public Func<string, Task> PUBLISH;
+    protected IReadOnlyDictionary<string, IReadBinding> IN;
+    protected IReadOnlyDictionary<string, IWriteBinding> OUT;
+    protected IReadOnlyDictionary<string, IReadWriteBinding> INOUT;
+    protected IReadOnlyDictionary<string, IReadWriteBinding> INTERNAL;
+    protected IOutputEventPublisher EVENTS;
 
     public Task<TReturn> Execute(BlockGlobalObject<TBlockFramework> global, CancellationToken cancellationToken)
     {
@@ -57,7 +57,7 @@ public abstract class BaseCompiledFunction<TReturn, TBlockFramework> : IExecutab
         OUT = global.OUT;
         INOUT = global.INOUT;
         INTERNAL = global.INTERNAL;
-        PUBLISH = global.PUBLISH;
+        EVENTS = global.EVENTS;
         return Handle(cancellationToken);
     }
 

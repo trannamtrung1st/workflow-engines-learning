@@ -83,4 +83,21 @@ public class BlockFramework : IBlockFramework
 
     protected virtual IReadWriteBinding Internal(string name)
         => _internalBindings.GetOrAdd(name, (key) => new InternalBinding(key, valueObject: _control.GetInternalData(name)));
+
+    public IOutputEventPublisher CreateEventPublisher(HashSet<string> outputEvents) => new SimpleEventPublisher(outputEvents);
+
+    class SimpleEventPublisher : IOutputEventPublisher
+    {
+        private readonly HashSet<string> _outputEvents;
+        public SimpleEventPublisher(HashSet<string> outputEvents)
+        {
+            _outputEvents = outputEvents;
+        }
+
+        public Task Publish(string @event)
+        {
+            _outputEvents.Add(@event);
+            return Task.CompletedTask;
+        }
+    }
 }

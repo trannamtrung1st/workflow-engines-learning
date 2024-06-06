@@ -102,10 +102,10 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
         string triggerEvent, HashSet<IDisposable> optimizationScopes, Guid optimizationScopeId)
     {
         var outputEvents = new HashSet<string>();
-        Task Publish(string @event) { outputEvents.Add(@event); return Task.CompletedTask; }
         var blockFramework = _blockFrameworkFactory.Create(this);
-        var (flattenArguments, flattenOutputs) = PrepareArguments(blockFramework, Publish);
-        var globalObject = new BlockGlobalObject<TFunctionFramework>(_functionFramework, blockFramework, Publish);
+        var publisher = blockFramework.CreateEventPublisher(outputEvents);
+        var (flattenArguments, flattenOutputs) = PrepareArguments(blockFramework, publisher);
+        var globalObject = new BlockGlobalObject<TFunctionFramework>(_functionFramework, blockFramework, publisher);
 
         async Task<bool> Evaluate(Function condition)
         {
@@ -181,13 +181,13 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
     }
 
     protected virtual (List<(string, object)> FlattenArguments, List<string> FlattenOutputs) PrepareArguments(
-        IBlockFramework blockFramework, Func<string, Task> publishFunc)
+        IBlockFramework blockFramework, IOutputEventPublisher publisher)
     {
         var flattenVars = new HashSet<string>();
         var flattenArguments = new List<(string, object)>
         {
             (BuiltInVariables.FB, _functionFramework),
-            (BuiltInVariables.PUBLISH, publishFunc),
+            (BuiltInVariables.EVENTS, publisher),
             (BuiltInVariables.IN, blockFramework.InputBindings),
             (BuiltInVariables.OUT, blockFramework.OutputBindings),
             (BuiltInVariables.INOUT, blockFramework.InOutBindings),
@@ -217,5 +217,4 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
         }
         return (flattenArguments, flattenOutputs);
     }
-
 }
