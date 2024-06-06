@@ -250,17 +250,17 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         JsValue result = null;
         var currentThread = Thread.CurrentThread;
 
-        Action HandleTokensCanceled(Exception ex) => () =>
+        Action HandleTokensCanceled(Func<Exception> exceptionProvider) => () =>
         {
-            lock (tcs) { tcs.TrySetException(ex); }
+            lock (tcs) { tcs.TrySetException(exceptionProvider()); }
             currentThread.Interrupt();
             engineWrap.MaxStatementsConstraint.MaxStatements = 0; // [NOTE] terminate CPU bound logic
         };
 
         try
         {
-            tokens.Timeout.Register(HandleTokensCanceled(new TimeoutException("Execution timed out!")));
-            tokens.Termination.Register(HandleTokensCanceled(new TerminationException("Received termination request!")));
+            using var timeoutReg = tokens.Timeout.Register(HandleTokensCanceled(exceptionProvider: () => new TimeoutException("Execution timed out!")));
+            using var terminationReg = tokens.Termination.Register(HandleTokensCanceled(exceptionProvider: () => new TerminationException("Received termination request!")));
             result = exportedFunction.Call(arguments: arguments);
             lock (tcs) { tcs.TrySetResult(result); }
         }

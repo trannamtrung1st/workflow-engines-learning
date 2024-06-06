@@ -74,18 +74,14 @@ public class InMemoryLockManager : IInMemoryLockManager, IDistributedLockManager
     class LockObject : ILock
     {
         private static readonly TimeSpan DefaultExpiry = TimeSpan.FromSeconds(30);
-        private readonly Func<CancellationTokenSource> _expiryCtsProvider;
-        private CancellationTokenSource _currentCts;
         private readonly Action<LockObject> _onRelease;
+        private readonly TimeSpan _expiry;
+        private CancellationTokenSource _currentExpiryCts;
+        private CancellationTokenRegistration _currentReg;
 
         public LockObject(string key, Action<LockObject> onRelease, TimeSpan? expiry = null)
         {
-            _expiryCtsProvider = () =>
-            {
-                var cts = new CancellationTokenSource(expiry ?? DefaultExpiry);
-                cts.Token.Register(Release);
-                return cts;
-            };
+            _expiry = expiry ?? DefaultExpiry;
             _onRelease = onRelease;
             Key = key;
             ActiveCount = 0;
@@ -102,21 +98,33 @@ public class InMemoryLockManager : IInMemoryLockManager, IDistributedLockManager
 
         public void SetAcquired()
         {
-            _currentCts = _expiryCtsProvider();
+            SetExpiryInterval();
             ReadyEvent.Reset();
         }
 
         public void SetReady()
         {
-            _currentCts?.Dispose();
-            _currentCts = null;
+            _currentExpiryCts?.Dispose();
+            _currentReg.Dispose();
+            _currentExpiryCts = null;
+            _currentReg = default;
             ReadyEvent.Set();
         }
 
         public void HandleLockRemoved()
         {
-            _currentCts?.Dispose();
+            _currentExpiryCts?.Dispose();
+            _currentReg.Dispose();
             ReadyEvent.Dispose();
+        }
+
+        private void SetExpiryInterval()
+        {
+            _currentExpiryCts = new CancellationTokenSource(_expiry);
+            _currentReg = _currentExpiryCts.Token.Register(() =>
+            {
+                using (_currentExpiryCts) using (_currentReg) { Release(); }
+            });
         }
     }
 }

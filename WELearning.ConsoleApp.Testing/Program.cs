@@ -42,12 +42,8 @@ var serviceCollection = new ServiceCollection()
     .AddJintJavascriptEngine(options => options.LibraryFolderPath = LibraryFolderPath);
 
 using var rootServiceProvider = serviceCollection.BuildServiceProvider();
-var terminationCts = new CancellationTokenSource();
-var tokensProvider = () =>
-{
-    var timeoutToken = new CancellationTokenSource(TimeSpan.FromSeconds(30)).Token;
-    return new RunTokens(timeout: timeoutToken, termination: terminationCts.Token);
-};
+using var terminationCts = new CancellationTokenSource();
+var tokensProvider = () => new RunTokens(timeout: TimeSpan.FromSeconds(30), termination: terminationCts.Token);
 
 async Task ExecuteWithScope(Func<IServiceProvider, Task> func)
 {
@@ -104,21 +100,21 @@ static class TestEngines
         // const int SecondLoop = 1_000_000; // [NOTE] high memory usage
 
         var sw = Stopwatch.StartNew();
-        await LoopCSharpCompiled(FirstLoop, csCompiledEngine, imports: imports, assemblies: compiledAssemblies, runTokens: tokensProvider());
+        await LoopCSharpCompiled(FirstLoop, csCompiledEngine, imports: imports, assemblies: compiledAssemblies, tokensProvider);
         Console.WriteLine("C# compiled (1st): {0}", sw.ElapsedMilliseconds);
-        await LoopCSharpCompiled(SecondLoop, csCompiledEngine, imports: imports, assemblies: compiledAssemblies, runTokens: tokensProvider());
+        await LoopCSharpCompiled(SecondLoop, csCompiledEngine, imports: imports, assemblies: compiledAssemblies, tokensProvider);
         Console.WriteLine("C# compiled ({0}): {1}", SecondLoop, sw.ElapsedMilliseconds);
 
         sw.Restart();
-        await LoopCSharpScript(FirstLoop, csScriptEngine, runTokens: tokensProvider());
+        await LoopCSharpScript(FirstLoop, csScriptEngine, tokensProvider);
         Console.WriteLine("C# script (1st): {0}", sw.ElapsedMilliseconds);
-        await LoopCSharpScript(SecondLoop, csScriptEngine, runTokens: tokensProvider());
+        await LoopCSharpScript(SecondLoop, csScriptEngine, tokensProvider);
         Console.WriteLine("C# script ({0}): {1}", SecondLoop, sw.ElapsedMilliseconds);
 
         sw.Restart();
-        await LoopJavascript(FirstLoop, jsEngine, runTokens: tokensProvider());
+        await LoopJavascript(FirstLoop, jsEngine, tokensProvider);
         Console.WriteLine("{0} (1st): {1}", jsEngineName, sw.ElapsedMilliseconds);
-        await LoopJavascript(SecondLoop, jsEngine, runTokens: tokensProvider());
+        await LoopJavascript(SecondLoop, jsEngine, tokensProvider);
         Console.WriteLine("{0} ({1}): {2}", jsEngineName, SecondLoop, sw.ElapsedMilliseconds);
     }
 
@@ -129,10 +125,11 @@ static class TestEngines
         await TestJintLib(runtimeEngineFactory, runTokens: tokensProvider());
     }
 
-    public static async Task LoopCSharpCompiled(int n, IRuntimeEngine runtimeEngine, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, RunTokens runTokens)
+    public static async Task LoopCSharpCompiled(int n, IRuntimeEngine runtimeEngine, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, Func<RunTokens> tokensProvider)
     {
         for (var i = 0; i < n; i++)
         {
+            using var runTokens = tokensProvider();
             await runtimeEngine.Execute<int, LoopTestArgs>(
                 request: new(
                     content: @$"
@@ -146,26 +143,27 @@ static class TestEngines
                     arguments: new LoopTestArgs { X = i },
                     flattenArguments: null,
                     flattenOutputs: null,
-                    imports: imports, assemblies: assemblies, types: null, runTokens
+                    imports: imports, assemblies: assemblies, types: null, tokens: runTokens
                 ));
         }
     }
 
-    public static async Task LoopCSharpScript(int n, IRuntimeEngine runtimeEngine, RunTokens runTokens)
+    public static async Task LoopCSharpScript(int n, IRuntimeEngine runtimeEngine, Func<RunTokens> tokensProvider)
     {
         for (var i = 0; i < n; i++)
         {
+            using var runTokens = tokensProvider();
             await runtimeEngine.Execute<LoopTestArgs>(
                 request: new(
                     content: @$"X * 5", arguments: new LoopTestArgs { X = i },
                     flattenArguments: null,
                     flattenOutputs: null,
-                    imports: null, assemblies: null, types: null, runTokens
+                    imports: null, assemblies: null, types: null, tokens: runTokens
                 ));
         }
     }
 
-    public static async Task LoopJavascript(int n, IRuntimeEngine runtimeEngine, RunTokens runTokens)
+    public static async Task LoopJavascript(int n, IRuntimeEngine runtimeEngine, Func<RunTokens> tokensProvider)
     {
         IDisposable scope = null;
         Guid optimizationScopeId = Guid.NewGuid();
@@ -173,6 +171,7 @@ static class TestEngines
         {
             for (var i = 0; i < n; i++)
             {
+                var runTokens = tokensProvider();
                 scope = await runtimeEngine.Execute<LoopTestArgs>(
                     new(
                         content: @$"return X * 5",
@@ -180,7 +179,7 @@ static class TestEngines
                         flattenArguments: new (string, object)[] { ("X", i) },
                         flattenOutputs: null,
                         imports: null, assemblies: null, types: null,
-                        runTokens, optimizationScopeId
+                        tokens: runTokens, optimizationScopeId
                     ));
             }
         }
@@ -197,6 +196,7 @@ static class TestEngines
 
     public static async Task TestJintLib(IRuntimeEngineFactory engineFactory, RunTokens runTokens)
     {
+        using var _ = runTokens;
         var runtimeEngine = engineFactory.CreateEngine(runtime: ERuntime.Javascript);
         var result = await runtimeEngine.Execute<string, object>(
             request: new(
@@ -215,6 +215,7 @@ static class TestEngines
 
     public static async Task TestV8Lib(IRuntimeEngineFactory engineFactory, RunTokens runTokens)
     {
+        using var _ = runTokens;
         var runtimeEngine = engineFactory.CreateEngine(runtime: ERuntime.Javascript);
         var result = await runtimeEngine.Execute<string, object>(
             request: new(
@@ -340,6 +341,7 @@ static class TestFunctionBlocks
     public static async Task RunEntryReport(
         IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, RunTokens runTokens)
     {
+        using var _ = runTokens;
         var dataStore = new DataStore();
         var temperatureEntry = dataStore.GetEntry("Temperature");
         var humidityEntry = dataStore.GetEntry("Humidity");
@@ -377,6 +379,7 @@ static class TestFunctionBlocks
 
     public static async Task<double> RunComplexCFB(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, RunTokens runTokens)
     {
+        using var _ = runTokens;
         var bindings = new HashSet<VariableBinding>();
         bindings.Add(new(variableName: "Add1X", value: 5, type: EBindingType.Input));
         bindings.Add(new(variableName: "Add1Y", value: 10, type: EBindingType.Input));
@@ -441,6 +444,7 @@ static class TestFunctionBlocks
         IBlockRunner blockRunner, Func<IExecutionControl> CreateControl,
         int delayMs, RunTokens runTokens)
     {
+        using var _ = runTokens;
         using var execControl = CreateControl();
         var bindings = new VariableBinding[] { new("Ms", delayMs, type: EBindingType.Input) };
         var runRequest = new RunBlockRequest(bindings, runTokens, triggerEvent: null);
@@ -473,6 +477,7 @@ static class TestFunctionBlocks
 
     public static async Task RunRectangleArea(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, RunTokens runTokens)
     {
+        using var _ = runTokens;
         var bindings = new HashSet<VariableBinding>();
         bindings.Add(new(variableName: "Length", value: 5, type: EBindingType.Input));
         bindings.Add(new(variableName: "Width", value: 2, type: EBindingType.Input));
@@ -486,6 +491,7 @@ static class TestFunctionBlocks
 
     public static async Task RunObjectAndFunctions(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, RunTokens runTokens)
     {
+        using var _ = runTokens;
         var bindings = new HashSet<VariableBinding>();
         bindings.Add(new(variableName: "Input", value: new
         {
@@ -507,7 +513,8 @@ static class TestFunctionBlocks
         {
             try
             {
-                var runRequest = new RunBlockRequest(bindings: Array.Empty<VariableBinding>(), tokens: tokensProvider());
+                using var runTokens = tokensProvider();
+                var runRequest = new RunBlockRequest(bindings: Array.Empty<VariableBinding>(), tokens: runTokens);
                 await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
             }
             catch { }
@@ -628,7 +635,8 @@ Original content (error located):
 
             try
             {
-                var runRequest = new RunBlockRequest(bindings, tokens: tokensProvider());
+                using var runTokens = tokensProvider();
+                var runRequest = new RunBlockRequest(bindings, tokens: runTokens);
                 await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
                 var finalResult = execControl.GetOutput("Result");
                 Console.WriteLine("Complex CFB result: {0}", finalResult);
@@ -639,6 +647,7 @@ Original content (error located):
 
     public static async Task RunRectanglePerimeter(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, RunTokens runTokens)
     {
+        using var _ = runTokens;
         var bindings = new HashSet<VariableBinding>();
         bindings.Add(new(variableName: "Length", value: 5, type: EBindingType.Input));
         bindings.Add(new(variableName: "Width", value: 2, type: EBindingType.Input));
@@ -652,6 +661,7 @@ Original content (error located):
 
     public static async Task RunLoopCFB(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, RunTokens runTokens)
     {
+        using var _ = runTokens;
         var bindings = new HashSet<VariableBinding>();
         bindings.Add(new(variableName: "N", value: 1000, type: EBindingType.Input));
         using var execControl = CreateControl();
@@ -664,6 +674,7 @@ Original content (error located):
 
     public static async Task RunDependencyWait(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, RunTokens runTokens)
     {
+        using var _ = runTokens;
         var bindings = new HashSet<VariableBinding>();
         bindings.Add(new(variableName: "DelayMs", value: 3000, type: EBindingType.Input));
         bindings.Add(new(variableName: "Add1X", value: 1, type: EBindingType.Input));
