@@ -60,6 +60,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
         EnterOrThrow();
         var triggerEvent = GetTriggerOrDefault(request.TriggerEvent);
         HashSet<IDisposable> optimizationScopes = null;
+        optimizationScopeId ??= Guid.NewGuid();
         try
         {
             IEnumerable<string> outputEvents = Array.Empty<string>();
@@ -71,7 +72,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
             if (Definition.ExecutionControlChart != null)
             {
                 optimizationScopes = new HashSet<IDisposable>();
-                outputEvents = await TriggerStateMachine(triggerEvent, optimizationScopes, optimizationScopeId);
+                outputEvents = await TriggerStateMachine(triggerEvent, optimizationScopes, optimizationScopeId.Value);
             }
 
             var finalState = CurrentState;
@@ -98,9 +99,8 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
     }
 
     protected virtual async Task<IEnumerable<string>> TriggerStateMachine(
-        string triggerEvent, HashSet<IDisposable> optimizationScopes, Guid? optimizationScopeId)
+        string triggerEvent, HashSet<IDisposable> optimizationScopes, Guid optimizationScopeId)
     {
-        optimizationScopeId ??= Guid.NewGuid();
         var outputEvents = new HashSet<string>();
         Task Publish(string @event) { outputEvents.Add(@event); return Task.CompletedTask; }
         var blockFramework = _blockFrameworkFactory.Create(this);
@@ -114,7 +114,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
                 RunningFunction = condition;
                 var (result, optimizationScope) = await _functionRunner.Run<bool, TFunctionFramework>(
                     condition, globalObject: globalObject, flattenArguments, flattenOutputs,
-                    optimizationScopeId.Value, tokens: CurrentRunRequest.Tokens);
+                    optimizationScopeId, tokens: CurrentRunRequest.Tokens);
                 RunningFunction = null;
                 if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
                 return result;
@@ -130,7 +130,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
                 RunningFunction = actionFunction;
                 var optimizationScope = await _functionRunner.Run(
                     actionFunction, blockFramework, globalObject, flattenArguments, flattenOutputs,
-                    optimizationScopeId.Value, tokens: CurrentRunRequest.Tokens);
+                    optimizationScopeId, tokens: CurrentRunRequest.Tokens);
                 RunningFunction = null;
                 if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
             }
@@ -138,8 +138,8 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
             catch (RuntimeException ex) { throw new FunctionRuntimeException(ex, actionFunction); }
         }
 
-        var transition = await FindTransition(triggerEvent, Evaluate);
-        if (transition == null) throw new KeyNotFoundException($"Transition for event {triggerEvent} not found!");
+        var transition = await FindTransition(triggerEvent, Evaluate)
+            ?? throw new KeyNotFoundException($"Transition for event {triggerEvent} not found!");
 
         do
         {
