@@ -19,5 +19,5 @@ public abstract class EngineException : Exception
         return (originalLine, exColumn, exIndex - userContentIndexStart);
     }
 
-    public override string ToString() => UnderlyingException?.ToString() ?? ToString();
+    public override string ToString() => UnderlyingException?.ToString() ?? base.ToString();
 }

@@ -16,8 +16,9 @@ public class FunctionRuntimeException : Exception
 
     public void PrintError(string locator = "->")
     {
-        var left = Function.Content.Substring(0, Exception.Index);
-        var right = Function.Content.Substring(Exception.Index);
+        var exceptionIndex = Exception.Index == -1 ? 0 : Exception.Index;
+        var left = Function.Content.Substring(0, exceptionIndex);
+        var right = Function.Content.Substring(exceptionIndex);
         Console.Write(left);
         Console.ForegroundColor = ConsoleColor.Red;
         Console.Write(locator);

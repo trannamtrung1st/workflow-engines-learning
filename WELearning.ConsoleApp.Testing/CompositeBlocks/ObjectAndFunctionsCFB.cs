@@ -19,17 +19,15 @@ public static class ObjectAndFunctionsCFB
         cfb.Events = new[] { eTrigger, eCompleted };
         cfb.DefaultTriggerEvent = eTrigger.Name;
 
-        // [TODO] test exception
         var bAddDef = PredefinedBFBs.AddJs;
         var bRandomDef = PredefinedBFBs.RandomJs;
         var bCustomAddDef = PredefinedBFBs.CreateBlockSimple(
             id: "CustomAdd",
             name: "A custom add that reuses functions from other BFBs",
-            content: @$"
-                const addResult = Add2Numbers({{ X: Input.X, Y: Input.Y }}, {{ Result: null }});
-                const randomResult = Random(null, {{ Result: null }});
-                Result = addResult.Result + randomResult.Result;
-            ",
+            content:
+@$"const addResult = Add2Numbers({{ X: Input.X, Y: Input.Y }}, {{ Result: null }});
+const randomResult = Random(null, {{ Result: null }});
+Result = addResult.Result + randomResult.Result;",
             imports: new[] { $"import {{ Add2Numbers, Random }} from '{FunctionDefaults.ModuleFunctions}'" },
             importBlockIds: new[] { bAddDef.Id, bRandomDef.Id },
             new Variable("Input", dataType: EDataType.Object, variableType: EVariableType.Input),

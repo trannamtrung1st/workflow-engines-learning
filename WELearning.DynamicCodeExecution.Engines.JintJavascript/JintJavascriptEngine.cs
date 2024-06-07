@@ -59,7 +59,6 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             {
                 entry.SetSize(CacheSize);
                 entry.SetSlidingExpiration(DefaultSlidingExpiration);
-                content = AddImports(content, imports);
                 var preparedModule = Engine.PrepareModule(code: content, options: new ModulePreparationOptions
                 {
                     ParsingOptions = ModuleParsingOptions.Default
@@ -140,13 +139,13 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         return (engine, scope);
     }
 
-    private static string AddImports(string content, IEnumerable<string> imports)
+    private static string GetImportStatements(IEnumerable<string> imports)
     {
         var nl = Environment.NewLine;
         var importPart = string.Empty;
         if (imports?.Any() == true)
             importPart = string.Join(nl, imports) + nl;
-        return importPart + content;
+        return importPart;
     }
 
     public void Dispose()
@@ -208,7 +207,16 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             catch (PromiseRejectedException ex)
             {
                 throw new JintRuntimeException(ex,
-                    content: content,
+                    content: content, mainFunction: JsEngineConstants.ExportedFunctionName,
+                    userContentLineStart: lineStart,
+                    userContentLineEnd: lineEnd,
+                    userContentIndexStart: indexStart,
+                    userContentIndexEnd: indexEnd);
+            }
+            catch (JavaScriptException ex)
+            {
+                throw new JintRuntimeException(ex,
+                    content: content, mainFunction: JsEngineConstants.ExportedFunctionName,
                     userContentLineStart: lineStart,
                     userContentLineEnd: lineEnd,
                     userContentIndexStart: indexStart,
@@ -304,10 +312,13 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         var flattenOutputs = request.Outputs?.Keys.ToList();
         var flattenOutputsStr = GetOutputPreprocessingContent(flattenOutputs);
         var contentLineCount = request.Content.NewLineCount();
+        var importStatements = GetImportStatements(request.Imports);
+
         var contentInfo = request.UseRawContent
             ? (request.Content, 1, contentLineCount, 0, request.Content.Length - 1)
             : JavascriptHelper.WrapModuleFunction(
                 script: request.Content, request.Async,
+                topStatements: importStatements,
                 returnStatements: flattenOutputsStr,
                 flattenArguments: flattenArguments);
         return (contentInfo, values);

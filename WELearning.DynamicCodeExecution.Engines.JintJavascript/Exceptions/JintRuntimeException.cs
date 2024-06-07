@@ -8,21 +8,44 @@ namespace WELearning.DynamicCodeExecution.Engines.JintJavascript.Exceptions;
 
 public class JintRuntimeException : RuntimeException
 {
-    private readonly string _source;
-    public JintRuntimeException(PromiseRejectedException rejectedException, string content, int userContentLineStart, int userContentLineEnd, int userContentIndexStart, int userContentIndexEnd)
+    private string _source;
+
+    public JintRuntimeException(JavaScriptException jsException, string mainFunction, string content, int userContentLineStart, int userContentLineEnd, int userContentIndexStart, int userContentIndexEnd)
     {
-        _source = SourceUser;
+        var error = jsException.Error;
+        var stack = error.Get("stack").AsString();
+        var description = error.Get("message").AsString();
+        SetUserExceptionDetails(
+            underlyingException: jsException,
+            source: SourceUser,
+            stack: stack,
+            description: description,
+            content: content,
+            mainFunction: mainFunction,
+            userContentLineStart,
+            userContentLineEnd,
+            userContentIndexStart,
+            userContentIndexEnd
+        );
+    }
+
+    public JintRuntimeException(PromiseRejectedException rejectedException, string mainFunction, string content, int userContentLineStart, int userContentLineEnd, int userContentIndexStart, int userContentIndexEnd)
+    {
         var rejectedValue = rejectedException.RejectedValue;
         var stack = rejectedValue.Get("stack").AsString();
-        UnderlyingException = rejectedException;
-        var (Line, Column, Index) = GetStackRootExceptionPosition(content, stack);
-        (Line, Column, Index) = RecalculatePosition(
-            Line, Column, Index, userContentLineStart, userContentLineEnd, userContentIndexStart, userContentIndexEnd);
-        LineNumber = Line;
-        this.Column = Column;
-        this.Index = Index;
-        Description = rejectedValue.Get("message").AsString();
-        RawMessage = rejectedException.Message;
+        var description = rejectedValue.Get("message").AsString();
+        SetUserExceptionDetails(
+            underlyingException: rejectedException,
+            source: SourceUser,
+            stack: stack,
+            description: description,
+            content: content,
+            mainFunction: mainFunction,
+            userContentLineStart,
+            userContentLineEnd,
+            userContentIndexStart,
+            userContentIndexEnd
+        );
     }
 
     public JintRuntimeException(
@@ -44,12 +67,27 @@ public class JintRuntimeException : RuntimeException
 
     public override string Source { get => _source; }
 
-    private static readonly Regex _posRegex = new(@"([\d]+:[\d]+)");
-    private static (int Line, int Column, int Index) GetStackRootExceptionPosition(string content, string stack)
+    protected virtual void SetUserExceptionDetails(
+        Exception underlyingException, string source, string stack, string description, string content, string mainFunction,
+        int userContentLineStart, int userContentLineEnd, int userContentIndexStart, int userContentIndexEnd)
     {
-        var match = _posRegex.Match(stack);
-        var exPosStr = match.Value;
-        var parts = exPosStr.Split(':');
+        _source = source;
+        UnderlyingException = underlyingException;
+        var (Line, Column, Index) = GetStackRootExceptionPosition(content, mainFunction, stack);
+        (Line, Column, Index) = RecalculatePosition(
+            Line, Column, Index, userContentLineStart, userContentLineEnd, userContentIndexStart, userContentIndexEnd);
+        LineNumber = Line;
+        this.Column = Column;
+        this.Index = Index;
+        Description = description;
+        RawMessage = underlyingException.Message;
+    }
+    private static (int Line, int Column, int Index) GetStackRootExceptionPosition(string content, string mainFunction, string stack)
+    {
+        Regex exPositionRegex = new(@$"at {mainFunction}.+?([\d]+:[\d]+)");
+        var match = exPositionRegex.Match(stack);
+        var exPositionStr = match.Groups[1].Value;
+        var parts = exPositionStr.Split(':');
         var exLine = int.Parse(parts[0]);
         var exCol = int.Parse(parts[1]);
         var searchIndex = 0;
