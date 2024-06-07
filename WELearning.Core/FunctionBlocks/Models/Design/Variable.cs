@@ -5,19 +5,19 @@ namespace WELearning.Core.FunctionBlocks.Models.Design;
 
 public class Variable
 {
-    public Variable(string name, EDataType dataType, EVariableType variableType, string detailedType = null, object defaultValue = null)
+    public Variable(string name, EDataType dataType, EVariableType variableType, string objectType = null, object defaultValue = null)
     {
         Name = name;
         DataType = dataType;
         VariableType = variableType;
-        DetailedType = detailedType;
+        ObjectType = objectType;
         DefaultValue = defaultValue;
     }
 
     public string Name { get; set; }
     public EDataType DataType { get; set; }
     public EVariableType VariableType { get; set; }
-    public string DetailedType { get; set; }
+    public string ObjectType { get; set; }
     public object DefaultValue { get; set; }
 
     public override string ToString() => $"{Name} ({VariableType})";

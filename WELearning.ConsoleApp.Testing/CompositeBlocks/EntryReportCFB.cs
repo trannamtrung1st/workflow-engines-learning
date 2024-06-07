@@ -31,7 +31,7 @@ public static class EntryReportCFB
             content: @$"
             FB.Log(Entry.EntryKey);
             Result = Entry.Prepend(OtherEntryName);", imports: null, importBlockIds: null,
-            new Variable("Entry", EDataType.Reference, EVariableType.Input, detailedType: entryType),
+            new Variable("Entry", EDataType.Reference, EVariableType.Input, objectType: entryType),
             new Variable("OtherEntryName", EDataType.String, EVariableType.Input),
             new Variable("Result", EDataType.String, EVariableType.Output)
         );
@@ -48,10 +48,10 @@ public static class EntryReportCFB
         var bInputs = new BlockInstance(definitionId: bInputsDef.Id, id: "Inputs");
 
         var bReportDef = PredefinedBFBs.CreateInOutBlock(
-            new Variable(name: "Report", dataType: EDataType.Reference, variableType: EVariableType.InOut, detailedType: entryType)
+            new Variable(name: "Report", dataType: EDataType.Reference, variableType: EVariableType.InOut, objectType: entryType)
         );
         var bOutputsDef = PredefinedBFBs.CreateInOutBlock(
-            new Variable(name: "FinalReport", dataType: EDataType.Reference, variableType: EVariableType.InOut, detailedType: entryType)
+            new Variable(name: "FinalReport", dataType: EDataType.Reference, variableType: EVariableType.InOut, objectType: entryType)
         );
         var bReport = new BlockInstance(definitionId: bReportDef.Id, id: "ReportEntry");
         var bOutputs = new BlockInstance(definitionId: bOutputsDef.Id, id: "Outputs");
