@@ -4,6 +4,7 @@ using WELearning.DynamicCodeExecution.Constants;
 using System.Reflection;
 using WELearning.Core.FunctionBlocks.Framework;
 using WELearning.Core.FunctionBlocks.Constants;
+using WELearning.ConsoleApp.Testing.Framework;
 
 static class PredefinedBFBs
 {
@@ -842,12 +843,12 @@ let a = 5;"
             variables: new Variable("Data", EDataType.Any, EVariableType.InOut));
     }
 
-    private static BasicBlockDef CreateBlockSimple(string id, string name, string content,
+    public static BasicBlockDef CreateBlockSimple(string id, string name, string content,
         params Variable[] variables)
     {
         var bConcat = new BasicBlockDef(id: id, name: name);
         bConcat.Variables = variables;
-        var inVars = variables.Where(v => v.CanInOut()).Select(v => v.Name);
+        var inVars = variables.Where(v => v.CanInput()).Select(v => v.Name);
         var outVars = variables.Where(v => v.CanOutput()).Select(v => v.Name);
         var eTrigger = new BlockEvent(isInput: true, name: "Trigger", variableNames: inVars);
         var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: outVars);

@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using WELearning.ConsoleApp.Testing.CompositeBlocks;
 using WELearning.ConsoleApp.Testing.Entities;
+using WELearning.ConsoleApp.Testing.Framework;
 using WELearning.ConsoleApp.Testing.ValueObjects;
 using WELearning.Core.FunctionBlocks;
 using WELearning.Core.FunctionBlocks.Abstracts;
@@ -26,15 +27,16 @@ using WELearning.Shared.Concurrency.Extensions;
 
 const string LibraryFolderPath = "/Users/trungtran/MyPlace/Personal/Learning/workflow-engines-learning/local/libs";
 var serviceCollection = new ServiceCollection()
+    .AddSingleton<DataStore>()
     .AddLogging(cfg => cfg.AddConsole())
     .AddInMemoryLockManager()
     .AddDefaultDistributedLockManager()
     // FunctionBlock services
     .AddDefaultBlockRunner()
     .AddDefaultFunctionRunner()
-    .AddDefaultBlockFrameworkFactory()
     .AddDefaultRuntimeEngineFactory()
     .AddDefaultTypeProvider()
+    .AddBlockFrameworkFactory<AppBlockFrameworkFactory>()
     .AddTransientFunctionFramework<AppFunctionFramework>()
     .AddCSharpCompiledEngine()
     .AddCSharpScriptEngine()
@@ -338,11 +340,10 @@ static class TestFunctionBlocks
         await Task.WhenAll(waits.Select(w => w.Task));
     }
 
-    public static async Task RunEntryReport(
+    public static async Task RunEntryReport(DataStore dataStore,
         IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, RunTokens runTokens)
     {
         using var _ = runTokens;
-        var dataStore = new DataStore();
         var temperatureEntry = dataStore.GetEntry("Temperature");
         var humidityEntry = dataStore.GetEntry("Humidity");
         var reportEntry = dataStore.GetEntry("Report");
@@ -398,6 +399,7 @@ static class TestFunctionBlocks
         var functionRunner = serviceProvider.GetRequiredService<IFunctionRunner>();
         var blockFrameworkFactory = serviceProvider.GetRequiredService<IBlockFrameworkFactory>();
         var functionFramework = serviceProvider.GetRequiredService<AppFunctionFramework>();
+        var dataStore = serviceProvider.GetService<DataStore>();
         const int DelayMs = 5000;
         ICompositeEC CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFramework);
         IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFunctionFramework>(block: new(blockDef.Id), blockDef, functionRunner, blockFrameworkFactory, functionFramework);
@@ -437,7 +439,7 @@ static class TestFunctionBlocks
         await RunDependencyWait(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: DependencyWaitCFB.Build()), runTokens: tokensProvider());
 
         Console.WriteLine("Test run entry report: ");
-        await RunEntryReport(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: EntryReportCFB.Build()), runTokens: tokensProvider());
+        await RunEntryReport(dataStore, blockRunner, CreateControl: () => CreateCompositeControl(blockDef: EntryReportCFB.Build()), runTokens: tokensProvider());
     }
 
     public static async Task RunBlockDelay(

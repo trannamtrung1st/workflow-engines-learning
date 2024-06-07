@@ -11,6 +11,7 @@ public class DataStore
         _entryMap["Humidity"] = new EntryEntity("Humidity", Random.Shared.NextDouble() * 50);
         _entryMap["Report"] = new EntryEntity("Report", null);
         _entryMap["FinalReport"] = new EntryEntity("FinalReport", null);
+        _entryMap["FinalPrefix"] = new EntryEntity("FinalPrefix", "FINAL: ");
     }
 
     public EntryEntity GetEntry(string key) => _entryMap[key].Clone() as EntryEntity;

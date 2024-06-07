@@ -12,11 +12,10 @@ public class EntryValueObject : RawValueObject
     public EntryValueObject(Variable variable, EntryEntity entity) : base(variable)
     {
         _entity = entity;
-        EntryKey = _entity.Key;
         Value = _entity.Value;
     }
 
-    public string EntryKey { get; }
+    public string EntryKey => _entity.Key;
     public override object Value { get => _entity.Value; set => base.Value = value; }
 
     protected override void SetCoreValue(object value) => _entity.Value = value;

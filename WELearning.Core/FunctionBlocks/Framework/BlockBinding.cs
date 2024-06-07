@@ -15,9 +15,9 @@ public abstract class BlockBinding : IBlockBinding
     public virtual bool ValueSet => _valueObject.ValueSet;
 }
 
-public class InputBinding : BlockBinding, IReadBinding
+public class ReadBinding : BlockBinding, IReadBinding
 {
-    public InputBinding(string name, IValueObject valueObject) : base(name, valueObject)
+    public ReadBinding(string name, IValueObject valueObject) : base(name, valueObject)
     {
     }
 
@@ -27,9 +27,9 @@ public class InputBinding : BlockBinding, IReadBinding
     public int AsInt() => _valueObject.AsInt();
 }
 
-public class OutputBinding : BlockBinding, IWriteBinding
+public class WriteBinding : BlockBinding, IWriteBinding
 {
-    public OutputBinding(string name, IValueObject valueObject) : base(name, valueObject)
+    public WriteBinding(string name, IValueObject valueObject) : base(name, valueObject)
     {
     }
 
@@ -40,12 +40,12 @@ public class OutputBinding : BlockBinding, IWriteBinding
     }
 }
 
-public class InOutBinding : BlockBinding, IReadWriteBinding
+public class ReadWriteBinding : BlockBinding, IReadWriteBinding
 {
-    private readonly InputBinding _inputBinding;
-    private readonly OutputBinding _outputBinding;
+    private readonly ReadBinding _inputBinding;
+    private readonly WriteBinding _outputBinding;
 
-    public InOutBinding(string name, IValueObject valueObject) : base(name, valueObject)
+    public ReadWriteBinding(string name, IValueObject valueObject) : base(name, valueObject)
     {
         _inputBinding = new(name, valueObject);
         _outputBinding = new(name, valueObject);
@@ -60,17 +60,16 @@ public class InOutBinding : BlockBinding, IReadWriteBinding
 
 public class InternalBinding : BlockBinding, IReadWriteBinding
 {
-    private readonly InputBinding _inputBinding;
-
+    private readonly ReadBinding _readBinding;
     public InternalBinding(string name, IValueObject valueObject) : base(name, valueObject)
     {
-        _inputBinding = new(name, valueObject);
+        _readBinding = new(name, valueObject);
     }
 
-    public object Value => _inputBinding.Value;
-    public bool IsNumeric => _inputBinding.IsNumeric;
-    public double AsDouble() => _inputBinding.AsDouble();
-    public int AsInt() => _inputBinding.AsInt();
+    public object Value => _readBinding.Value;
+    public bool IsNumeric => _readBinding.IsNumeric;
+    public double AsDouble() => _readBinding.AsDouble();
+    public int AsInt() => _readBinding.AsInt();
     public Task Write(object value)
     {
         _valueObject.Value = value;

@@ -73,13 +73,13 @@ public class BlockFramework : IBlockFramework
     }
 
     protected virtual IReadBinding In(string name)
-        => _inputBindings.GetOrAdd(name, (key) => new InputBinding(key, valueObject: _control.GetInput(name)));
+        => _inputBindings.GetOrAdd(name, (key) => new ReadBinding(key, valueObject: _control.GetInput(name)));
 
     protected virtual IWriteBinding Out(string name)
-        => _outputBindings.GetOrAdd(name, (key) => new OutputBinding(key, valueObject: _control.GetOutput(name)));
+        => _outputBindings.GetOrAdd(name, (key) => new WriteBinding(key, valueObject: _control.GetOutput(name)));
 
     protected virtual IReadWriteBinding InOut(string name)
-        => _inOutBindings.GetOrAdd(name, (key) => new InOutBinding(key, valueObject: _control.GetInOut(name)));
+        => _inOutBindings.GetOrAdd(name, (key) => new ReadWriteBinding(key, valueObject: _control.GetInOut(name)));
 
     protected virtual IReadWriteBinding Internal(string name)
         => _internalBindings.GetOrAdd(name, (key) => new InternalBinding(key, valueObject: _control.GetInternalData(name)));

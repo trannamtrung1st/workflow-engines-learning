@@ -23,20 +23,28 @@ public static class EntryReportCFB
         cfb.Events = new[] { eTrigger, eCompleted };
         cfb.DefaultTriggerEvent = eTrigger.Name;
 
+        var entryType = nameof(EntryEntity);
         var bConcatDef = PredefinedBFBs.ConcatTwoStringsJs;
+        var bCustomConcatDef = PredefinedBFBs.CreateBlockSimple(
+            id: "CustomConcat",
+            name: "Sample using reference binding method",
+            content: @$"Result = Entry.Prepend(OtherEntryName)",
+            new Variable("Entry", EDataType.Reference, EVariableType.Input, detailedType: entryType),
+            new Variable("OtherEntryName", EDataType.String, EVariableType.Input),
+            new Variable("Result", EDataType.String, EVariableType.Output)
+        );
         var bConcat1 = new BlockInstance(bConcatDef.Id, id: "Concat1");
-        var bConcat2 = new BlockInstance(bConcatDef.Id, id: "Concat2");
+        var bConcat2 = new BlockInstance(bCustomConcatDef.Id, id: "Concat2");
 
         var bInputsDef = PredefinedBFBs.CreateInOutBlock(
             new Variable(name: "Temperature", dataType: EDataType.Reference, variableType: EVariableType.InOut),
             new Variable(name: "Humidity", dataType: EDataType.Reference, variableType: EVariableType.InOut),
             new Variable(name: "Report", dataType: EDataType.Reference, variableType: EVariableType.InOut),
             new Variable(name: "Delimiter", dataType: EDataType.String, variableType: EVariableType.InOut, defaultValue: " "),
-            new Variable(name: "FinalPrefix", dataType: EDataType.String, variableType: EVariableType.InOut, defaultValue: "FINAL:")
+            new Variable(name: "OtherEntryName", dataType: EDataType.String, variableType: EVariableType.InOut, defaultValue: "FinalPrefix")
         );
         var bInputs = new BlockInstance(definitionId: bInputsDef.Id, id: "Inputs");
 
-        var entryType = nameof(EntryEntity);
         var bReportDef = PredefinedBFBs.CreateInOutBlock(
             new Variable(name: "Report", dataType: EDataType.Reference, variableType: EVariableType.InOut, detailedType: entryType)
         );
@@ -113,20 +121,15 @@ public static class EntryReportCFB
                 SourceBlockId = bConcat1.Id,
                 SourceVariableName = "Result"
             });
-            dataConnections.Add(new(blockId: bConcat2.Id, variableName: "X", displayName: null, bindingType: EBindingType.Input)
+            dataConnections.Add(new(blockId: bConcat2.Id, variableName: "Entry", displayName: null, bindingType: EBindingType.Input)
             {
                 SourceBlockId = bInputs.Id,
-                SourceVariableName = "FinalPrefix"
-            });
-            dataConnections.Add(new(blockId: bConcat2.Id, variableName: "Y", displayName: null, bindingType: EBindingType.Input)
-            {
-                SourceBlockId = bReport.Id,
                 SourceVariableName = "Report"
             });
-            dataConnections.Add(new(blockId: bConcat2.Id, variableName: "Delimiter", displayName: null, bindingType: EBindingType.Input)
+            dataConnections.Add(new(blockId: bConcat2.Id, variableName: "OtherEntryName", displayName: null, bindingType: EBindingType.Input)
             {
                 SourceBlockId = bInputs.Id,
-                SourceVariableName = "Delimiter"
+                SourceVariableName = "OtherEntryName"
             });
             dataConnections.Add(new(blockId: bOutputs.Id, variableName: "FinalReport", displayName: null, bindingType: EBindingType.Input)
             {
@@ -166,7 +169,7 @@ public static class EntryReportCFB
             cfb.References = references;
         }
 
-        cfb.MapDefinitions(new[] { bConcatDef, bReportDef, bInputsDef, bOutputsDef });
+        cfb.MapDefinitions(new[] { bConcatDef, bCustomConcatDef, bReportDef, bInputsDef, bOutputsDef });
         return cfb;
     }
 

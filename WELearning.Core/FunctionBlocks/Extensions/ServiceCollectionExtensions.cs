@@ -23,8 +23,9 @@ public static class ServiceCollectionExtensions
         return services.AddTransient<TFunctionFramework>();
     }
 
-    public static IServiceCollection AddDefaultBlockFrameworkFactory(this IServiceCollection services)
+    public static IServiceCollection AddBlockFrameworkFactory<TFactory>(this IServiceCollection services)
+        where TFactory : class, IBlockFrameworkFactory
     {
-        return services.AddSingleton<IBlockFrameworkFactory, BlockFrameworkFactory>();
+        return services.AddSingleton<IBlockFrameworkFactory, TFactory>();
     }
 }

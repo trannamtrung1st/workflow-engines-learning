@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging;
 using WELearning.Core.FunctionBlocks.Framework;
 
+namespace WELearning.ConsoleApp.Testing.Framework;
+
 public class AppFunctionFramework : FunctionFramework
 {
     private readonly ILogger<AppFunctionFramework> _logger;
