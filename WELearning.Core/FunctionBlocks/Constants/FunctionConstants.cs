@@ -9,3 +9,8 @@ public static class BuiltInVariables
     public const string INOUT = "INOUT";
     public const string INTERNAL = "INTERNAL";
 }
+
+public static class FunctionDefaults
+{
+    public const string ModuleFunctions = "FB.Functions";
+}

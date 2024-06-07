@@ -405,7 +405,8 @@ static class PredefinedBFBs
             name: "Run",
             content: addScript,
             runtime: runtime,
-            imports: imports, assemblies: assemblies, types: null);
+            imports: imports, assemblies: assemblies, types: null,
+            signature: "Add2Numbers", exported: true);
         var fHandleInvalid = new Function(
             id: "HandleInvalid",
             name: "Handle invalid",
@@ -485,10 +486,7 @@ static class PredefinedBFBs
     {
         return CreateBlockRandom(
             runtime: ERuntime.Javascript,
-            randomScript: @$"
-            Result = FB.NextRandomDouble();
-            await EVENTS.Publish('Completed');
-            ",
+            randomScript: @$"Result = FB.NextRandomDouble()",
             imports: null, assemblies: null
         );
     }
@@ -511,7 +509,8 @@ static class PredefinedBFBs
             name: "Run",
             content: randomScript,
             runtime: runtime,
-            imports: imports, assemblies: assemblies, types: null);
+            imports: imports, assemblies: assemblies, types: null,
+            signature: "Random", exported: true);
         var functions = new[] { fRun };
         bRandom.Functions = functions;
 
@@ -526,6 +525,7 @@ static class PredefinedBFBs
             {
                 var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eTrigger.Name);
                 tIdle2Running.ActionFunctionIds = new[] { fRun.Id };
+                tIdle2Running.DefaultOutputEvents = new[] { eCompleted.Name };
 
                 transitions.Add(tIdle2Running);
                 transitions.Add(new(fromState: sRunning.Name, toState: sIdle.Name));
@@ -843,26 +843,30 @@ let a = 5;"
             variables: new Variable("Data", EDataType.Any, EVariableType.InOut));
     }
 
-    public static BasicBlockDef CreateBlockSimple(string id, string name, string content,
+    public static BasicBlockDef CreateBlockSimple(
+        string id, string name, string content,
+        IEnumerable<string> imports = null,
+        IEnumerable<string> importBlockIds = null,
         params Variable[] variables)
     {
-        var bConcat = new BasicBlockDef(id: id, name: name);
-        bConcat.Variables = variables;
+        var bSimple = new BasicBlockDef(id: id, name: name);
+        bSimple.ImportBlockIds = importBlockIds;
+        bSimple.Variables = variables;
         var inVars = variables.Where(v => v.CanInput()).Select(v => v.Name);
         var outVars = variables.Where(v => v.CanOutput()).Select(v => v.Name);
         var eTrigger = new BlockEvent(isInput: true, name: "Trigger", variableNames: inVars);
         var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: outVars);
-        bConcat.Events = new[] { eTrigger, eCompleted };
-        bConcat.DefaultTriggerEvent = eTrigger.Name;
+        bSimple.Events = new[] { eTrigger, eCompleted };
+        bSimple.DefaultTriggerEvent = eTrigger.Name;
 
         var fRun = new Function(
             id: "Run",
             name: "Run",
             content: content,
             runtime: ERuntime.Javascript,
-            imports: null, assemblies: null, types: null);
+            imports: imports, assemblies: null, types: null);
         var functions = new[] { fRun };
-        bConcat.Functions = functions;
+        bSimple.Functions = functions;
 
         {
             var execControl = new BlockECC();
@@ -884,9 +888,9 @@ let a = 5;"
             execControl.States = states;
             execControl.StateTransitions = transitions;
             execControl.InitialState = sIdle.Name;
-            bConcat.ExecutionControlChart = execControl;
+            bSimple.ExecutionControlChart = execControl;
         }
 
-        return bConcat;
+        return bSimple;
     }
 }

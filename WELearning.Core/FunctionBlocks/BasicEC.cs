@@ -5,6 +5,7 @@ using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
 using WELearning.DynamicCodeExecution.Exceptions;
+using WELearning.DynamicCodeExecution.Models;
 
 namespace WELearning.Core.FunctionBlocks;
 
@@ -12,16 +13,19 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
     where TFunctionFramework : class
 {
     private readonly TFunctionFramework _functionFramework;
+    private readonly IEnumerable<ImportModule> _importModules;
 
     public BasicEC(
         BlockInstance block,
         BasicBlockDef definition,
+        IEnumerable<BasicBlockDef> importBlocks,
         IFunctionRunner functionRunner,
         IBlockFrameworkFactory blockFrameworkFactory,
         TFunctionFramework functionFramework) : base(block, definition, functionRunner, blockFrameworkFactory)
     {
         _functionFramework = functionFramework;
         CurrentState = Definition.ExecutionControlChart?.InitialState;
+        _importModules = PrepareModules(importBlocks);
     }
 
     public virtual Function RunningFunction { get; protected set; }
@@ -104,7 +108,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
         var outputEvents = new HashSet<string>();
         var blockFramework = _blockFrameworkFactory.Create(this);
         var publisher = blockFramework.CreateEventPublisher(outputEvents);
-        var (flattenArguments, flattenOutputs) = PrepareArguments(blockFramework, publisher);
+        var (inputs, outputs) = PrepareArguments(blockFramework);
         var globalObject = new BlockGlobalObject<TFunctionFramework>(_functionFramework, blockFramework, publisher);
 
         async Task<bool> Evaluate(Function condition)
@@ -113,8 +117,8 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
             {
                 RunningFunction = condition;
                 var (result, optimizationScope) = await _functionRunner.Run<bool, TFunctionFramework>(
-                    condition, globalObject: globalObject, flattenArguments, flattenOutputs,
-                    optimizationScopeId, tokens: CurrentRunRequest.Tokens);
+                    condition, globalObject: globalObject, inputs, outputs,
+                    modules: _importModules, optimizationScopeId, tokens: CurrentRunRequest.Tokens);
                 RunningFunction = null;
                 if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
                 return result;
@@ -129,8 +133,8 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
             {
                 RunningFunction = actionFunction;
                 var optimizationScope = await _functionRunner.Run(
-                    actionFunction, blockFramework, globalObject, flattenArguments, flattenOutputs,
-                    optimizationScopeId, tokens: CurrentRunRequest.Tokens);
+                    actionFunction, blockFramework, globalObject, inputs, outputs,
+                    modules: _importModules, optimizationScopeId, tokens: CurrentRunRequest.Tokens);
                 RunningFunction = null;
                 if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
             }
@@ -180,41 +184,36 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
             events.Add(ev);
     }
 
-    protected virtual (List<(string, object)> FlattenArguments, List<string> FlattenOutputs) PrepareArguments(
-        IBlockFramework blockFramework, IOutputEventPublisher publisher)
+    protected IEnumerable<ImportModule> PrepareModules(IEnumerable<BasicBlockDef> importBlocks)
     {
-        var flattenVars = new HashSet<string>();
-        var flattenArguments = new List<(string, object)>
-        {
-            (BuiltInVariables.FB, _functionFramework),
-            (BuiltInVariables.EVENTS, publisher),
-            (BuiltInVariables.IN, blockFramework.InputBindings),
-            (BuiltInVariables.OUT, blockFramework.OutputBindings),
-            (BuiltInVariables.INOUT, blockFramework.InOutBindings),
-            (BuiltInVariables.INTERNAL, blockFramework.InternalBindings),
-        };
-        var flattenOutputs = new List<string>();
+        if (importBlocks == null) return null;
+        var functions = importBlocks.SelectMany(b => b.GetModuleFunctions()).ToArray();
+        var module = new ImportModule(moduleName: FunctionDefaults.ModuleFunctions, functions);
+        return new[] { module };
+    }
+
+    protected virtual (Dictionary<string, object> Inputs, Dictionary<string, object> Outputs) PrepareArguments(IBlockFramework blockFramework)
+    {
+        var inputs = new Dictionary<string, object>();
+        var outputs = new Dictionary<string, object>();
         var variables = Definition.Variables;
 
         foreach (var variable in variables)
         {
-            if (!flattenVars.Add(variable.Name)) continue;
             var valueObject = GetValueObject(variable.Name, variable.VariableType);
             var refBinding = blockFramework.GetBindingFor(valueObject);
-
-            if (variable.CanOutput())
-                flattenOutputs.Add(variable.Name);
-
+            Dictionary<string, object> source = variable.CanOutput() ? outputs : inputs;
             switch (variable.DataType)
             {
                 case Core.Constants.EDataType.Reference:
-                    flattenArguments.Add((variable.Name, refBinding));
+                    source[variable.Name] = refBinding;
                     break;
                 default:
-                    flattenArguments.Add((variable.Name, valueObject.Value));
+                    source[variable.Name] = valueObject.Value;
                     break;
             }
         }
-        return (flattenArguments, flattenOutputs);
+
+        return (inputs, outputs);
     }
 }

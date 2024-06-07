@@ -143,8 +143,6 @@ static class TestEngines
                         }}
                     }}",
                     arguments: new LoopTestArgs { X = i },
-                    flattenArguments: null,
-                    flattenOutputs: null,
                     imports: imports, assemblies: assemblies, types: null, tokens: runTokens
                 ));
         }
@@ -158,8 +156,6 @@ static class TestEngines
             await runtimeEngine.Execute<LoopTestArgs>(
                 request: new(
                     content: @$"X * 5", arguments: new LoopTestArgs { X = i },
-                    flattenArguments: null,
-                    flattenOutputs: null,
                     imports: null, assemblies: null, types: null, tokens: runTokens
                 ));
         }
@@ -178,10 +174,9 @@ static class TestEngines
                     new(
                         content: @$"return X * 5",
                         arguments: new LoopTestArgs { X = i },
-                        flattenArguments: new (string, object)[] { ("X", i) },
-                        flattenOutputs: null,
-                        imports: null, assemblies: null, types: null,
-                        tokens: runTokens, optimizationScopeId
+                        imports: null, assemblies: null, types: null, tokens: runTokens,
+                        inputs: new Dictionary<string, object>() { ["X"] = i },
+                        optimizationScopeId: optimizationScopeId
                     ));
             }
         }
@@ -208,10 +203,9 @@ static class TestEngines
                     return `Hello ` + testLodash.toString() + apiString;
                 ",
                 arguments: new { TestAsync },
-                flattenArguments: new (string, object)[] { (nameof(TestAsync), TestAsync) },
-                flattenOutputs: null,
                 imports: new[] { "import './lodash.min.js';" },
-                assemblies: null, types: null, runTokens
+                assemblies: null, types: null, runTokens,
+                inputs: new Dictionary<string, object> { [nameof(TestAsync)] = TestAsync }
             ));
     }
 
@@ -227,10 +221,9 @@ static class TestEngines
                     return `Hello ` + testLodash.toString() + apiString;
                 ",
                 arguments: new { TestAsync },
-                flattenArguments: new (string, object)[] { (nameof(TestAsync), TestAsync) },
-                flattenOutputs: null,
                 imports: new[] { "import { fetch } from 'fetch.min.js'", "import 'lodash.min.js'", "import 'axios.min.js'" },
-                assemblies: null, types: null, runTokens
+                assemblies: null, types: null, runTokens,
+                inputs: new Dictionary<string, object> { [nameof(TestAsync)] = TestAsync }
             ));
     }
 }
@@ -402,7 +395,7 @@ static class TestFunctionBlocks
         var dataStore = serviceProvider.GetService<DataStore>();
         const int DelayMs = 5000;
         ICompositeEC CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFramework);
-        IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFunctionFramework>(block: new(blockDef.Id), blockDef, functionRunner, blockFrameworkFactory, functionFramework);
+        IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFunctionFramework>(block: new(blockDef.Id), blockDef, importBlocks: null, functionRunner, blockFrameworkFactory, functionFramework);
 
         await RunObjectAndFunctions(blockRunner, CreateControl: () => CreateCompositeControl(ObjectAndFunctionsCFB.Build()), runTokens: tokensProvider());
 

@@ -19,11 +19,26 @@ public static class ObjectAndFunctionsCFB
         cfb.Events = new[] { eTrigger, eCompleted };
         cfb.DefaultTriggerEvent = eTrigger.Name;
 
-        var bLogInputDef = PredefinedBFBs.LogInputJs;
-        var bLogInput = new BlockInstance(definitionId: bLogInputDef.Id);
+        // [TODO] test exception
+        var bAddDef = PredefinedBFBs.AddJs;
+        var bRandomDef = PredefinedBFBs.RandomJs;
+        var bCustomAddDef = PredefinedBFBs.CreateBlockSimple(
+            id: "CustomAdd",
+            name: "A custom add that reuses functions from other BFBs",
+            content: @$"
+                const addResult = Add2Numbers({{ X: Input.X, Y: Input.Y }}, {{ Result: null }});
+                const randomResult = Random(null, {{ Result: null }});
+                Result = addResult.Result + randomResult.Result;
+            ",
+            imports: new[] { $"import {{ Add2Numbers, Random }} from '{FunctionDefaults.ModuleFunctions}'" },
+            importBlockIds: new[] { bAddDef.Id, bRandomDef.Id },
+            new Variable("Input", dataType: EDataType.Object, variableType: EVariableType.Input),
+            new Variable("Result", dataType: EDataType.Numeric, variableType: EVariableType.Output)
+        );
+        var bCustomAdd = new BlockInstance(definitionId: bCustomAddDef.Id);
 
         var bInputsDef = PredefinedBFBs.CreateInOutBlock(
-            new Variable(name: "Input", dataType: EDataType.Any, variableType: EVariableType.InOut)
+            new Variable(name: "Input", dataType: EDataType.Object, variableType: EVariableType.InOut)
         );
         var bInputs = new BlockInstance(definitionId: bInputsDef.Id, id: "Inputs");
 
@@ -33,7 +48,7 @@ public static class ObjectAndFunctionsCFB
         var bOutputs = new BlockInstance(definitionId: bOutputsDef.Id, id: "Outputs");
 
         {
-            var blocks = new List<BlockInstance> { bLogInput, bInputs, bOutputs };
+            var blocks = new List<BlockInstance> { bCustomAdd, bInputs, bOutputs };
             cfb.Blocks = blocks;
         }
 
@@ -46,14 +61,14 @@ public static class ObjectAndFunctionsCFB
                 SourceEventName = "Trigger"
             });
 
-            eventConnections.Add(new(blockId: bLogInput.Id, eventName: "Trigger")
+            eventConnections.Add(new(blockId: bCustomAdd.Id, eventName: "Trigger")
             {
                 SourceBlockId = bInputs.Id,
                 SourceEventName = "Completed"
             });
             eventConnections.Add(new(blockId: bOutputs.Id, eventName: "Trigger")
             {
-                SourceBlockId = bLogInput.Id,
+                SourceBlockId = bCustomAdd.Id,
                 SourceEventName = "Completed"
             });
 
@@ -79,15 +94,15 @@ public static class ObjectAndFunctionsCFB
                 });
             }
 
-            dataConnections.Add(new(blockId: bLogInput.Id, variableName: "Data", displayName: null, bindingType: EBindingType.Input)
+            dataConnections.Add(new(blockId: bCustomAdd.Id, variableName: "Input", displayName: null, bindingType: EBindingType.Input)
             {
                 SourceBlockId = bInputs.Id,
                 SourceVariableName = "Input"
             });
             dataConnections.Add(new(blockId: bOutputs.Id, variableName: "Output", displayName: null, bindingType: EBindingType.Input)
             {
-                SourceBlockId = bLogInput.Id,
-                SourceVariableName = "Data"
+                SourceBlockId = bCustomAdd.Id,
+                SourceVariableName = "Result"
             });
 
             // [NOTE] CFB output data
@@ -108,7 +123,7 @@ public static class ObjectAndFunctionsCFB
             cfb.References = references;
         }
 
-        cfb.MapDefinitions(new[] { bLogInputDef, bInputsDef, bOutputsDef });
+        cfb.MapDefinitions(new[] { bAddDef, bRandomDef, bCustomAddDef, bInputsDef, bOutputsDef });
         return cfb;
     }
 

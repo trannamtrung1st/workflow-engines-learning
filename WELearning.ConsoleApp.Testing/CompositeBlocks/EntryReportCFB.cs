@@ -30,7 +30,7 @@ public static class EntryReportCFB
             name: "Sample using reference binding method",
             content: @$"
             FB.Log(Entry.EntryKey);
-            Result = Entry.Prepend(OtherEntryName);",
+            Result = Entry.Prepend(OtherEntryName);", imports: null, importBlockIds: null,
             new Variable("Entry", EDataType.Reference, EVariableType.Input, detailedType: entryType),
             new Variable("OtherEntryName", EDataType.String, EVariableType.Input),
             new Variable("Result", EDataType.String, EVariableType.Output)

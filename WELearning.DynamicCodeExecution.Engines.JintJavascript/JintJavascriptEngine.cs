@@ -25,6 +25,7 @@ namespace WELearning.DynamicCodeExecution.Engines;
 
 public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 {
+    private const string OutVariable = "__ENGINE_OUT__";
     private const int DefaultMaxStatements = 3_000_000;
     private const int DefaultMaxLoopCount = 10_000;
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
@@ -98,16 +99,18 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                 cfg.EnableModules(basePath: _jintOptions.Value.LibraryFolderPath, restrictToBasePath: true);
                 if (assemblies?.Any() == true)
                     cfg.AllowClr(assemblies);
-                cfg.DebuggerStatementHandling(Jint.Runtime.Debugger.DebuggerStatementHandling.Script);
+                cfg.DebuggerStatementHandling(DebuggerStatementHandling.Script);
                 cfg.DebugMode(debugMode: true);
                 cfg.MaxStatements(DefaultMaxStatements); // [NOTE] be careful with imported libraries
             });
 
             if (request.Types?.Any() == true)
-            {
                 foreach (var type in request.Types)
                     engine.SetValue(type.Name, type);
-            }
+
+            if (request.Modules?.Any() == true)
+                foreach (var module in request.Modules)
+                    AddModule(engine, module);
 
             var wrap = new EngineWrap(engine, DefaultMaxLoopCount);
             engine.Debugger.Skip += wrap.SetNodePosition;
@@ -186,6 +189,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                 await engineWrap.SafeAccessEngine(async (engine) =>
                 {
                     engineWrap.ResetNodePosition();
+                    SetValues(engine, request.Arguments);
                     var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, request.Imports, request.Assemblies, cancellationToken: request.Tokens.Combined);
                     var exportedFunction = module.Get(JsEngineConstants.ExportedFunctionName);
                     result = await CallWithHandles(engineWrap, exportedFunction, arguments, tokens: request.Tokens);
@@ -244,6 +248,13 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         }
     }
 
+    private static void SetValues<TArg>(Engine engine, TArg arguments)
+    {
+        var properties = arguments.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public);
+        foreach (var property in properties)
+            engine.SetValue(property.Name, property.GetValue(arguments));
+    }
+
     private static async Task<JsValue> CallWithHandles(EngineWrap engineWrap, JsValue exportedFunction, JsValue[] arguments, RunTokens tokens)
     {
         var tcs = new TaskCompletionSource<JsValue>();
@@ -272,32 +283,70 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         return await tcs.Task;
     }
 
-    private static (IEnumerable<string> Names, JsValue[] Values) GetArgumentKvps<TArg>(Engine engine, TArg arguments, List<(string Name, object Value)> flattenArguments)
+    private static JsValue[] GetArgumentValues(Engine engine, IDictionary<string, object> inputs, IDictionary<string, object> outputs)
     {
-        var argumentValues = new List<JsValue>();
-        var finalArguments = new List<string>();
-        flattenArguments ??= new();
-
-        if (flattenArguments.Count == 0)
-            flattenArguments.Add((JsEngineConstants.DefaultArgumentsName, arguments));
-
-        for (int i = 0; i < flattenArguments.Count; i++)
-        {
-            finalArguments.Add(flattenArguments[i].Name);
-            argumentValues.Add(JsValue.FromObject(engine, flattenArguments[i].Value));
-        }
-
-        return (finalArguments, argumentValues.ToArray());
+        var argumentValues = new JsValue[2];
+        argumentValues[0] = JsValue.FromObject(engine, inputs ?? new Dictionary<string, object>());
+        argumentValues[1] = JsValue.FromObject(engine, outputs ?? new Dictionary<string, object>());
+        return argumentValues;
     }
 
     private static ((string Content, int LineStart, int LineEnd, int IndexStart, int IndexEnd) ContentInfo, JsValue[] Values)
         PreprocessContent<TArg>(ExecuteCodeRequest<TArg> request, Engine engine)
     {
-        const string OutVariable = "__APP_OUT__";
-        var flattenOutputs = request.FlattenOutputs?.ToList();
-        var (inputArguments, values) = GetArgumentKvps(
-            engine: engine, arguments: request.Arguments,
-            flattenArguments: request.FlattenArguments?.ToList());
+        var flattenArguments = new HashSet<string>();
+        if (request.Inputs != null)
+            foreach (var input in request.Inputs) flattenArguments.Add(input.Key);
+        if (request.Outputs != null)
+            foreach (var output in request.Outputs) flattenArguments.Add(output.Key);
+
+        var values = GetArgumentValues(engine: engine, inputs: request.Inputs, outputs: request.Outputs);
+        var flattenOutputs = request.Outputs?.Keys.ToList();
+        var flattenOutputsStr = GetOutputPreprocessingContent(flattenOutputs);
+        var contentLineCount = request.Content.NewLineCount();
+        var contentInfo = request.UseRawContent
+            ? (request.Content, 1, contentLineCount, 0, request.Content.Length - 1)
+            : JavascriptHelper.WrapModuleFunction(
+                script: request.Content, request.Async,
+                returnStatements: flattenOutputsStr,
+                flattenArguments: flattenArguments);
+        return (contentInfo, values);
+    }
+
+    private static void AddModule(Engine engine, ImportModule module)
+    {
+        if (module.Functions?.Any() != true) return;
+        engine.Modules.Add(module.ModuleName, builder =>
+        {
+            var contentBuilder = new StringBuilder();
+            foreach (var function in module.Functions)
+            {
+                var flattenArguments = new HashSet<string>();
+                if (function.Inputs != null)
+                    foreach (var input in function.Inputs) flattenArguments.Add(input);
+                if (function.Outputs != null)
+                    foreach (var output in function.Outputs) flattenArguments.Add(output);
+                var flattenOutputs = function.Outputs?.ToList();
+                var flattenOutputsStr = GetOutputPreprocessingContent(flattenOutputs);
+
+                var content = function.UseRawContent
+                    ? function.Content
+                    : JavascriptHelper.WrapModuleFunction(
+                        script: function.Content, async: function.Async,
+                        returnStatements: flattenOutputsStr,
+                        functionName: function.Signature,
+                        flattenArguments: flattenArguments).Content;
+
+                contentBuilder.AppendLine(content);
+            }
+
+            var moduleContent = contentBuilder.ToString();
+            builder.AddModule(Engine.PrepareModule(moduleContent));
+        });
+    }
+
+    private static string GetOutputPreprocessingContent(IEnumerable<string> flattenOutputs)
+    {
         var flattenOutputsStr = flattenOutputs?.Any() == true ?
 @$"const {OutVariable} = {{{string.Join(',', flattenOutputs)}}};
 Object.keys({OutVariable}).forEach(key => {{
@@ -306,14 +355,7 @@ Object.keys({OutVariable}).forEach(key => {{
     }}
 }});
 return {OutVariable};" : string.Empty;
-        var contentLineCount = request.Content.NewLineCount();
-        var contentInfo = request.UseRawContent
-            ? (request.Content, 1, contentLineCount, 0, request.Content.Length - 1)
-            : JavascriptHelper.WrapModuleFunction(
-                script: request.Content,
-                returnStatements: flattenOutputsStr,
-                inputVariables: inputArguments);
-        return (contentInfo, values);
+        return flattenOutputsStr;
     }
 
     private static TReturn Cast<TReturn>(JsValue jsValue)

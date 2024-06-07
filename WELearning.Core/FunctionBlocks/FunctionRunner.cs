@@ -24,8 +24,8 @@ public class FunctionRunner : IFunctionRunner
 
     public async Task<(TReturn Result, IDisposable OptimizationScope)> Run<TReturn, TFunctionFramework>(
         Function function, BlockGlobalObject<TFunctionFramework> globalObject,
-        IEnumerable<(string Name, object Value)> flattenArguments,
-        IEnumerable<string> flattenOutputs, Guid? optimizationScopeId, RunTokens tokens)
+        IDictionary<string, object> inputs, IDictionary<string, object> outputs,
+        IEnumerable<ImportModule> modules, Guid? optimizationScopeId, RunTokens tokens)
     {
         var engine = _engineFactory.CreateEngine(runtime: function.Runtime);
         var assemblies = function.Assemblies != null ? _typeProvider.GetAssemblies(function.Assemblies) : null;
@@ -35,12 +35,13 @@ public class FunctionRunner : IFunctionRunner
             request: new(
                 content: function.Content,
                 arguments: globalObject,
-                flattenArguments: flattenArguments,
-                flattenOutputs: flattenOutputs,
                 imports: function.Imports,
                 assemblies, types, tokens,
+                inputs: inputs, outputs: outputs,
+                async: function.Async,
                 optimizationScopeId: optimizationScopeId,
-                useRawContent: function.UseRawContent
+                useRawContent: function.UseRawContent,
+                modules: modules
             )
         );
         return result;
@@ -48,8 +49,8 @@ public class FunctionRunner : IFunctionRunner
 
     public async Task<IDisposable> Run<TFunctionFramework>(
         Function function, IBlockFramework blockFramework, BlockGlobalObject<TFunctionFramework> globalObject,
-        IEnumerable<(string Name, object Value)> flattenArguments,
-        IEnumerable<string> flattenOutputs, Guid? optimizationScopeId, RunTokens tokens)
+        IDictionary<string, object> inputs, IDictionary<string, object> outputs,
+        IEnumerable<ImportModule> modules, Guid? optimizationScopeId, RunTokens tokens)
     {
         var engine = _engineFactory.CreateEngine(runtime: function.Runtime);
         var assemblies = function.Assemblies != null ? _typeProvider.GetAssemblies(function.Assemblies) : null;
@@ -59,12 +60,13 @@ public class FunctionRunner : IFunctionRunner
             request: new(
                 content: function.Content,
                 arguments: globalObject,
-                flattenArguments: flattenArguments,
-                flattenOutputs: flattenOutputs,
                 imports: function.Imports,
                 assemblies, types, tokens,
+                inputs: inputs, outputs: outputs,
+                async: function.Async,
                 optimizationScopeId: optimizationScopeId,
-                useRawContent: function.UseRawContent
+                useRawContent: function.UseRawContent,
+                modules: modules
             )
         );
         blockFramework.HandleDynamicResult(result);

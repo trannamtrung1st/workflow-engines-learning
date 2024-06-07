@@ -245,7 +245,12 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
             var definition = Definition.GetDefinition(block.DefinitionId);
             IExecutionControl execControl;
             if (definition is BasicBlockDef basicBlockDef)
-                execControl = new BasicEC<TFunctionFramework>(block, definition: basicBlockDef, _functionRunner, _blockFrameworkFactory, _functionFramework);
+            {
+                var importBlocks = basicBlockDef.ImportBlockIds?
+                    .Select(bId => Definition.GetDefinition(bId))
+                    .OfType<BasicBlockDef>().ToArray();
+                execControl = new BasicEC<TFunctionFramework>(block, definition: basicBlockDef, importBlocks: importBlocks, _functionRunner, _blockFrameworkFactory, _functionFramework);
+            }
             else if (definition is CompositeBlockDef compositeBlockDef)
                 execControl = new CompositeEC<TFunctionFramework>(block, definition: compositeBlockDef, _blockRunner, _functionRunner, _blockFrameworkFactory, _functionFramework);
             else throw new NotSupportedException($"Definition of type {definition.GetType().FullName} not supported!");
