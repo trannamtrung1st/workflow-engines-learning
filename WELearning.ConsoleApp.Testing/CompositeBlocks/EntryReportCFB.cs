@@ -28,7 +28,9 @@ public static class EntryReportCFB
         var bCustomConcatDef = PredefinedBFBs.CreateBlockSimple(
             id: "CustomConcat",
             name: "Sample using reference binding method",
-            content: @$"Result = Entry.Prepend(OtherEntryName)",
+            content: @$"
+            FB.Log(Entry.EntryKey);
+            Result = Entry.Prepend(OtherEntryName);",
             new Variable("Entry", EDataType.Reference, EVariableType.Input, detailedType: entryType),
             new Variable("OtherEntryName", EDataType.String, EVariableType.Input),
             new Variable("Result", EDataType.String, EVariableType.Output)
