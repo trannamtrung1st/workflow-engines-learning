@@ -16,7 +16,7 @@ public class EntryValueObject : RawValueObject
     }
 
     public string EntryKey => _entity.Key;
-    public override object Value { get => _entity.Value; set => base.Value = value; }
+    public override object Value { get => _entity.Value; }
 
     protected override void SetCoreValue(object value) => _entity.Value = value;
 

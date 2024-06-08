@@ -1,3 +1,4 @@
+using WELearning.ConsoleApp.Testing.Framework.Bindings;
 using WELearning.ConsoleApp.Testing.ValueObjects;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
@@ -15,13 +16,24 @@ public class AppBlockFramework : BlockFramework
 
     public override object GetBindingFor(IValueObject valueObject)
     {
-        if (valueObject is not EntryValueObject entryValue)
-            return base.GetBindingFor(valueObject);
-        var variable = entryValue.Variable;
-        switch (variable.VariableType)
+        if (valueObject is EntryValueObject entryValue)
         {
-            case EVariableType.Input: return new ReadEntryBinding(variable.Name, entryValue, _dataStore);
-            default: return new EntryBinding(variable.Name, entryValue, _dataStore);
+            var variable = entryValue.Variable;
+            switch (variable.VariableType)
+            {
+                case EVariableType.Input: return new ReadEntryBinding(variable.Name, entryValue, _dataStore);
+                default: return new EntryBinding(variable.Name, entryValue, _dataStore);
+            }
         }
+        else if (valueObject is MetricValueObject metricValue)
+        {
+            var variable = metricValue.Variable;
+            switch (variable.VariableType)
+            {
+                case EVariableType.Input: return new ReadMetricBinding(variable.Name, metricValue, _dataStore);
+                default: return new MetricBinding(variable.Name, metricValue, _dataStore);
+            }
+        }
+        return base.GetBindingFor(valueObject);
     }
 }

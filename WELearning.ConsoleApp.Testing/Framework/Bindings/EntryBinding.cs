@@ -3,7 +3,7 @@ using WELearning.ConsoleApp.Testing.ValueObjects;
 using WELearning.Core.FunctionBlocks.Framework;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 
-namespace WELearning.ConsoleApp.Testing.Framework;
+namespace WELearning.ConsoleApp.Testing.Framework.Bindings;
 
 public class EntryBinding : ReadWriteBinding, IEntryBinding
 {

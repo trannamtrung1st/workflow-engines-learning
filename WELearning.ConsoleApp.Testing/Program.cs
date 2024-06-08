@@ -188,6 +188,7 @@ static class TestEngines
         finally { scope?.Dispose(); }
     }
 
+    // [IMPORTANT] currently Jint only supports await Func<Task<...>> like this
     private static readonly Func<Task<string>> TestAsync = async () =>
     {
         using var httpClient = new HttpClient();
@@ -378,6 +379,27 @@ static class TestFunctionBlocks
         Console.WriteLine("Result: {0} | {1}", finalResult, finalReportEntry);
     }
 
+    public static async Task RunSampleMetric(DataStore dataStore,
+        IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, RunTokens runTokens)
+    {
+        using var _ = runTokens;
+        var metric = dataStore.GetMetricSnapshot(MetricSnapshot.SampleMetric);
+        using var execControl = CreateControl();
+
+        var iMetric = execControl.GetVariable("Metric", EVariableType.Input);
+        var iMetricRef = new MetricValueObject(iMetric, metric);
+
+        var bindings = new HashSet<VariableBinding>();
+        bindings.Add(new(variableName: iMetric.Name, reference: iMetricRef, type: EBindingType.Input));
+
+        var runRequest = new RunBlockRequest(bindings, runTokens);
+        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
+
+        var snapshot = execControl.GetOutput("Snapshot");
+        var previous = execControl.GetOutput("Previous");
+        Console.WriteLine("Metric: {0} | Snapshot: {1} | Previous: {2}", metric.Metric, snapshot, previous);
+    }
+
     public static async Task<double> RunComplexCFB(IBlockRunner blockRunner, Func<IExecutionControl> CreateControl, RunTokens runTokens)
     {
         using var _ = runTokens;
@@ -403,6 +425,9 @@ static class TestFunctionBlocks
         const int DelayMs = 5000;
         ICompositeEC CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFramework);
         IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFunctionFramework>(block: new(blockDef.Id), blockDef, importBlocks: null, functionRunner, blockFrameworkFactory, functionFramework);
+
+        Console.WriteLine("=== Test sample metric ===");
+        await RunSampleMetric(dataStore, blockRunner, CreateControl: () => CreateCompositeControl(blockDef: SampleMetricCFB.Build()), runTokens: tokensProvider());
 
         await RunObjectAndFunctions(blockRunner, CreateControl: () => CreateCompositeControl(ObjectAndFunctionsCFB.Build()), runTokens: tokensProvider());
 
@@ -438,7 +463,7 @@ static class TestFunctionBlocks
 
         await RunDependencyWait(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: DependencyWaitCFB.Build()), runTokens: tokensProvider());
 
-        Console.WriteLine("Test run entry report: ");
+        Console.WriteLine("=== Test entry report ===");
         await RunEntryReport(dataStore, blockRunner, CreateControl: () => CreateCompositeControl(blockDef: EntryReportCFB.Build()), runTokens: tokensProvider());
     }
 

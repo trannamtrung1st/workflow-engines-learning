@@ -3,6 +3,7 @@ using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 
 namespace WELearning.Core.FunctionBlocks.Framework;
 
+// [IMPORTANT] do not expose complex types cause Jint engine requires proxy which won't work for every types
 public abstract class BlockBinding : IBlockBinding
 {
     protected readonly IValueObject _valueObject;

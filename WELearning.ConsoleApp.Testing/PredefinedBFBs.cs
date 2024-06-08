@@ -59,6 +59,7 @@ static class PredefinedBFBs
         RuntimeExceptionJsFromCs = CreateRuntimeExceptionJsFromCs();
         LogInputJs = CreateBlockLogInput();
         PrependEntryJs = CreateBlockPrependEntry();
+        LastSeriesBeforeJs = CreateBlockLastSeriesBefore();
     }
 
     public static readonly BasicBlockDef MultiplyCsCompiled;
@@ -81,6 +82,7 @@ static class PredefinedBFBs
     public static readonly BasicBlockDef RuntimeExceptionJsFromCs;
     public static readonly BasicBlockDef LogInputJs;
     public static readonly BasicBlockDef PrependEntryJs;
+    public static readonly BasicBlockDef LastSeriesBeforeJs;
 
     public static BasicBlockDef CreateInOutBlock(params Variable[] variables)
     {
@@ -849,7 +851,7 @@ let a = 5;"
 
     private static BasicBlockDef CreateBlockPrependEntry()
     {
-        return CreateBlockSimple(id: "PrependEntry", name: "Prepend entry with other (sample for using reference binding method and reusing functions)",
+        return CreateBlockSimple(id: "PrependEntry", name: "Prepend entry with other",
             content: @"
             FB.Log(InputEntry.EntryKey);
             Result = InputEntry.Prepend(OtherName);", imports: null, importBlockIds: null,
@@ -857,6 +859,21 @@ let a = 5;"
             new Variable("InputEntry", EDataType.Reference, EVariableType.Input, objectType: nameof(EntryEntity)),
             new Variable("OtherName", EDataType.String, EVariableType.Input),
             new Variable("Result", EDataType.String, EVariableType.Output));
+    }
+
+    private static BasicBlockDef CreateBlockLastSeriesBefore()
+    {
+        return CreateBlockSimple(id: "LastSeriesBefore", name: "Last metric value ( (sample for using reference binding method and reusing functions)",
+            content: @"
+            const series = await InputMetric.LastSeriesBefore(BeforeTime);
+            const { Metric, Value, Timestamp } = series;
+            FB.Log(Metric, '|', Value, '|', Timestamp);
+            Result = series;
+            ", imports: null, importBlockIds: null,
+            signature: "LastSeriesBefore", exported: true,
+            new Variable("InputMetric", EDataType.Reference, EVariableType.Input, objectType: nameof(MetricSnapshot)),
+            new Variable("BeforeTime", EDataType.DateTime, EVariableType.Input),
+            new Variable("Result", EDataType.Object, EVariableType.Output));
     }
 
     public static BasicBlockDef CreateBlockSimple(

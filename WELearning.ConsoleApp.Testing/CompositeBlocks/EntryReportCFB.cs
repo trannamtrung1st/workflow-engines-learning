@@ -11,11 +11,12 @@ public static class EntryReportCFB
     {
         var cfb = new CompositeBlockDef(id: "EntryReport", name: "Entry Report: a sample process using external object reference");
 
-        var iTemp = new Variable("Temperature", dataType: EDataType.Reference, variableType: EVariableType.Input);
-        var iHumidity = new Variable("Humidity", dataType: EDataType.Reference, variableType: EVariableType.Input);
-        var iReport = new Variable("Report", dataType: EDataType.Reference, variableType: EVariableType.Input);
-        var oReport = new Variable("Report", dataType: EDataType.Reference, variableType: EVariableType.Output);
-        var oFinalReport = new Variable("FinalReport", dataType: EDataType.Reference, variableType: EVariableType.Output);
+        var entryType = nameof(EntryEntity);
+        var iTemp = new Variable("Temperature", dataType: EDataType.Reference, variableType: EVariableType.Input, objectType: entryType);
+        var iHumidity = new Variable("Humidity", dataType: EDataType.Reference, variableType: EVariableType.Input, objectType: entryType);
+        var iReport = new Variable("Report", dataType: EDataType.Reference, variableType: EVariableType.Input, objectType: entryType);
+        var oReport = new Variable("Report", dataType: EDataType.Reference, variableType: EVariableType.Output, objectType: entryType);
+        var oFinalReport = new Variable("FinalReport", dataType: EDataType.Reference, variableType: EVariableType.Output, objectType: entryType);
         cfb.Variables = new Variable[] { iTemp, iHumidity, iReport, oReport, oFinalReport };
 
         var eTrigger = new BlockEvent(isInput: true, name: "Trigger", variableNames: new[] { iTemp.Name, iHumidity.Name, iReport.Name });
@@ -23,7 +24,6 @@ public static class EntryReportCFB
         cfb.Events = new[] { eTrigger, eCompleted };
         cfb.DefaultTriggerEvent = eTrigger.Name;
 
-        var entryType = nameof(EntryEntity);
         var bPrependDef = PredefinedBFBs.PrependEntryJs;
         var bConcatDef = PredefinedBFBs.ConcatTwoStringsJs;
         var bCustomConcatDef = PredefinedBFBs.CreateBlockSimple(
@@ -42,9 +42,9 @@ public static class EntryReportCFB
         var bConcat2 = new BlockInstance(bCustomConcatDef.Id, id: "Concat2");
 
         var bInputsDef = PredefinedBFBs.CreateInOutBlock(
-            new Variable(name: "Temperature", dataType: EDataType.Reference, variableType: EVariableType.InOut),
-            new Variable(name: "Humidity", dataType: EDataType.Reference, variableType: EVariableType.InOut),
-            new Variable(name: "Report", dataType: EDataType.Reference, variableType: EVariableType.InOut),
+            new Variable(name: "Temperature", dataType: EDataType.Reference, variableType: EVariableType.InOut, objectType: entryType),
+            new Variable(name: "Humidity", dataType: EDataType.Reference, variableType: EVariableType.InOut, objectType: entryType),
+            new Variable(name: "Report", dataType: EDataType.Reference, variableType: EVariableType.InOut, objectType: entryType),
             new Variable(name: "Delimiter", dataType: EDataType.String, variableType: EVariableType.InOut, defaultValue: " "),
             new Variable(name: "OtherEntryName", dataType: EDataType.String, variableType: EVariableType.InOut, defaultValue: "FinalPrefix")
         );
