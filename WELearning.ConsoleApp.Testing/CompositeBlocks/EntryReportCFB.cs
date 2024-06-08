@@ -24,13 +24,16 @@ public static class EntryReportCFB
         cfb.DefaultTriggerEvent = eTrigger.Name;
 
         var entryType = nameof(EntryEntity);
+        var bPrependDef = PredefinedBFBs.PrependEntryJs;
         var bConcatDef = PredefinedBFBs.ConcatTwoStringsJs;
         var bCustomConcatDef = PredefinedBFBs.CreateBlockSimple(
             id: "CustomConcat",
             name: "Sample using reference binding method",
             content: @$"
-            FB.Log(Entry.EntryKey);
-            Result = Entry.Prepend(OtherEntryName);", imports: null, importBlockIds: null,
+            const prependResult = PrependEntry({{ InputEntry: Entry, OtherName: OtherEntryName }}, {{ Result }})
+            Result = prependResult.Result",
+            imports: new[] { $"import {{ PrependEntry }} from '{FunctionDefaults.ModuleFunctions}'" },
+            importBlockIds: new[] { bPrependDef.Id }, signature: null, exported: false,
             new Variable("Entry", EDataType.Reference, EVariableType.Input, objectType: entryType),
             new Variable("OtherEntryName", EDataType.String, EVariableType.Input),
             new Variable("Result", EDataType.String, EVariableType.Output)
@@ -171,7 +174,7 @@ public static class EntryReportCFB
             cfb.References = references;
         }
 
-        cfb.MapDefinitions(new[] { bConcatDef, bCustomConcatDef, bReportDef, bInputsDef, bOutputsDef });
+        cfb.MapDefinitions(new[] { bConcatDef, bCustomConcatDef, bPrependDef, bReportDef, bInputsDef, bOutputsDef });
         return cfb;
     }
 

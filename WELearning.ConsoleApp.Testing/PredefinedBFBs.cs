@@ -5,6 +5,7 @@ using System.Reflection;
 using WELearning.Core.FunctionBlocks.Framework;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.ConsoleApp.Testing.Framework;
+using WELearning.ConsoleApp.Testing.Entities;
 
 static class PredefinedBFBs
 {
@@ -57,6 +58,7 @@ static class PredefinedBFBs
         RuntimeExceptionJs = CreateRuntimeExceptionJs();
         RuntimeExceptionJsFromCs = CreateRuntimeExceptionJsFromCs();
         LogInputJs = CreateBlockLogInput();
+        PrependEntryJs = CreateBlockPrependEntry();
     }
 
     public static readonly BasicBlockDef MultiplyCsCompiled;
@@ -78,6 +80,7 @@ static class PredefinedBFBs
     public static readonly BasicBlockDef RuntimeExceptionJs;
     public static readonly BasicBlockDef RuntimeExceptionJsFromCs;
     public static readonly BasicBlockDef LogInputJs;
+    public static readonly BasicBlockDef PrependEntryJs;
 
     public static BasicBlockDef CreateInOutBlock(params Variable[] variables)
     {
@@ -844,10 +847,23 @@ let a = 5;"
             variables: new Variable("Data", EDataType.Any, EVariableType.InOut));
     }
 
+    private static BasicBlockDef CreateBlockPrependEntry()
+    {
+        return CreateBlockSimple(id: "PrependEntry", name: "Prepend entry with other (sample for using reference binding method and reusing functions)",
+            content: @"
+            FB.Log(InputEntry.EntryKey);
+            Result = InputEntry.Prepend(OtherName);", imports: null, importBlockIds: null,
+            signature: "PrependEntry", exported: true,
+            new Variable("InputEntry", EDataType.Reference, EVariableType.Input, objectType: nameof(EntryEntity)),
+            new Variable("OtherName", EDataType.String, EVariableType.Input),
+            new Variable("Result", EDataType.String, EVariableType.Output));
+    }
+
     public static BasicBlockDef CreateBlockSimple(
         string id, string name, string content,
         IEnumerable<string> imports = null,
         IEnumerable<string> importBlockIds = null,
+        string signature = null, bool exported = false,
         params Variable[] variables)
     {
         var bSimple = new BasicBlockDef(id: id, name: name);
@@ -865,7 +881,8 @@ let a = 5;"
             name: "Run",
             content: content,
             runtime: ERuntime.Javascript,
-            imports: imports, assemblies: null, types: null);
+            imports: imports, assemblies: null, types: null,
+            signature: signature, exported: exported);
         var functions = new[] { fRun };
         bSimple.Functions = functions;
 
