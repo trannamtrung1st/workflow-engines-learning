@@ -835,7 +835,7 @@ c = 0;"
             content:
 @"const a = 2; 
 /* Test position */ FB.DemoException();
-let a = 5;"
+let b = 5;"
         );
     }
     #endregion
