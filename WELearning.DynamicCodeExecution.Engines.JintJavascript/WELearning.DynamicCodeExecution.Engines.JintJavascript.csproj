@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\WELearning.DynamicCodeExecution\WELearning.DynamicCodeExecution.csproj" />
+    <ProjectReference Include="..\Jint\Jint\Jint.csproj" />
   </ItemGroup>
 
   <ItemGroup>
