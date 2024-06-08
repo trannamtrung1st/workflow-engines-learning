@@ -48,10 +48,10 @@ public class JintRuntimeException : RuntimeException
     }
 
     public JintRuntimeException(
-        Exception systemException, Acornima.Position currentNodePosition, int currentNodeIndex,
+        Exception systemException, bool isUserSource, Acornima.Position currentNodePosition, int currentNodeIndex,
         int userContentLineStart, int userContentLineEnd, int userContentIndexStart, int userContentIndexEnd)
     {
-        _source = SourceSystem;
+        _source = isUserSource ? SourceUser : SourceSystem;
         var (currentLine, currentColumn) = currentNodePosition;
         UnderlyingException = systemException;
         var (Line, Column, Index) = RecalculatePosition(

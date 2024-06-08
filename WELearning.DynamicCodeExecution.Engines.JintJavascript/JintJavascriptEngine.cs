@@ -219,7 +219,8 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             }
             catch (Exception ex)
             {
-                var originalEx = (ex as AggregateException)?.InnerException ?? ex;
+                ex = (ex as AggregateException)?.InnerException ?? ex;
+                var isUserSource = false;
 
                 if (ex is StatementsCountOverflowException stmCountOverflow)
                 {
@@ -227,11 +228,12 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                     ex = new Exception(engineWrap.IsMaxLoopCountReached
                         ? $"Possible infinite loop detected."
                         : $"The maximum number of statements executed ({maxStatements}) have been reached.");
+                    isUserSource = true;
                 }
 
                 if (engineWrap.CurrentNodePosition.HasValue)
                     throw new JintRuntimeException(
-                        systemException: originalEx,
+                        systemException: ex, isUserSource,
                         currentNodePosition: engineWrap.CurrentNodePosition.Value,
                         currentNodeIndex: engineWrap.CurrentNodeIndex,
                         userContentLineStart: lineStart,
