@@ -154,7 +154,7 @@ public static class LoopCFB
         bLoopController.DefaultTriggerEvent = eTrigger.Name;
 
         var fRun = new Function(
-            id: "Trigger",
+            id: Guid.NewGuid().ToString(),
             name: "Trigger",
             content: @$"
             await OUT[""Result""].Write(0.0);
@@ -168,7 +168,7 @@ public static class LoopCFB
             runtime: ERuntime.CSharpScript,
             imports: null, assemblies: assemblies, types: null);
         var fLoop = new Function(
-            id: "Loop",
+            id: Guid.NewGuid().ToString(),
             name: "Loop",
             content: @$"
             var currentResult = IN[""Result""].AsInt();
@@ -207,7 +207,7 @@ public static class LoopCFB
                 transitions.Add(new(fromState: sRunning.Name, toState: sIdle.Name)
                 {
                     TriggerCondition = new(
-                        id: "Running2IdleCondition",
+                        id: Guid.NewGuid().ToString(),
                         name: "Running to idle condition",
                         content: @$"
                             var n = IN[""N""].AsInt();
@@ -221,7 +221,7 @@ public static class LoopCFB
                 transitions.Add(new(fromState: sLooping.Name, toState: sIdle.Name)
                 {
                     TriggerCondition = new(
-                        id: "Looping2IdleCondition",
+                        id: Guid.NewGuid().ToString(),
                         name: "Looping to idle condition",
                         content: @$"
                             var n = IN[""N""].AsInt();

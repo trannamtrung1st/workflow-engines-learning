@@ -22,6 +22,7 @@ public class FunctionRunner : IFunctionRunner
         _typeProvider = typeProvider;
     }
 
+    // [TODO] optimize models
     public async Task<(TReturn Result, IDisposable OptimizationScope)> Run<TReturn, TFunctionFramework>(
         Function function, BlockGlobalObject<TFunctionFramework> globalObject,
         IDictionary<string, object> inputs, IDictionary<string, object> outputs,
@@ -34,6 +35,7 @@ public class FunctionRunner : IFunctionRunner
         var result = await engine.Execute<TReturn, BlockGlobalObject<TFunctionFramework>>(
             request: new(
                 content: function.Content,
+                contentId: function.Id,
                 arguments: globalObject,
                 imports: function.Imports,
                 assemblies, types, tokens,
@@ -59,6 +61,7 @@ public class FunctionRunner : IFunctionRunner
         var (result, scope) = await engine.Execute<dynamic, BlockGlobalObject<TFunctionFramework>>(
             request: new(
                 content: function.Content,
+                contentId: function.Id,
                 arguments: globalObject,
                 imports: function.Imports,
                 assemblies, types, tokens,

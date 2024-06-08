@@ -140,7 +140,7 @@ static class PredefinedBFBs
         bPassThrough.DefaultTriggerEvent = eTrigger.Name;
 
         var fRun = new Function(
-            id: "Run",
+            id: Guid.NewGuid().ToString(),
             name: "Run",
             content: string.Join(
                 separator: Environment.NewLine,
@@ -269,13 +269,13 @@ static class PredefinedBFBs
         bMultiply.DefaultTriggerEvent = eTrigger.Name;
 
         var fRun = new Function(
-            id: "Run",
+            id: Guid.NewGuid().ToString(),
             name: "Run",
             content: multiplyScript,
             runtime: runtime,
             imports: imports, assemblies: assemblies, types: null);
         var fHandleInvalid = new Function(
-            id: "HandleInvalid",
+            id: Guid.NewGuid().ToString(),
             name: "Handle invalid",
             content: handleInvalidScript,
             runtime: runtime,
@@ -295,7 +295,7 @@ static class PredefinedBFBs
             {
                 var tIdle2Invalid = new BlockStateTransition(fromState: sIdle.Name, toState: sInvalid.Name, triggerEventName: eTrigger.Name);
                 tIdle2Invalid.TriggerCondition = new(
-                    id: "InvalidCondition",
+                    id: Guid.NewGuid().ToString(),
                     name: "Invalid condition",
                     content: invalidConditionScript,
                     runtime: runtime,
@@ -401,14 +401,14 @@ static class PredefinedBFBs
         bAdd.DefaultTriggerEvent = eTrigger.Name;
 
         var fRun = new Function(
-            id: "Run",
+            id: Guid.NewGuid().ToString(),
             name: "Run",
             content: addScript,
             runtime: runtime,
             imports: imports, assemblies: assemblies, types: null,
             signature: "Add2Numbers", exported: true);
         var fHandleInvalid = new Function(
-            id: "HandleInvalid",
+            id: Guid.NewGuid().ToString(),
             name: "Handle invalid",
             content: handleInvalidScript,
             runtime: runtime,
@@ -428,7 +428,7 @@ static class PredefinedBFBs
             {
                 var tIdle2Invalid = new BlockStateTransition(fromState: sIdle.Name, toState: sInvalid.Name, triggerEventName: eTrigger.Name);
                 tIdle2Invalid.TriggerCondition = new(
-                    id: "InvalidCondition",
+                    id: Guid.NewGuid().ToString(),
                     name: "Invalid condition",
                     content: invalidConditionScript,
                     runtime: runtime,
@@ -505,7 +505,7 @@ static class PredefinedBFBs
         bRandom.DefaultTriggerEvent = eTrigger.Name;
 
         var fRun = new Function(
-            id: "Run",
+            id: Guid.NewGuid().ToString(),
             name: "Run",
             content: randomScript,
             runtime: runtime,
@@ -606,7 +606,7 @@ static class PredefinedBFBs
         bDelay.DefaultTriggerEvent = eTrigger.Name;
 
         var fRun = new Function(
-            id: "Run",
+            id: Guid.NewGuid().ToString(),
             name: "Run",
             content: delayScript,
             runtime: runtime,
@@ -625,6 +625,7 @@ static class PredefinedBFBs
             {
                 var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eTrigger.Name);
                 tIdle2Running.ActionFunctionIds = new[] { fRun.Id };
+                tIdle2Running.DefaultOutputEvents = new[] { eCompleted.Name };
 
                 transitions.Add(tIdle2Running);
                 transitions.Add(new(fromState: sRunning.Name, toState: sIdle.Name));
@@ -657,7 +658,7 @@ static class PredefinedBFBs
         bConcat.DefaultTriggerEvent = eTrigger.Name;
 
         var fRun = new Function(
-            id: "Run",
+            id: Guid.NewGuid().ToString(),
             name: "Run",
             content: @$"
             Result = X + Delimiter + Y;
@@ -710,7 +711,7 @@ static class PredefinedBFBs
         bFactorial.DefaultTriggerEvent = eTrigger.Name;
 
         var fRun = new Function(
-            id: "Run",
+            id: Guid.NewGuid().ToString(),
             name: "Run",
             content: @$"
             // [factor, result]
@@ -719,7 +720,7 @@ static class PredefinedBFBs
             runtime: ERuntime.CSharpScript,
             imports: null, assemblies: assemblies, types: null);
         var fLoop = new Function(
-            id: "Loop",
+            id: Guid.NewGuid().ToString(),
             name: "Loop",
             content: @$"
             var state = (int[])INTERNAL[""State""].Value;
@@ -729,7 +730,7 @@ static class PredefinedBFBs
             runtime: ERuntime.CSharpScript,
             imports: null, assemblies: assemblies, types: null);
         var fOutput = new Function(
-            id: "Output",
+            id: Guid.NewGuid().ToString(),
             name: "Output",
             content: @$"
             var state = (int[])INTERNAL[""State""].Value;
@@ -756,7 +757,7 @@ static class PredefinedBFBs
                 tIdle2Running.ActionFunctionIds = new[] { fRun.Id };
 
                 var fLoopingCondition = new Function(
-                    id: "LoopingCondition",
+                    id: Guid.NewGuid().ToString(),
                     name: "Looping condition",
                     content: @$"
                         var n = IN[""N""].AsInt();
@@ -860,7 +861,7 @@ let a = 5;"
         bSimple.DefaultTriggerEvent = eTrigger.Name;
 
         var fRun = new Function(
-            id: "Run",
+            id: Guid.NewGuid().ToString(),
             name: "Run",
             content: content,
             runtime: ERuntime.Javascript,

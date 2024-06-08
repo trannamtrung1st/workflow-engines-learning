@@ -129,6 +129,7 @@ static class TestEngines
 
     public static async Task LoopCSharpCompiled(int n, IRuntimeEngine runtimeEngine, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, Func<RunTokens> tokensProvider)
     {
+        string contentId = Guid.NewGuid().ToString();
         for (var i = 0; i < n; i++)
         {
             using var runTokens = tokensProvider();
@@ -142,6 +143,7 @@ static class TestEngines
                             return Task.FromResult(arguments.X * 5);    
                         }}
                     }}",
+                    contentId: contentId,
                     arguments: new LoopTestArgs { X = i },
                     imports: imports, assemblies: assemblies, types: null, tokens: runTokens
                 ));
@@ -150,12 +152,13 @@ static class TestEngines
 
     public static async Task LoopCSharpScript(int n, IRuntimeEngine runtimeEngine, Func<RunTokens> tokensProvider)
     {
+        string contentId = Guid.NewGuid().ToString();
         for (var i = 0; i < n; i++)
         {
             using var runTokens = tokensProvider();
             await runtimeEngine.Execute<LoopTestArgs>(
                 request: new(
-                    content: @$"X * 5", arguments: new LoopTestArgs { X = i },
+                    content: @$"X * 5", contentId: contentId, arguments: new LoopTestArgs { X = i },
                     imports: null, assemblies: null, types: null, tokens: runTokens
                 ));
         }
@@ -165,6 +168,7 @@ static class TestEngines
     {
         IDisposable scope = null;
         Guid optimizationScopeId = Guid.NewGuid();
+        string contentId = Guid.NewGuid().ToString();
         try
         {
             for (var i = 0; i < n; i++)
@@ -173,6 +177,7 @@ static class TestEngines
                 scope = await runtimeEngine.Execute<LoopTestArgs>(
                     new(
                         content: @$"return X * 5",
+                        contentId: contentId,
                         arguments: new LoopTestArgs { X = i },
                         imports: null, assemblies: null, types: null, tokens: runTokens,
                         inputs: new Dictionary<string, object>() { ["X"] = i },
@@ -202,6 +207,7 @@ static class TestEngines
                     const apiString = await TestAsync();
                     return `Hello ` + testLodash.toString() + apiString;
                 ",
+                contentId: Guid.NewGuid().ToString(),
                 arguments: new { TestAsync },
                 imports: new[] { "import './lodash.min.js';" },
                 assemblies: null, types: null, runTokens,
@@ -220,6 +226,7 @@ static class TestEngines
                     const apiString = await TestAsync();
                     return `Hello ` + testLodash.toString() + apiString;
                 ",
+                contentId: Guid.NewGuid().ToString(),
                 arguments: new { TestAsync },
                 imports: new[] { "import { fetch } from 'fetch.min.js'", "import 'lodash.min.js'", "import 'axios.min.js'" },
                 assemblies: null, types: null, runTokens,

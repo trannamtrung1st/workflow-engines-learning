@@ -81,10 +81,8 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
     private async Task<Assembly> LoadOrCompile(string content, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken)
     {
         var (AssemblyName, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, cancellationToken);
-        Assembly assembly = null;
-        _lockManager.MutexAccess(AssemblyName, () =>
-        {
-            assembly = _assemblyCache.GetOrCreate(AssemblyName, (entry) =>
+        return _lockManager.MutexAccess(AssemblyName,
+            func: () => _assemblyCache.GetOrCreate(AssemblyName, (entry) =>
             {
                 entry.SetSize(CacheSize);
                 entry.SetSlidingExpiration(DefaultSlidingExpiration);
@@ -107,9 +105,7 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
                     }
                     return EmitToMemory(compilation, cancellationToken);
                 }
-            });
-        });
-        return assembly;
+            }));
     }
 
     private static Assembly EmitToMemory(CSharpCompilation compilation, CancellationToken cancellationToken)

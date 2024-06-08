@@ -188,7 +188,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
     {
         if (importBlocks == null) return null;
         var functions = importBlocks.SelectMany(b => b.GetModuleFunctions()).ToArray();
-        var module = new ImportModule(moduleName: FunctionDefaults.ModuleFunctions, functions);
+        var module = new ImportModule(id: Definition.Id, moduleName: FunctionDefaults.ModuleFunctions, functions);
         return new[] { module };
     }
 

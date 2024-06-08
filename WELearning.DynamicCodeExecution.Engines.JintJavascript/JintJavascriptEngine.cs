@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Reflection;
-using System.Security.Cryptography;
 using System.Text;
 using Esprima;
 using Jint;
@@ -30,7 +29,9 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     private const int DefaultMaxLoopCount = 10_000;
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
     private static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(30);
+    private readonly MemoryCache _preparedModuleCache;
     private readonly MemoryCache _moduleCache;
+    private readonly MemoryCache _preprocessedContentCache;
     private readonly IOptions<JintOptions> _jintOptions;
     private readonly EngineCache _engineCache;
     private readonly IInMemoryLockManager _lockManager;
@@ -41,7 +42,9 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         {
             SizeLimit = DefaultCacheSizeLimitInBytes
         };
-        _moduleCache = new MemoryCache(cacheOption);
+        _moduleCache = new(cacheOption);
+        _preparedModuleCache = new(cacheOption);
+        _preprocessedContentCache = new(cacheOption);
         _engineCache = new();
         _jintOptions = JintOptions;
         // [OPT] add lib loading cache
@@ -49,43 +52,27 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.Javascript;
 
-    private async Task<ObjectInstance> GetScriptModule(Guid engineId, Engine engine, string content, IEnumerable<string> imports, IEnumerable<Assembly> assemblies, CancellationToken cancellationToken)
+    private ObjectInstance GetModuleObject(Engine engine, Guid engineId, string contentId, string content)
     {
-        var (ModuleName, CacheSize) = await GetScriptCacheEntry(engineId, content, imports, assemblies, cancellationToken);
-        ObjectInstance module = null;
-        _lockManager.MutexAccess(ModuleName, () =>
-        {
-            module = _moduleCache.GetOrCreate(ModuleName, (entry) =>
+        var preparedModule = GetPreparedModule(moduleKey: contentId, () => content);
+        var (moduleName, cacheSize) = GetModuleObjectCacheEntry(engineId, contentId, content);
+        return _lockManager.MutexAccess($"MODULE_OBJECTS.{moduleName}",
+            func: () => _moduleCache.GetOrCreate(moduleName, (entry) =>
             {
-                entry.SetSize(CacheSize);
+                entry.SetSize(cacheSize);
                 entry.SetSlidingExpiration(DefaultSlidingExpiration);
-                var preparedModule = Engine.PrepareModule(code: content, options: new ModulePreparationOptions
-                {
-                    ParsingOptions = ModuleParsingOptions.Default
-                });
-                engine.Modules.Add(ModuleName, b => b.AddModule(preparedModule));
-                var module = engine.Modules.Import(ModuleName);
+                engine.Modules.Add(moduleName, b => b.AddModule(preparedModule));
+                var module = engine.Modules.Import(moduleName);
                 return module;
-            });
-        });
-        return module;
+            }));
     }
 
-    private static async Task<(string ModuleName, long CacheSize)> GetScriptCacheEntry(
-        Guid engineId, string content, IEnumerable<string> imports,
-        IEnumerable<Assembly> assemblies,
-        CancellationToken cancellationToken)
+    private static (string ModuleName, long CacheSize) GetModuleObjectCacheEntry(Guid engineId, string contentId, string content)
     {
-        using var md5 = MD5.Create();
-        var importsStr = imports != null ? string.Join(string.Empty, imports) : null;
-        var assembliesStr = assemblies != null ? string.Join(string.Empty, assemblies.Select(ass => ass.FullName)) : null;
-        var hashContent = $"{engineId}_{content}_{importsStr}_{assembliesStr}";
-        using var memStream = new MemoryStream(Encoding.UTF8.GetBytes(hashContent));
-        var hash = await md5.ComputeHashAsync(memStream, cancellationToken);
-        var moduleName = Convert.ToBase64String(hash);
+        var moduleName = $"{engineId}_{contentId}";
         foreach (var c in Path.GetInvalidFileNameChars().Concat(new[] { '+', '=' }))
             moduleName = moduleName.Replace(c, '_');
-        var contentSizeInBytes = hashContent.Length * 2;
+        var contentSizeInBytes = content.Length * 2;
         return (moduleName, contentSizeInBytes);
     }
 
@@ -117,25 +104,30 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             return wrap;
         }
 
-        if (request.OptimizationScopeId == default) return (CreateNewEngine(), null);
-        EngineWrap engine;
-        if (!_engineCache.TryGetValue(request.OptimizationScopeId.Value, out var scope))
+        if (request.OptimizationScopeId == default)
+            return (CreateNewEngine(), null);
+
+        EngineWrap engine = null; OptimizationScope scope = null;
+        var scopeId = request.OptimizationScopeId.Value;
+        _lockManager.MutexAccess(key: $"ENGINES.{scopeId}", () =>
         {
-            _engineCache.RequestSlot(request.Tokens.Combined);
-            try
+            if (!_engineCache.TryGetValue(scopeId, out scope))
             {
-                engine = CreateNewEngine();
-                scope = new OptimizationScope(engine, request.OptimizationScopeId.Value, ReleaseSlot: _engineCache.ReleaseSlot);
-                _engineCache.SetSlot(request.OptimizationScopeId.Value, scope);
+                _engineCache.RequestSlot(request.Tokens.Combined);
+                try
+                {
+                    engine = CreateNewEngine();
+                    scope = new OptimizationScope(engine, scopeId, ReleaseSlot: _engineCache.ReleaseSlot);
+                    _engineCache.SetSlot(scopeId, scope);
+                }
+                catch
+                {
+                    _engineCache.ReleaseSlot(scopeId);
+                    throw;
+                }
             }
-            catch
-            {
-                _engineCache.ReleaseSlot(request.OptimizationScopeId.Value);
-                throw;
-            }
-        }
-        else
-            engine = scope.Engine;
+            else engine = scope.Engine;
+        });
         return (engine, scope);
     }
 
@@ -151,6 +143,8 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     public void Dispose()
     {
         _moduleCache.Dispose();
+        _preprocessedContentCache.Dispose();
+        _preparedModuleCache.Dispose();
         _engineCache.Dispose();
     }
 
@@ -182,14 +176,15 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 
         try
         {
-            var ((content, lineStart, lineEnd, indexStart, indexEnd), arguments) = PreprocessContent(request, engineWrap.Engine);
+            var (content, lineStart, lineEnd, indexStart, indexEnd) = PreprocessContent(request);
+            var arguments = GetArgumentValues(engine: engineWrap.Engine, inputs: request.Inputs, outputs: request.Outputs);
             try
             {
                 await engineWrap.SafeAccessEngine(async (engine) =>
                 {
                     engineWrap.ResetNodePosition();
                     SetValues(engine, request.Arguments);
-                    var module = await GetScriptModule(engineId: engineWrap.Id, engine, content, request.Imports, request.Assemblies, cancellationToken: request.Tokens.Combined);
+                    var module = GetModuleObject(engine, engineId: engineWrap.Id, request.ContentId, content);
                     var exportedFunction = module.Get(JsEngineConstants.ExportedFunctionName);
                     result = await CallWithHandles(engineWrap, exportedFunction, arguments, tokens: request.Tokens);
                     result = result.UnwrapIfPromise();
@@ -299,35 +294,43 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         return argumentValues;
     }
 
-    private static ((string Content, int LineStart, int LineEnd, int IndexStart, int IndexEnd) ContentInfo, JsValue[] Values)
-        PreprocessContent<TArg>(ExecuteCodeRequest<TArg> request, Engine engine)
+    private (string Content, int LineStart, int LineEnd, int IndexStart, int IndexEnd)
+        PreprocessContent<TArg>(ExecuteCodeRequest<TArg> request)
     {
-        var flattenArguments = new HashSet<string>();
-        if (request.Inputs != null)
-            foreach (var input in request.Inputs) flattenArguments.Add(input.Key);
-        if (request.Outputs != null)
-            foreach (var output in request.Outputs) flattenArguments.Add(output.Key);
+        return _lockManager.MutexAccess(key: $"CONTENTS.{request.ContentId}",
+            func: () => _preprocessedContentCache.GetOrCreate(request.ContentId, (entry) =>
+            {
+                var flattenArguments = new HashSet<string>();
+                if (request.Inputs != null)
+                    foreach (var input in request.Inputs) flattenArguments.Add(input.Key);
+                if (request.Outputs != null)
+                    foreach (var output in request.Outputs) flattenArguments.Add(output.Key);
 
-        var values = GetArgumentValues(engine: engine, inputs: request.Inputs, outputs: request.Outputs);
-        var flattenOutputs = request.Outputs?.Keys.ToList();
-        var flattenOutputsStr = GetOutputPreprocessingContent(flattenOutputs);
-        var contentLineCount = request.Content.NewLineCount();
-        var importStatements = GetImportStatements(request.Imports);
+                var flattenOutputs = request.Outputs?.Keys.ToList();
+                var flattenOutputsStr = GetPreprocessOutputContent(flattenOutputs);
+                var contentLineCount = request.Content.NewLineCount();
+                var importStatements = GetImportStatements(request.Imports);
 
-        var contentInfo = request.UseRawContent
-            ? (request.Content, 1, contentLineCount, 0, request.Content.Length - 1)
-            : JavascriptHelper.WrapModuleFunction(
-                script: request.Content, request.Async,
-                topStatements: importStatements,
-                returnStatements: flattenOutputsStr,
-                flattenArguments: flattenArguments);
-        return (contentInfo, values);
+                var contentInfo = request.UseRawContent
+                    ? (request.Content, 1, contentLineCount, 0, request.Content.Length - 1)
+                    : JavascriptHelper.WrapModuleFunction(
+                        script: request.Content, request.Async,
+                        topStatements: importStatements,
+                        returnStatements: flattenOutputsStr,
+                        flattenArguments: flattenArguments);
+
+                var contentSizeInBytes = contentInfo.Content.Length * 2;
+                entry.SetSize(contentSizeInBytes);
+                entry.SetSlidingExpiration(DefaultSlidingExpiration);
+                return contentInfo;
+            }));
     }
 
-    private static void AddModule(Engine engine, ImportModule module)
+    private void AddModule(Engine engine, ImportModule module)
     {
         if (module.Functions?.Any() != true) return;
-        engine.Modules.Add(module.ModuleName, builder =>
+
+        var preparedModule = GetPreparedModule($"MODULES.{module.Id}", () =>
         {
             var contentBuilder = new StringBuilder();
             foreach (var function in module.Functions)
@@ -338,7 +341,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                 if (function.Outputs != null)
                     foreach (var output in function.Outputs) flattenArguments.Add(output);
                 var flattenOutputs = function.Outputs?.ToList();
-                var flattenOutputsStr = GetOutputPreprocessingContent(flattenOutputs);
+                var flattenOutputsStr = GetPreprocessOutputContent(flattenOutputs);
 
                 var content = function.UseRawContent
                     ? function.Content
@@ -352,11 +355,27 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             }
 
             var moduleContent = contentBuilder.ToString();
-            builder.AddModule(Engine.PrepareModule(moduleContent));
+            return moduleContent;
         });
+
+        engine.Modules.Add(module.ModuleName, builder =>
+            builder.AddModule(preparedModule));
     }
 
-    private static string GetOutputPreprocessingContent(IEnumerable<string> flattenOutputs)
+    private Prepared<Esprima.Ast.Module> GetPreparedModule(string moduleKey, Func<string> contentProvider)
+    {
+        return _lockManager.MutexAccess($"MODULES.{moduleKey}",
+            func: () => _preparedModuleCache.GetOrCreate(moduleKey, (entry) =>
+            {
+                var moduleContent = contentProvider();
+                var contentSizeInBytes = moduleContent.Length * 2;
+                entry.SetSize(contentSizeInBytes);
+                entry.SetSlidingExpiration(DefaultSlidingExpiration);
+                return Engine.PrepareModule(moduleContent);
+            }));
+    }
+
+    private static string GetPreprocessOutputContent(IEnumerable<string> flattenOutputs)
     {
         var flattenOutputsStr = flattenOutputs?.Any() == true ?
 @$"const {OutVariable} = {{{string.Join(',', flattenOutputs)}}};
@@ -389,7 +408,7 @@ return {OutVariable};" : string.Empty;
 
     class EngineCache : IDisposable
     {
-        private const long DefaultMaxEngineCacheCount = 1_000;
+        private const long DefaultMaxEngineCacheCount = 3_000;
         private readonly ManualResetEventSlim _engineCacheWait;
         private readonly ConcurrentDictionary<Guid, OptimizationScope> _engineCache;
         private int _slotCount;

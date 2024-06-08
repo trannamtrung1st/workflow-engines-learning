@@ -35,18 +35,15 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
         var assemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types);
         var (CacheKey, CacheSize) = await GetScriptCacheEntry(request.Content, request.Imports, assemblies, cancellationToken: request.Tokens.Combined);
 
-        Script<TReturn> script = null;
-        _lockManager.MutexAccess(CacheKey, () =>
-        {
-            script = _scriptCache.GetOrCreate(CacheKey, (entry) =>
+        var script = _lockManager.MutexAccess(CacheKey,
+            func: () => _scriptCache.GetOrCreate(CacheKey, (entry) =>
             {
                 ConfigureCacheEntry(entry, CacheSize);
                 var scriptOptions = PrepareScriptOptions(request.Imports, assemblies);
                 var script = CSharpScript.Create<TReturn>(request.Content, scriptOptions, globalsType: typeof(TArg));
                 script.Compile(cancellationToken: request.Tokens.Combined);
                 return script;
-            });
-        });
+            }));
 
         var result = await script.RunAsync(globals: request.Arguments, cancellationToken: request.Tokens.Combined);
         return (result.ReturnValue, default);
@@ -57,18 +54,15 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
         var assemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types);
         var (CacheKey, CacheSize) = await GetScriptCacheEntry(request.Content, request.Imports, assemblies, cancellationToken: request.Tokens.Combined);
 
-        Script script = null;
-        _lockManager.MutexAccess(CacheKey, () =>
-        {
-            script = _scriptCache.GetOrCreate(CacheKey, (entry) =>
+        var script = _lockManager.MutexAccess(CacheKey,
+            func: () => _scriptCache.GetOrCreate(CacheKey, (entry) =>
             {
                 ConfigureCacheEntry(entry, CacheSize);
                 var scriptOptions = PrepareScriptOptions(request.Imports, assemblies);
                 var script = CSharpScript.Create(request.Content, scriptOptions, globalsType: typeof(TArg));
                 script.Compile(cancellationToken: request.Tokens.Combined);
                 return script;
-            });
-        });
+            }));
 
         var result = await script.RunAsync(globals: request.Arguments, cancellationToken: request.Tokens.Combined);
         return default;

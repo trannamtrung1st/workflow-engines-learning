@@ -6,13 +6,14 @@ namespace WELearning.DynamicCodeExecution.Models;
 public class ExecuteCodeRequest<TArg>
 {
     public ExecuteCodeRequest(
-        string content, TArg arguments, IEnumerable<string> imports,
+        string content, string contentId, TArg arguments, IEnumerable<string> imports,
         IEnumerable<Assembly> assemblies, IEnumerable<Type> types, RunTokens tokens, bool? async = null,
         IDictionary<string, object> inputs = null, IDictionary<string, object> outputs = null,
         Guid? optimizationScopeId = default, bool useRawContent = false,
         IEnumerable<ImportModule> modules = null)
     {
         Content = content;
+        ContentId = contentId;
         Arguments = arguments;
         Inputs = inputs; Outputs = outputs;
         Imports = imports;
@@ -25,6 +26,7 @@ public class ExecuteCodeRequest<TArg>
         Modules = modules;
     }
 
+    public string ContentId { get; } // [NOTE] should be refreshed for new versions
     public string Content { get; }
     public bool Async { get; }
     public TArg Arguments { get; }
