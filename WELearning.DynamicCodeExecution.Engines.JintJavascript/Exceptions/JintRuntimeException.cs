@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using Esprima;
 using Jint;
 using Jint.Runtime;
 using WELearning.DynamicCodeExecution.Exceptions;
@@ -49,7 +48,7 @@ public class JintRuntimeException : RuntimeException
     }
 
     public JintRuntimeException(
-        Exception systemException, Position currentNodePosition, int currentNodeIndex,
+        Exception systemException, Acornima.Position currentNodePosition, int currentNodeIndex,
         int userContentLineStart, int userContentLineEnd, int userContentIndexStart, int userContentIndexEnd)
     {
         _source = SourceSystem;

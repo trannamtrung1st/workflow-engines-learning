@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Reflection;
 using System.Text;
-using Esprima;
 using Jint;
 using Jint.Constraints;
 using Jint.Native;
@@ -24,6 +23,7 @@ namespace WELearning.DynamicCodeExecution.Engines;
 
 public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 {
+    private static string ExportedFunctionName => JsEngineConstants.ExportedFunctionName;
     private const string OutVariable = "__ENGINE_OUT__";
     private const int DefaultMaxStatements = 3_000_000;
     private const int DefaultMaxLoopCount = 10_000;
@@ -185,12 +185,12 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                     engineWrap.ResetNodePosition();
                     SetValues(engine, request.Arguments);
                     var module = GetModuleObject(engine, engineId: engineWrap.Id, request.ContentId, content);
-                    var exportedFunction = module.Get(JsEngineConstants.ExportedFunctionName);
+                    var exportedFunction = module.Get(ExportedFunctionName);
                     result = await CallWithHandles(engineWrap, exportedFunction, arguments, tokens: request.Tokens);
                     result = result.UnwrapIfPromise();
                 }, cancellationToken: request.Tokens.Combined);
             }
-            catch (ParserException ex)
+            catch (Acornima.ParseErrorException ex)
             {
                 throw new JintCompilationError(
                     parserException: ex,
@@ -202,7 +202,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             catch (PromiseRejectedException ex)
             {
                 throw new JintRuntimeException(ex,
-                    content: content, mainFunction: JsEngineConstants.ExportedFunctionName,
+                    content: content, mainFunction: ExportedFunctionName,
                     userContentLineStart: lineStart,
                     userContentLineEnd: lineEnd,
                     userContentIndexStart: indexStart,
@@ -211,7 +211,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             catch (JavaScriptException ex)
             {
                 throw new JintRuntimeException(ex,
-                    content: content, mainFunction: JsEngineConstants.ExportedFunctionName,
+                    content: content, mainFunction: ExportedFunctionName,
                     userContentLineStart: lineStart,
                     userContentLineEnd: lineEnd,
                     userContentIndexStart: indexStart,
@@ -219,6 +219,8 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             }
             catch (Exception ex)
             {
+                var originalEx = (ex as AggregateException)?.InnerException ?? ex;
+
                 if (ex is StatementsCountOverflowException stmCountOverflow)
                 {
                     var maxStatements = engineWrap.MaxStatementsConstraint.MaxStatements;
@@ -226,7 +228,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                         ? $"Possible infinite loop detected."
                         : $"The maximum number of statements executed ({maxStatements}) have been reached.");
                 }
-                var originalEx = (ex as AggregateException)?.InnerException ?? ex;
+
                 if (engineWrap.CurrentNodePosition.HasValue)
                     throw new JintRuntimeException(
                         systemException: originalEx,
@@ -236,7 +238,8 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                         userContentLineEnd: lineEnd,
                         userContentIndexStart: indexStart,
                         userContentIndexEnd: indexEnd);
-                else throw;
+
+                throw;
             }
 
             if (optimizationScope == null)
@@ -362,7 +365,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             builder.AddModule(preparedModule));
     }
 
-    private Prepared<Esprima.Ast.Module> GetPreparedModule(string moduleKey, Func<string> contentProvider)
+    private Prepared<Acornima.Ast.Module> GetPreparedModule(string moduleKey, Func<string> contentProvider)
     {
         return _lockManager.MutexAccess($"MODULES.{moduleKey}",
             func: () => _preparedModuleCache.GetOrCreate(moduleKey, (entry) =>
@@ -465,7 +468,7 @@ return {OutVariable};" : string.Empty;
 
     class EngineWrap : IDisposable
     {
-        private Dictionary<Esprima.Ast.Node, int> _nodesCount;
+        private Dictionary<Acornima.Ast.Node, int> _nodesCount;
         private readonly SemaphoreSlim _lock;
         public EngineWrap(Engine engine, int maxLoopCount)
         {
@@ -480,7 +483,7 @@ return {OutVariable};" : string.Empty;
 
         public Engine Engine { get; }
         public Guid Id { get; }
-        public Position? CurrentNodePosition { get; private set; }
+        public Acornima.Position? CurrentNodePosition { get; private set; }
         public int CurrentNodeIndex { get; private set; }
         public int MaxLoopCount { get; }
         public bool IsMaxLoopCountReached { get; private set; }
@@ -504,8 +507,15 @@ return {OutVariable};" : string.Empty;
         {
             if (e.CurrentNode != null)
             {
+                if (e.CurrentCallFrame.FunctionName == ExportedFunctionName)
+                {
+                    CurrentNodeIndex = e.CurrentNode?.Range.Start ?? -1;
+                    CurrentNodePosition = e.CurrentNode?.Location.Start;
+                }
+
                 if (!_nodesCount.TryGetValue(e.CurrentNode, out int count))
                     _nodesCount[e.CurrentNode] = count;
+
                 var nodeCount = _nodesCount[e.CurrentNode] = count + 1;
                 if (nodeCount > MaxLoopCount)
                 {
@@ -513,8 +523,6 @@ return {OutVariable};" : string.Empty;
                     IsMaxLoopCountReached = true;
                 }
             }
-            CurrentNodeIndex = e.CurrentNode?.Range.Start ?? -1;
-            CurrentNodePosition = e.CurrentNode?.Location.Start;
             return default;
         }
 
