@@ -22,7 +22,6 @@ public class FunctionRunner : IFunctionRunner
         _typeProvider = typeProvider;
     }
 
-    // [TODO] optimize models
     public async Task<(TReturn Result, IDisposable OptimizationScope)> Run<TReturn, TFunctionFramework>(
         Function function, BlockGlobalObject<TFunctionFramework> globalObject,
         IDictionary<string, object> inputs, IDictionary<string, object> outputs,
