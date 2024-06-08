@@ -88,6 +88,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                 cfg.DebuggerStatementHandling(DebuggerStatementHandling.Script);
                 cfg.DebugMode(debugMode: true);
                 cfg.MaxStatements(DefaultMaxStatements); // [NOTE] be careful with imported libraries
+                cfg.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
             });
 
             if (request.Types?.Any() == true)
