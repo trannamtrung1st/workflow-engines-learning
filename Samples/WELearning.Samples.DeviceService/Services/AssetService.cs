@@ -40,7 +40,7 @@ public class AssetService : IAssetService
             });
         }
 
-        _monitoring.Capture(category: MonitoringCategory, series.Count());
+        _monitoring.Capture(category: MonitoringCategory, count: 1);
     }
 
     public async Task<AssetSnapshot> GetAssetSnapshot(string assetId)
