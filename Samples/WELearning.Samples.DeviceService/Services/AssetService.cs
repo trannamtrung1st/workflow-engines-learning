@@ -23,7 +23,7 @@ public class AssetService : IAssetService
 
     public async Task AddMetricSeries(IEnumerable<MetricSeries> series)
     {
-        const string MonitoringCategory = "Series incoming";
+        const string MonitoringCategory = "Trigger incoming";
 
         await _dataStore.AddMetricSeries(series.Select(s => new MetricSeriesEntity(
             s.AssetId, s.AttributeName, s.Value, s.Timestamp
