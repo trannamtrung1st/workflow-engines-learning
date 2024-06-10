@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\WELearning.Core\WELearning.Core.csproj" />
+    <ProjectReference
+      Include="..\..\WELearning.DynamicCodeExecution.Engines.CSharpCompiled\WELearning.DynamicCodeExecution.Engines.CSharpCompiled.csproj" />
+    <ProjectReference
+      Include="..\..\WELearning.DynamicCodeExecution.Engines.CSharpScript\WELearning.DynamicCodeExecution.Engines.CSharpScript.csproj" />
+    <ProjectReference
+      Include="..\..\WELearning.DynamicCodeExecution.Engines.JintJavascript\WELearning.DynamicCodeExecution.Engines.JintJavascript.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

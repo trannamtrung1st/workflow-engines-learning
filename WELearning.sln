@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WELearning.ConsoleApp.Testing", "WELearning.ConsoleApp.Testing\WELearning.ConsoleApp.Testing.csproj", "{03E233F9-30C1-45E1-B6EB-17B2D182BBAC}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WELearning.Core", "WELearning.Core\WELearning.Core.csproj", "{20980A87-C170-4204-9BA5-635396AA0D70}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WELearning.DynamicCodeExecution", "WELearning.DynamicCodeExecution\WELearning.DynamicCodeExecution.csproj", "{4D71FFB8-F3D7-4225-B16F-C421A756EBDD}"
@@ -23,16 +21,16 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Jint", "Jint", "{FCA54AB7-8
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Jint", "Jint\Jint\Jint.csproj", "{1883294A-D7EE-4E55-91D3-F77E766141A0}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Samples", "Samples", "{4E58655F-3ECB-4767-A059-CF6007F89614}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WELearning.ConsoleApp.Testing", "Samples\WELearning.ConsoleApp.Testing\WELearning.ConsoleApp.Testing.csproj", "{DAAD94DC-A09F-461D-9B5F-F40934E1514A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{03E233F9-30C1-45E1-B6EB-17B2D182BBAC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{03E233F9-30C1-45E1-B6EB-17B2D182BBAC}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{03E233F9-30C1-45E1-B6EB-17B2D182BBAC}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{03E233F9-30C1-45E1-B6EB-17B2D182BBAC}.Release|Any CPU.Build.0 = Release|Any CPU
 		{20980A87-C170-4204-9BA5-635396AA0D70}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{20980A87-C170-4204-9BA5-635396AA0D70}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{20980A87-C170-4204-9BA5-635396AA0D70}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -65,11 +63,16 @@ Global
 		{1883294A-D7EE-4E55-91D3-F77E766141A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1883294A-D7EE-4E55-91D3-F77E766141A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1883294A-D7EE-4E55-91D3-F77E766141A0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DAAD94DC-A09F-461D-9B5F-F40934E1514A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DAAD94DC-A09F-461D-9B5F-F40934E1514A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DAAD94DC-A09F-461D-9B5F-F40934E1514A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DAAD94DC-A09F-461D-9B5F-F40934E1514A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{1883294A-D7EE-4E55-91D3-F77E766141A0} = {FCA54AB7-8BBC-4E83-8865-9D5BE0C01EEF}
+		{DAAD94DC-A09F-461D-9B5F-F40934E1514A} = {4E58655F-3ECB-4767-A059-CF6007F89614}
 	EndGlobalSection
 EndGlobal
