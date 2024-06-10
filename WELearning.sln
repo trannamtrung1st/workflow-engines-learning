@@ -25,6 +25,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Samples", "Samples", "{4E58
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WELearning.ConsoleApp.Testing", "Samples\WELearning.ConsoleApp.Testing\WELearning.ConsoleApp.Testing.csproj", "{DAAD94DC-A09F-461D-9B5F-F40934E1514A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WELearning.Samples.DeviceService", "Samples\WELearning.Samples.DeviceService\WELearning.Samples.DeviceService.csproj", "{F52F6FEF-4BE4-4C0E-950A-F035DC30787B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -67,6 +69,10 @@ Global
 		{DAAD94DC-A09F-461D-9B5F-F40934E1514A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DAAD94DC-A09F-461D-9B5F-F40934E1514A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DAAD94DC-A09F-461D-9B5F-F40934E1514A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F52F6FEF-4BE4-4C0E-950A-F035DC30787B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F52F6FEF-4BE4-4C0E-950A-F035DC30787B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F52F6FEF-4BE4-4C0E-950A-F035DC30787B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F52F6FEF-4BE4-4C0E-950A-F035DC30787B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -74,5 +80,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{1883294A-D7EE-4E55-91D3-F77E766141A0} = {FCA54AB7-8BBC-4E83-8865-9D5BE0C01EEF}
 		{DAAD94DC-A09F-461D-9B5F-F40934E1514A} = {4E58655F-3ECB-4767-A059-CF6007F89614}
+		{F52F6FEF-4BE4-4C0E-950A-F035DC30787B} = {4E58655F-3ECB-4767-A059-CF6007F89614}
 	EndGlobalSection
 EndGlobal

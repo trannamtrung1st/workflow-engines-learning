@@ -5,7 +5,7 @@ using System.Reflection;
 using WELearning.Core.FunctionBlocks.Framework;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.ConsoleApp.Testing.Framework;
-using WELearning.ConsoleApp.Testing.Entities;
+using WELearning.ConsoleApp.Testing.Framework.Bindings;
 
 static class PredefinedBFBs
 {
@@ -856,14 +856,14 @@ let b = 5;"
             FB.Log(InputEntry.EntryKey);
             Result = InputEntry.Prepend(OtherName);", imports: null, importBlockIds: null,
             signature: "PrependEntry", exported: true,
-            new Variable("InputEntry", EDataType.Reference, EVariableType.Input, objectType: nameof(EntryEntity)),
+            new Variable("InputEntry", EDataType.Reference, EVariableType.Input, objectType: nameof(ReadEntryBinding)),
             new Variable("OtherName", EDataType.String, EVariableType.Input),
             new Variable("Result", EDataType.String, EVariableType.Output));
     }
 
     private static BasicBlockDef CreateBlockLastSeriesBefore()
     {
-        return CreateBlockSimple(id: "LastSeriesBefore", name: "Last metric value ( (sample for using reference binding method and reusing functions)",
+        return CreateBlockSimple(id: "LastSeriesBefore", name: "Last metric value (sample for using reference binding method and reusing functions)",
             content: @"
             const series = await InputMetric.LastSeriesBefore(BeforeTime);
             const { Metric, Value, Timestamp } = series;
@@ -871,7 +871,7 @@ let b = 5;"
             Result = series;
             ", imports: null, importBlockIds: null,
             signature: "LastSeriesBefore", exported: true,
-            new Variable("InputMetric", EDataType.Reference, EVariableType.Input, objectType: nameof(MetricSnapshot)),
+            new Variable("InputMetric", EDataType.Reference, EVariableType.Input, objectType: nameof(ReadMetricBinding)),
             new Variable("BeforeTime", EDataType.DateTime, EVariableType.Input),
             new Variable("Result", EDataType.Object, EVariableType.Output));
     }

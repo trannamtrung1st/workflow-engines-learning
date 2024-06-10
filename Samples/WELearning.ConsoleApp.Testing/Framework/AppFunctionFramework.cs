@@ -13,6 +13,18 @@ public class AppFunctionFramework : FunctionFramework
 
     public double NextRandomDouble() => Random.Shared.NextDouble();
 
+    public override void LogTrace(params object[] data)
+    {
+        var message = GetLogMessage(data);
+        _logger.LogTrace("[DEMO] Sending to editor...\n{Message}", message);
+    }
+
+    public override void LogDebug(params object[] data)
+    {
+        var message = GetLogMessage(data);
+        _logger.LogDebug("[DEMO] Sending to editor...\n{Message}", message);
+    }
+
     public override void Log(params object[] data)
     {
         var message = GetLogMessage(data);

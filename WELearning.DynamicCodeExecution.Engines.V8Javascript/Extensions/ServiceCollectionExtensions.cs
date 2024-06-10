@@ -8,5 +8,5 @@ namespace WELearning.DynamicCodeExecution.Extensions;
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddV8JavascriptEngine(this IServiceCollection services, Action<V8Options> configure)
-        => services.AddTransient<IRuntimeEngine, V8JavascriptEngine>().Configure(configure);
+        => services.AddSingleton<IRuntimeEngine, V8JavascriptEngine>().Configure(configure);
 }

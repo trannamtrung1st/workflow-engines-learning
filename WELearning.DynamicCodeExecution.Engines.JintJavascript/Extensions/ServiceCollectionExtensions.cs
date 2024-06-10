@@ -8,5 +8,5 @@ namespace WELearning.DynamicCodeExecution.Extensions;
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddJintJavascriptEngine(this IServiceCollection services, Action<JintOptions> configure)
-        => services.AddTransient<IRuntimeEngine, JintJavascriptEngine>().Configure(configure);
+        => services.AddSingleton<IRuntimeEngine, JintJavascriptEngine>().Configure(configure);
 }

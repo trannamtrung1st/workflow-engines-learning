@@ -7,6 +7,6 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddDefaultTypeProvider(this IServiceCollection services)
     {
-        return services.AddTransient<ITypeProvider, TypeProvider>();
+        return services.AddSingleton<ITypeProvider, TypeProvider>();
     }
 }

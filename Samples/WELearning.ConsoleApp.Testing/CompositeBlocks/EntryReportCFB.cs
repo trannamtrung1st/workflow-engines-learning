@@ -1,7 +1,7 @@
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.Constants;
-using WELearning.ConsoleApp.Testing.Entities;
+using WELearning.ConsoleApp.Testing.Framework.Bindings;
 
 namespace WELearning.ConsoleApp.Testing.CompositeBlocks;
 
@@ -11,7 +11,7 @@ public static class EntryReportCFB
     {
         var cfb = new CompositeBlockDef(id: "EntryReport", name: "Entry Report: a sample process using external object reference");
 
-        var entryType = nameof(EntryEntity);
+        var entryType = nameof(EntryBinding);
         var iTemp = new Variable("Temperature", dataType: EDataType.Reference, variableType: EVariableType.Input, objectType: entryType);
         var iHumidity = new Variable("Humidity", dataType: EDataType.Reference, variableType: EVariableType.Input, objectType: entryType);
         var iReport = new Variable("Report", dataType: EDataType.Reference, variableType: EVariableType.Input, objectType: entryType);
@@ -105,7 +105,7 @@ public static class EntryReportCFB
         }
 
         {
-            var dataConnections = new List<BlockDataConnection>();
+            var dataConnections = new List<BlockConnection>();
             dataConnections.Add(new(blockId: bConcat1.Id, variableName: "X", displayName: null, bindingType: EBindingType.Input)
             {
                 SourceBlockId = bInputs.Id,
@@ -150,7 +150,7 @@ public static class EntryReportCFB
         }
 
         {
-            var references = new List<BlockReference>();
+            var references = new List<BlockConnection>();
             references.Add(new(blockId: bInputs.Id, variableName: "Temperature", displayName: null, bindingType: EBindingType.Input)
             {
                 SourceVariableName = "Temperature"

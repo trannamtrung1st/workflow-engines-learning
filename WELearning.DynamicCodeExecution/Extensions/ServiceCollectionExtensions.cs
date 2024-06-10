@@ -7,6 +7,6 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddDefaultRuntimeEngineFactory(this IServiceCollection services)
     {
-        return services.AddTransient<IRuntimeEngineFactory, RuntimeEngineFactory>();
+        return services.AddSingleton<IRuntimeEngineFactory, RuntimeEngineFactory>();
     }
 }

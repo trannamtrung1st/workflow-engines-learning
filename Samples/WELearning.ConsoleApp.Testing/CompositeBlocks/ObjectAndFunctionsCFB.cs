@@ -81,7 +81,7 @@ Result = addResult.Result + randomResult.Result;",
         }
 
         {
-            var dataConnections = new List<BlockDataConnection>();
+            var dataConnections = new List<BlockConnection>();
 
             // [NOTE] CFB input data
             foreach (var variable in cfb.Variables.Where(v => v.VariableType == EVariableType.Input || v.VariableType == EVariableType.InOut))
@@ -117,7 +117,7 @@ Result = addResult.Result + randomResult.Result;",
         }
 
         {
-            var references = new List<BlockReference>();
+            var references = new List<BlockConnection>();
             cfb.References = references;
         }
 

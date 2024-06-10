@@ -37,7 +37,7 @@ public static class SimpleCFB
         }
 
         {
-            var dataConnections = new List<BlockDataConnection>();
+            var dataConnections = new List<BlockConnection>();
             cfb.DataConnections = dataConnections;
         }
 

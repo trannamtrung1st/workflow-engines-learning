@@ -5,6 +5,10 @@ namespace WELearning.Core.FunctionBlocks.Models.Design;
 
 public class Function
 {
+    public Function()
+    {
+    }
+
     public Function(string id, string name, string content,
         ERuntime runtime, IEnumerable<string> imports,
         IEnumerable<string> assemblies, IEnumerable<string> types,

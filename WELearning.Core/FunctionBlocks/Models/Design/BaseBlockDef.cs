@@ -2,6 +2,10 @@ namespace WELearning.Core.FunctionBlocks.Models.Design;
 
 public abstract class BaseBlockDef
 {
+    public BaseBlockDef()
+    {
+    }
+
     public BaseBlockDef(string id, string name)
     {
         Id = id;

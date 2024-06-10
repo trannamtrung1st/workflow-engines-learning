@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.DynamicCodeExecution.Exceptions;
 
@@ -14,16 +15,6 @@ public class FunctionRuntimeException : Exception
     public RuntimeException Exception { get; }
     public Function Function { get; }
 
-    public void PrintError(string locator = "->")
-    {
-        var exceptionIndex = Exception.Index < 0 ? 0 : Exception.Index;
-        var left = Function.Content[..exceptionIndex];
-        var right = Function.Content[exceptionIndex..];
-        Console.Write(left);
-        Console.ForegroundColor = ConsoleColor.Red;
-        Console.Write(locator);
-        Console.ResetColor();
-        Console.Write(right);
-        Console.WriteLine();
-    }
+    public void PrintError(string locator = "->", ILogger logger = null)
+        => Exception.PrintError(Function.Content, locator, logger);
 }

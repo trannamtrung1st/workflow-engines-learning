@@ -28,7 +28,7 @@ using WELearning.Shared.Concurrency.Extensions;
 const string LibraryFolderPath = "/Users/trungtran/MyPlace/Personal/Learning/workflow-engines-learning/local/libs";
 var serviceCollection = new ServiceCollection()
     .AddSingleton<DataStore>()
-    .AddLogging(cfg => cfg.AddConsole())
+    .AddLogging(cfg => cfg.AddSimpleConsole())
     .AddInMemoryLockManager()
     .AddDefaultDistributedLockManager()
     // FunctionBlock services
@@ -37,7 +37,7 @@ var serviceCollection = new ServiceCollection()
     .AddDefaultRuntimeEngineFactory()
     .AddDefaultTypeProvider()
     .AddBlockFrameworkFactory<AppBlockFrameworkFactory>()
-    .AddTransientFunctionFramework<AppFunctionFramework>()
+    .AddFunctionFramework<AppFunctionFramework>()
     .AddCSharpCompiledEngine()
     .AddCSharpScriptEngine()
     // For JS engines, first found engine will be used
@@ -547,101 +547,23 @@ static class TestFunctionBlocks
             catch { }
         }
 
-        void LogFailure(object o, Exception ex)
-        {
-            if (o is not IExecutionControl control) return;
-            string messageFormat =
-@"=== {0} ===
-+ Block: {1}
-+ Function: {2}
-+ Description: {3}
-+ Location (line, column, index): ({4}, {5}, {6})
-+ Source: {7}
-
-Original content (error located):
------------------";
-            if (ex is FunctionCompilationError error)
-            {
-                var compErr = error.Error;
-                Console.Error.WriteLine(format: messageFormat,
-                    "Compilation error",
-                    (control as ICompositeEC)?.ExceptionFrom.Block.Id ?? control.Block.Id,
-                    (control as IBasicEC)?.RunningFunction?.Id,
-                    compErr.Description,
-                    compErr.LineNumber,
-                    compErr.Column,
-                    compErr.Index,
-                    compErr.Source);
-                error.PrintError();
-                Console.WriteLine();
-            }
-            else if (ex is FunctionRuntimeException runtimeEx)
-            {
-                var exception = runtimeEx.Exception;
-                Console.Error.WriteLine(format: messageFormat,
-                    $"Runtime exception ({exception.Source})",
-                    (control as ICompositeEC)?.ExceptionFrom.Block.Id ?? control.Block.Id,
-                    (control as IBasicEC)?.RunningFunction?.Id,
-                    exception.Description,
-                    exception.LineNumber,
-                    exception.Column,
-                    exception.Index,
-                    exception.Source);
-                runtimeEx.PrintError();
-                Console.WriteLine();
-            }
-            else
-            {
-                Console.Error.WriteLine(format: messageFormat,
-                    $"System exception",
-                    (control as ICompositeEC)?.ExceptionFrom.Block.Id ?? control.Block.Id,
-                    (control as IBasicEC)?.RunningFunction?.Id,
-                    ex.Message, -1, -1, -1, ex.Source);
-                Console.WriteLine();
-            }
-        }
-
         {
             using var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.CompilationErrorJs));
-            execControl.Failed += LogFailure;
+            execControl.Failed += (o, e) => execControl.LogFailure(e);
             await TryRunBlock(execControl);
         }
         {
             using var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.RuntimeExceptionJs));
-            execControl.Failed += LogFailure;
+            execControl.Failed += (o, e) => execControl.LogFailure(e);
             await TryRunBlock(execControl);
         }
         {
             using var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.RuntimeExceptionJsFromCs));
-            execControl.Failed += LogFailure;
+            execControl.Failed += (o, e) => execControl.LogFailure(e);
             await TryRunBlock(execControl);
         }
 
         {
-            void LogBlockActivity(object o)
-            {
-                if (o is not IExecutionControl execControl) return;
-                var lastActivity = execControl.LastActivity;
-                string messageFormat =
-@"
-=== {0} ===
-+ Run ID: {1}
-+ Time (UTC): {2}
-+ Status: {3}
-+ Run time (ms): {4}
-+ Exception from block: {5}
-";
-                Console.WriteLine(format: messageFormat,
-                    $"{(lastActivity.Control is ICompositeEC ? "CFB" : "BFB")}: {lastActivity.Control.Block.Id}",
-                    lastActivity.RunRequest.RunId,
-                    lastActivity.TimeUtc,
-                    lastActivity.Status,
-                    lastActivity.RunTime?.TotalMilliseconds.ToString() ?? "N/A",
-                    lastActivity.ExceptionFrom?.Block.Id ?? "N/A");
-                if (lastActivity.Status == EBlockExecutionStatus.Failed)
-                    LogFailure(o, lastActivity.Exception);
-            }
-
             var bindings = new HashSet<VariableBinding>();
             bindings.Add(new(variableName: "Add1X", value: 5, type: EBindingType.Input));
             bindings.Add(new(variableName: "Add1Y", value: 10, type: EBindingType.Input));
@@ -653,12 +575,12 @@ Original content (error located):
                 bRandomDef: PredefinedBFBs.RandomJs,
                 bDelayDef: PredefinedBFBs.DelayInfiniteJs);
             using var execControl = CreateControl(jsCFB);
-            execControl.Running += (o, e) => LogBlockActivity(o);
-            execControl.Completed += (o, e) => LogBlockActivity(o);
-            execControl.Failed += (o, e) => LogBlockActivity(o);
-            execControl.ControlRunning += (o, e) => LogBlockActivity(o);
-            execControl.ControlCompleted += (o, e) => LogBlockActivity(o);
-            execControl.ControlFailed += (o, e) => LogBlockActivity(o);
+            execControl.Running += (o, e) => execControl.LogBlockActivity();
+            execControl.Completed += (o, e) => execControl.LogBlockActivity();
+            execControl.Failed += (o, e) => execControl.LogBlockActivity();
+            execControl.ControlRunning += (o, e) => (o as IExecutionControl)?.LogBlockActivity();
+            execControl.ControlCompleted += (o, e) => (o as IExecutionControl)?.LogBlockActivity();
+            execControl.ControlFailed += (o, e) => (o as IExecutionControl)?.LogBlockActivity();
 
             try
             {

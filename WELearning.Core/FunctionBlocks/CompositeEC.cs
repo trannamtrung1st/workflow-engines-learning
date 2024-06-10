@@ -63,6 +63,35 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         return Task.CompletedTask;
     }
 
+    protected override void PrepareStates(IEnumerable<VariableBinding> bindings)
+    {
+        base.PrepareStates(bindings);
+
+        var initialBlockReferences = Definition.References?.Where(r => r.SourceBlockId == null);
+        if (initialBlockReferences?.Any() == true)
+        {
+            foreach (var connection in initialBlockReferences)
+            {
+                if (connection.SourceVariableName == null)
+                    throw new ArgumentException("Invalid reference!");
+                var block = Definition.Blocks.FirstOrDefault(b => b.Id == connection.BlockId)
+                    ?? throw new KeyNotFoundException($"Block {connection.BlockId} not found!");
+                var blockExecControl = GetOrInitExecutionControl(block);
+                var variableType = connection.BindingType.ToVariableType();
+                var bindingVariable = blockExecControl.GetVariable(key: connection.VariableName, type: variableType)
+                    ?? throw new KeyNotFoundException($"Variable {connection.VariableName} not found!");
+                if (bindingVariable.DataType != EDataType.Reference)
+                    throw new InvalidOperationException($"Cannot bind non-reference type {bindingVariable.DataType}");
+
+                IValueObject sourceReference = GetValueObject(connection.SourceVariableName, variableType);
+                blockExecControl.SetReference(
+                    bindingVariable.Name,
+                    bindingVariable.VariableType,
+                    reference: sourceReference.CloneFor(bindingVariable));
+            }
+        }
+    }
+
     protected override void PrepareRunningStatus(RunBlockRequest runRequest)
     {
         ExceptionFrom = null;
@@ -88,8 +117,8 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         {
             if (trigger.BlockId != null)
             {
-                var block = Definition.Blocks.FirstOrDefault(b => b.Id == trigger.BlockId);
-                if (block == null) throw new KeyNotFoundException($"Block {trigger.BlockId} not found!");
+                var block = Definition.Blocks.FirstOrDefault(b => b.Id == trigger.BlockId)
+                    ?? throw new KeyNotFoundException($"Block {trigger.BlockId} not found!");
                 _ = RunTaskAsync(async () =>
                 {
                     var execControl = GetOrInitExecutionControl(block);
@@ -111,29 +140,43 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
     protected virtual IEnumerable<VariableBinding> PrepareBindings(string triggerEvent, BlockInstance block)
     {
         var bindings = new List<VariableBinding>();
-        var inputEvent = Definition.GetDefinition(block.DefinitionId).Events.FirstOrDefault(ev => ev.Name == triggerEvent && ev.IsInput);
-        if (inputEvent == null) throw new KeyNotFoundException($"Trigger event {triggerEvent} not found!");
+        var inputEvent = Definition.GetDefinition(block.DefinitionId).Events.FirstOrDefault(ev => ev.Name == triggerEvent && ev.IsInput)
+            ?? throw new KeyNotFoundException($"Trigger event {triggerEvent} not found!");
         var blockExecControl = GetOrInitExecutionControl(block);
         var blockBindings = new List<VariableBinding>();
 
         var blockReferences = Definition.References?.Where(r => r.BlockId == block.Id);
         if (blockReferences?.Any() == true)
         {
-            foreach (var reference in blockReferences)
+            foreach (var connection in blockReferences)
             {
-                if (reference.SourceVariableName == null)
+                if (connection.SourceVariableName == null)
                     throw new ArgumentException("Invalid reference!");
-                var variableType = reference.BindingType.ToVariableType();
-                var bindingVariable = blockExecControl.GetVariable(key: reference.VariableName, type: variableType)
-                    ?? throw new KeyNotFoundException($"Variable {reference.VariableName} not found!");
+                var variableType = connection.BindingType.ToVariableType();
+                var bindingVariable = blockExecControl.GetVariable(key: connection.VariableName, type: variableType)
+                    ?? throw new KeyNotFoundException($"Variable {connection.VariableName} not found!");
                 if (bindingVariable.DataType != EDataType.Reference)
                     throw new InvalidOperationException($"Cannot bind non-reference type {bindingVariable.DataType}");
 
-                var sourceValue = GetValueObject(reference.SourceVariableName, variableType);
+                IValueObject sourceReference;
+                if (connection.SourceBlockId != null)
+                {
+                    var sourceBlock = Definition.Blocks.FirstOrDefault(b => b.Id == connection.SourceBlockId)
+                        ?? throw new KeyNotFoundException($"Block {connection.SourceBlockId} not found!");
+                    var sourceExecControl = GetOrInitExecutionControl(sourceBlock);
+                    sourceExecControl.WaitForIdle(CurrentRunRequest.Tokens.Combined);
+                    var sourceVariableType = variableType == EVariableType.Input ? EVariableType.Output : EVariableType.Input;
+                    sourceReference = sourceExecControl.GetValueObject(connection.SourceVariableName, sourceVariableType);
+                }
+                else
+                {
+                    sourceReference = GetValueObject(connection.SourceVariableName, variableType);
+                }
+
                 blockBindings.Add(new(
-                    variableName: reference.VariableName,
-                    reference: sourceValue.CloneFor(bindingVariable),
-                    type: reference.BindingType));
+                    variableName: connection.VariableName,
+                    reference: sourceReference.CloneFor(bindingVariable),
+                    type: connection.BindingType));
             }
         }
 

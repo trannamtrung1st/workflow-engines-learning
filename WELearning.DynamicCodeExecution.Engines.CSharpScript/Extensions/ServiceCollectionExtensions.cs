@@ -7,5 +7,5 @@ namespace WELearning.DynamicCodeExecution.Extensions;
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddCSharpScriptEngine(this IServiceCollection services)
-        => services.AddTransient<IRuntimeEngine, CSharpScriptEngine>();
+        => services.AddSingleton<IRuntimeEngine, CSharpScriptEngine>();
 }

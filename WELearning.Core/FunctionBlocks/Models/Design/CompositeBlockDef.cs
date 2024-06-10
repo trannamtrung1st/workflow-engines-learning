@@ -5,14 +5,15 @@ namespace WELearning.Core.FunctionBlocks.Models.Design;
 public class CompositeBlockDef : BaseBlockDef
 {
     private Dictionary<string, BaseBlockDef> _definitionMap;
+
     public CompositeBlockDef(string id, string name) : base(id, name)
     {
     }
 
     public IEnumerable<BlockInstance> Blocks { get; set; }
     public IEnumerable<BlockEventConnection> EventConnections { get; set; }
-    public IEnumerable<BlockDataConnection> DataConnections { get; set; }
-    public IEnumerable<BlockReference> References { get; set; }
+    public IEnumerable<BlockConnection> DataConnections { get; set; }
+    public IEnumerable<BlockConnection> References { get; set; }
 
     public BaseBlockDef GetDefinition(string definitionId)
     {

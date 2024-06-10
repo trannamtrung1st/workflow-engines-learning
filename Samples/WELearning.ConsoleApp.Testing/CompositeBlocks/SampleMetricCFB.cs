@@ -1,7 +1,7 @@
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.Constants;
-using WELearning.ConsoleApp.Testing.Entities;
+using WELearning.ConsoleApp.Testing.Framework.Bindings;
 
 namespace WELearning.ConsoleApp.Testing.CompositeBlocks;
 
@@ -11,7 +11,7 @@ public static class SampleMetricCFB
     {
         var cfb = new CompositeBlockDef(id: "SampleMetric", name: "Sample CFB to demonstrate device metrics");
 
-        var metricType = nameof(MetricSnapshot);
+        var metricType = nameof(ReadMetricBinding);
         var iMetric = new Variable("Metric", dataType: EDataType.Reference, variableType: EVariableType.Input, objectType: metricType);
         var oSnapshot = new Variable("Snapshot", dataType: EDataType.Double, variableType: EVariableType.Output);
         var oPrevious = new Variable("Previous", dataType: EDataType.Double, variableType: EVariableType.Output);
@@ -87,13 +87,8 @@ public static class SampleMetricCFB
         }
 
         {
-            var dataConnections = new List<BlockDataConnection>();
+            var dataConnections = new List<BlockConnection>();
 
-            dataConnections.Add(new(blockId: bMain.Id, variableName: "Metric", displayName: null, bindingType: EBindingType.Input)
-            {
-                SourceBlockId = bInputs.Id,
-                SourceVariableName = "Metric"
-            });
             dataConnections.Add(new(blockId: bOutputs.Id, variableName: "Snapshot", displayName: null, bindingType: EBindingType.Input)
             {
                 SourceBlockId = bMain.Id,
@@ -119,9 +114,14 @@ public static class SampleMetricCFB
         }
 
         {
-            var references = new List<BlockReference>();
+            var references = new List<BlockConnection>();
             references.Add(new(blockId: bInputs.Id, variableName: "Metric", displayName: null, bindingType: EBindingType.Input)
             {
+                SourceVariableName = "Metric"
+            });
+            references.Add(new(blockId: bMain.Id, variableName: "Metric", displayName: null, bindingType: EBindingType.Input)
+            {
+                SourceBlockId = bInputs.Id,
                 SourceVariableName = "Metric"
             });
             cfb.References = references;

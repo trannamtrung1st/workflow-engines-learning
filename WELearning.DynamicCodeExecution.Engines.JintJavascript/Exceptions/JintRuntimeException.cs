@@ -83,7 +83,7 @@ public class JintRuntimeException : RuntimeException
     }
     private static (int Line, int Column, int Index) GetStackRootExceptionPosition(string content, string mainFunction, string stack)
     {
-        Regex exPositionRegex = new(@$"at {mainFunction}.+?([\d]+:[\d]+)");
+        Regex exPositionRegex = new(@$"at {mainFunction}.+?([\d]+:[\d]+)", RegexOptions.RightToLeft);
         var match = exPositionRegex.Match(stack);
         var exPositionStr = match.Groups[1].Value;
         var parts = exPositionStr.Split(':');

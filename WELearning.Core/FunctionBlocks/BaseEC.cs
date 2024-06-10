@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
+using WELearning.Core.FunctionBlocks.Exceptions;
 using WELearning.Core.FunctionBlocks.Extensions;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Design;
@@ -16,6 +18,7 @@ public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where
     protected readonly ManualResetEventSlim _idleWait;
     protected readonly IFunctionRunner _functionRunner;
     protected readonly IBlockFrameworkFactory _blockFrameworkFactory;
+
     public BaseEC(
         BlockInstance block,
         TDefinition definition,
@@ -158,4 +161,98 @@ public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where
 
     public abstract Task Execute(RunBlockRequest request, Guid? optimizationScopeId);
     protected abstract void RefreshOutputs();
+
+    public virtual void LogFailure(Exception ex, ILogger logger = null)
+    {
+        string messageFormat =
+@"=== {0} ===
++ Block: {1}
++ Function: {2}
++ Description: {3}
++ Location (line, column, index): ({4}, {5}, {6})
++ Source: {7}
+
+Original content (error located):
+-----------------";
+        if (ex is FunctionCompilationError error)
+        {
+            var compErr = error.Error;
+            var message = string.Format(format: messageFormat,
+                "Compilation error",
+                (this as ICompositeEC)?.ExceptionFrom.Block.Id ?? Block.Id,
+                (this as IBasicEC)?.RunningFunction?.Id,
+                compErr.Description,
+                compErr.LineNumber,
+                compErr.Column,
+                compErr.Index,
+                compErr.Source);
+
+            if (logger != null)
+                logger.LogError(message);
+            else Console.Error.WriteLine(message);
+
+            error.PrintError(logger: logger);
+        }
+        else if (ex is FunctionRuntimeException runtimeEx)
+        {
+            var exception = runtimeEx.Exception;
+            var message = string.Format(format: messageFormat,
+                $"Runtime exception ({exception.Source})",
+                (this as ICompositeEC)?.ExceptionFrom.Block.Id ?? Block.Id,
+                (this as IBasicEC)?.RunningFunction?.Id,
+                exception.Description,
+                exception.LineNumber,
+                exception.Column,
+                exception.Index,
+                exception.Source);
+
+            if (logger != null)
+                logger.LogError(message);
+            else Console.Error.WriteLine(message);
+
+            runtimeEx.PrintError(logger: logger);
+        }
+        else
+        {
+            var message = string.Format(format: messageFormat,
+                $"System exception",
+                (this as ICompositeEC)?.ExceptionFrom.Block.Id ?? Block.Id,
+                (this as IBasicEC)?.RunningFunction?.Id,
+                ex.Message, -1, -1, -1, ex.Source);
+
+            if (logger != null)
+                logger.LogError(message);
+            else Console.Error.WriteLine(message);
+        }
+    }
+
+    public virtual void LogBlockActivity(ILogger logger = null)
+    {
+        if (LastActivity == null)
+            return;
+        string messageFormat =
+@"
+=== {0} ===
++ Run ID: {1}
++ Time (UTC): {2}
++ Status: {3}
++ Run time (ms): {4}
++ Exception from block: {5}
+";
+        var message = string.Format(format: messageFormat,
+            $"{(LastActivity.Control is ICompositeEC ? "CFB" : "BFB")}: {LastActivity.Control.Block.Id}",
+            LastActivity.RunRequest.RunId,
+            LastActivity.TimeUtc,
+            LastActivity.Status,
+            LastActivity.RunTime?.TotalMilliseconds.ToString() ?? "N/A",
+            LastActivity.ExceptionFrom?.Block.Id ?? "N/A");
+
+        if (logger != null)
+            logger.LogTrace(message);
+        else Console.WriteLine(message);
+
+        if (LastActivity.Status == EBlockExecutionStatus.Failed)
+            LogFailure(LastActivity.Exception, logger);
+    }
+
 }

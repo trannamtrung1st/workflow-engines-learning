@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
@@ -24,9 +25,12 @@ public interface IExecutionControl : IDisposable
     IValueObject GetOutput(string key);
     IValueObject GetInOut(string key);
     IValueObject GetInternalData(string key);
+    IValueObject GetValueObject(string name, EVariableType type);
     void SetReference(string name, EVariableType type, IValueObject reference);
     void SetValue(string name, EVariableType type, object value);
     Task Execute(RunBlockRequest request, Guid? optimizationScopeId);
     void WaitForIdle(CancellationToken cancellationToken);
     Task MutexAccess(Func<Task> task, CancellationToken cancellationToken);
+    void LogFailure(Exception ex, ILogger logger = null);
+    void LogBlockActivity(ILogger logger = null);
 }

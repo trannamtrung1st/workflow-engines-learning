@@ -98,7 +98,7 @@ public static class ComplexCFB
         }
 
         {
-            var dataConnections = new List<BlockDataConnection>();
+            var dataConnections = new List<BlockConnection>();
 
             // [NOTE] CFB input data
             foreach (var variable in cfb.Variables.Where(v => v.VariableType == EVariableType.Input || v.VariableType == EVariableType.InOut))

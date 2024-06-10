@@ -15,6 +15,18 @@ public class FunctionFramework
     public virtual Task DelayAsync(int ms) => Task.Delay(ms);
     public virtual void Delay(int ms) => DelayAsync(ms).Wait();
 
+    public virtual void LogTrace(params object[] data)
+    {
+        var message = GetLogMessage(data);
+        _logger.LogTrace(message);
+    }
+
+    public virtual void LogDebug(params object[] data)
+    {
+        var message = GetLogMessage(data);
+        _logger.LogDebug(message);
+    }
+
     public virtual void Log(params object[] data)
     {
         var message = GetLogMessage(data);

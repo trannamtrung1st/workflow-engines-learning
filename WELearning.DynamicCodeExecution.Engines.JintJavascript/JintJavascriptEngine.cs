@@ -24,7 +24,7 @@ namespace WELearning.DynamicCodeExecution.Engines;
 public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 {
     private static string ExportedFunctionName => JsEngineConstants.ExportedFunctionName;
-    private const string OutVariable = "__ENGINE_OUT__";
+    private static string WrapFunction => JsEngineConstants.WrapFunction;
     private const int DefaultMaxStatements = 3_000_000;
     private const int DefaultMaxLoopCount = 10_000;
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
@@ -203,7 +203,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             catch (PromiseRejectedException ex)
             {
                 throw new JintRuntimeException(ex,
-                    content: content, mainFunction: ExportedFunctionName,
+                    content: content, mainFunction: WrapFunction,
                     userContentLineStart: lineStart,
                     userContentLineEnd: lineEnd,
                     userContentIndexStart: indexStart,
@@ -212,7 +212,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             catch (JavaScriptException ex)
             {
                 throw new JintRuntimeException(ex,
-                    content: content, mainFunction: ExportedFunctionName,
+                    content: content, mainFunction: WrapFunction,
                     userContentLineStart: lineStart,
                     userContentLineEnd: lineEnd,
                     userContentIndexStart: indexStart,
@@ -313,7 +313,6 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                     foreach (var output in request.Outputs) flattenArguments.Add(output.Key);
 
                 var flattenOutputs = request.Outputs?.Keys.ToList();
-                var flattenOutputsStr = GetPreprocessOutputContent(flattenOutputs);
                 var contentLineCount = request.Content.NewLineCount();
                 var importStatements = GetImportStatements(request.Imports);
 
@@ -322,8 +321,8 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                     : JavascriptHelper.WrapModuleFunction(
                         script: request.Content, request.Async,
                         topStatements: importStatements,
-                        returnStatements: flattenOutputsStr,
-                        flattenArguments: flattenArguments);
+                        flattenArguments: flattenArguments,
+                        flattenOutputs: flattenOutputs);
 
                 var contentSizeInBytes = contentInfo.Content.Length * 2;
                 entry.SetSize(contentSizeInBytes);
@@ -347,15 +346,14 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                 if (function.Outputs != null)
                     foreach (var output in function.Outputs) flattenArguments.Add(output);
                 var flattenOutputs = function.Outputs?.ToList();
-                var flattenOutputsStr = GetPreprocessOutputContent(flattenOutputs);
 
                 var content = function.UseRawContent
                     ? function.Content
                     : JavascriptHelper.WrapModuleFunction(
                         script: function.Content, async: function.Async,
-                        returnStatements: flattenOutputsStr,
                         functionName: function.Signature,
-                        flattenArguments: flattenArguments).Content;
+                        flattenArguments: flattenArguments,
+                        flattenOutputs: flattenOutputs).Content;
 
                 contentBuilder.AppendLine(content);
             }
@@ -381,18 +379,6 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             }));
     }
 
-    private static string GetPreprocessOutputContent(IEnumerable<string> flattenOutputs)
-    {
-        var flattenOutputsStr = flattenOutputs?.Any() == true ?
-@$"const {OutVariable} = {{{string.Join(',', flattenOutputs)}}};
-Object.keys({OutVariable}).forEach(key => {{
-    if ({OutVariable}[key] === undefined) {{
-        delete {OutVariable}[key];
-    }}
-}});
-return {OutVariable};" : string.Empty;
-        return flattenOutputsStr;
-    }
 
     private static TReturn Cast<TReturn>(JsValue jsValue)
     {
@@ -510,7 +496,7 @@ return {OutVariable};" : string.Empty;
         {
             if (e.CurrentNode != null)
             {
-                if (e.CurrentCallFrame.FunctionName == ExportedFunctionName)
+                if (e.CurrentCallFrame.FunctionName == WrapFunction)
                 {
                     CurrentNodeIndex = e.CurrentNode?.Range.Start ?? -1;
                     CurrentNodePosition = e.CurrentNode?.Location.Start;

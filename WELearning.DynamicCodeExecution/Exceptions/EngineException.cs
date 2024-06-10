@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+
 namespace WELearning.DynamicCodeExecution.Exceptions;
 
 public abstract class EngineException : Exception
@@ -20,4 +22,25 @@ public abstract class EngineException : Exception
     }
 
     public override string ToString() => UnderlyingException?.ToString() ?? base.ToString();
+
+    public void PrintError(string content, string locator = "->", ILogger logger = null)
+    {
+        var exceptionIndex = Index < 0 ? 0 : Index;
+        var left = content[..exceptionIndex];
+        var right = content[exceptionIndex..];
+        if (logger == null)
+        {
+            Console.Write(left);
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.Write(locator);
+            Console.ResetColor();
+            Console.Write(right);
+            Console.WriteLine("\n");
+        }
+        else
+        {
+            var message = $"{left}{locator}{right}\n";
+            logger.LogError(message);
+        }
+    }
 }
