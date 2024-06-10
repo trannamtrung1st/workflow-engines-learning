@@ -22,14 +22,11 @@ public class MessageQueue : IMessageQueue
             lock (topicQueue)
             {
                 if (topicQueue.Queue.TryDequeue(out var message))
-                {
-                    if (topicQueue.Queue.IsEmpty)
-                        topicQueue.ReadyEvent.Reset();
                     return (T)message;
-                }
+                else
+                    topicQueue.ReadyEvent.Reset();
             }
         }
-
     }
 
     public Task Publish<T>(string topic, T message)
