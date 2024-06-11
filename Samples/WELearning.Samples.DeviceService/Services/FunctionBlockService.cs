@@ -60,7 +60,7 @@ public class FunctionBlockService : IFunctionBlockService
 
         var cfbDef = await BuildBlock();
         using var execControl = new CompositeEC<DeviceFunctionFramework>(
-            block: new(cfbDef.Id, id: Guid.NewGuid().ToString()),
+            block: new(cfbDef.Id),
             definition: cfbDef, _blockRunner, _functionRunner, _blockFrameworkFactory, _functionFramework);
         execControl.Running += (o, e) => execControl.LogBlockActivity(logger: _controlLogger);
         execControl.Completed += (o, e) => execControl.LogBlockActivity(logger: _controlLogger);
