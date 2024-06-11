@@ -28,9 +28,9 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     private const int DefaultMaxStatements = 3_000_000;
     private const int DefaultMaxLoopCount = 10_000;
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
-    private static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan ModuleSlidingExpiration = TimeSpan.FromSeconds(5);
     private readonly MemoryCache _preparedModuleCache;
-    private readonly MemoryCache _moduleCache;
     private readonly MemoryCache _preprocessedContentCache;
     private readonly IOptions<JintOptions> _jintOptions;
     private readonly EngineCache _engineCache;
@@ -42,7 +42,6 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         {
             SizeLimit = DefaultCacheSizeLimitInBytes
         };
-        _moduleCache = new(cacheOption);
         _preparedModuleCache = new(cacheOption);
         _preprocessedContentCache = new(cacheOption);
         _engineCache = new();
@@ -51,21 +50,6 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     }
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.Javascript;
-
-    private ObjectInstance GetModuleObject(Engine engine, Guid engineId, string contentId, string content)
-    {
-        var preparedModule = GetPreparedModule(moduleKey: contentId, () => content);
-        var (moduleName, cacheSize) = GetModuleObjectCacheEntry(engineId, contentId, content);
-        return _lockManager.MutexAccess($"MODULE_OBJECTS.{moduleName}",
-            func: () => _moduleCache.GetOrCreate(moduleName, (entry) =>
-            {
-                entry.SetSize(cacheSize);
-                entry.SetSlidingExpiration(DefaultSlidingExpiration);
-                engine.Modules.Add(moduleName, b => b.AddModule(preparedModule));
-                var module = engine.Modules.Import(moduleName);
-                return module;
-            }));
-    }
 
     private static (string ModuleName, long CacheSize) GetModuleObjectCacheEntry(Guid engineId, string contentId, string content)
     {
@@ -143,7 +127,6 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 
     public void Dispose()
     {
-        _moduleCache.Dispose();
         _preprocessedContentCache.Dispose();
         _preparedModuleCache.Dispose();
         _engineCache.Dispose();
@@ -181,11 +164,14 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             var arguments = GetArgumentValues(engine: engineWrap.Engine, inputs: request.Inputs, outputs: request.Outputs);
             try
             {
+                var preparedModule = GetPreparedModule(moduleKey: request.ContentId, () => content);
+                var (moduleName, cacheSize) = GetModuleObjectCacheEntry(engineId: engineWrap.Id, contentId: request.ContentId, content);
                 await engineWrap.SafeAccessEngine(async (engine) =>
                 {
                     engineWrap.ResetNodePosition();
                     SetValues(engine, request.Arguments);
-                    var module = GetModuleObject(engine, engineId: engineWrap.Id, request.ContentId, content);
+                    var module = _lockManager.MutexAccess($"MODULE_OBJECTS.{moduleName}",
+                        func: () => engineWrap.GetModuleObject(preparedModule, moduleName, cacheSize));
                     var exportedFunction = module.Get(ExportedFunctionName);
                     result = await CallWithHandles(engineWrap, exportedFunction, arguments, tokens: request.Tokens);
                     result = result.UnwrapIfPromise();
@@ -457,10 +443,16 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 
     class EngineWrap : IDisposable
     {
+        private readonly MemoryCache _moduleCache;
         private Dictionary<Acornima.Ast.Node, int> _nodesCount;
         private readonly SemaphoreSlim _lock;
         public EngineWrap(Engine engine, int maxLoopCount)
         {
+            var cacheOption = new MemoryCacheOptions
+            {
+                SizeLimit = DefaultCacheSizeLimitInBytes
+            };
+            _moduleCache = new(cacheOption);
             _lock = new(1);
             _nodesCount = new();
             MaxLoopCount = maxLoopCount;
@@ -481,6 +473,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         public void Dispose()
         {
             _nodesCount = null;
+            _moduleCache?.Dispose();
             _lock.Dispose();
             Engine.Dispose();
         }
@@ -520,6 +513,18 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             await _lock.WaitAsync(cancellationToken);
             try { await func(Engine); }
             finally { _lock.Release(); }
+        }
+
+        public ObjectInstance GetModuleObject(Prepared<Acornima.Ast.Module> preparedModule, string moduleName, long cacheSize)
+        {
+            return _moduleCache.GetOrCreate(moduleName, (entry) =>
+            {
+                entry.SetSize(cacheSize);
+                entry.SetSlidingExpiration(ModuleSlidingExpiration);
+                Engine.Modules.Add(moduleName, b => b.AddModule(preparedModule));
+                var module = Engine.Modules.Import(moduleName);
+                return module;
+            });
         }
     }
 
