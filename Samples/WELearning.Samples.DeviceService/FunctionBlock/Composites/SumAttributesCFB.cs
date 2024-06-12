@@ -28,6 +28,7 @@ public static class SumAttributesCFB
         cfb.Events = new[] { eTrigger, eCompleted };
         cfb.DefaultTriggerEvent = eTrigger.Name;
 
+        // [TODO] demo async blocks
         bMainDef = PredefinedBFBs.CreateBlockSimple(
             id: $"{CfbId}_Main",
             name: "Main function",

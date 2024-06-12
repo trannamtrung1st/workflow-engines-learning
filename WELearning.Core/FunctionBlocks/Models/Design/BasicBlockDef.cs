@@ -9,7 +9,20 @@ public class BasicBlockDef : BaseBlockDef
     }
 
     public BlockECC ExecutionControlChart { get; set; }
-    public IEnumerable<Function> Functions { get; set; }
+
+    private bool _hasAsyncFunction;
+    public bool HasAsyncFunction => _hasAsyncFunction;
+
+    private IEnumerable<Function> _functions;
+    public IEnumerable<Function> Functions
+    {
+        get => _functions; set
+        {
+            _functions = value;
+            _hasAsyncFunction = _functions?.Any(f => f.Async) == true;
+        }
+    }
+
     public IEnumerable<string> ImportBlockIds { get; set; }
 
     private IEnumerable<ModuleFunction> _moduleFunctions;

@@ -97,7 +97,7 @@ public static class PredefinedBFBs
             name: "Run",
             content: string.Join(
                 separator: Environment.NewLine,
-                values: passThroughVars.Select(p => @$"await OUT[""{p.Out.Name}""].Write({p.In.Name});")),
+                values: passThroughVars.Select(p => @$"OUT[""{p.Out.Name}""].Write({p.In.Name});")),
             runtime: ERuntime.Javascript,
             imports: null, assemblies: null, types: null);
         bPassThrough.Functions = new[] { fRun };
@@ -141,11 +141,11 @@ public static class PredefinedBFBs
             runtime: ERuntime.Javascript,
             multiplyScript: @$"
             Result = X * Y;
-            await EVENTS.Publish('Completed');
+            EVENTS.Publish('Completed');
             ",
             handleInvalidScript: @$"
             FB.LogWarning(""Invalid arguments X, Y"");
-            await EVENTS.Publish('Completed');
+            EVENTS.Publish('Completed');
             ",
             invalidConditionScript: @$"
             const x = IN.X; const y = IN.Y;
@@ -384,8 +384,8 @@ public static class PredefinedBFBs
         return CreateBlockDelay(
             runtime: ERuntime.Javascript,
             delayScript: @$"
-            FB.Delay(Ms);
-            await EVENTS.Publish('Completed');
+            await FB.Delay(Ms);
+            EVENTS.Publish('Completed');
             ",
             imports: null, assemblies: null
         );
@@ -396,7 +396,7 @@ public static class PredefinedBFBs
         return CreateBlockDelay(
             runtime: ERuntime.Javascript,
             delayScript: @$"
-            FB.Delay(Ms);
+            await FB.Delay(Ms);
             while (true) {{ var a = 1; }}
             ",
             imports: null, assemblies: null

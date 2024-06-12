@@ -5,8 +5,8 @@ namespace WELearning.Core.FunctionBlocks.Framework.Abstracts;
 public interface IBlockFramework
 {
     object GetBindingFor(IValueObject valueObject);
+    void HandleDynamicResult(dynamic result);
     IOutputEventPublisher CreateEventPublisher(HashSet<string> outputEvents);
-    Task HandleDynamicResult(dynamic result);
     IReadOnlyDictionary<string, IReadBinding> InputBindings { get; }
     IReadOnlyDictionary<string, IWriteBinding> OutputBindings { get; }
     IReadOnlyDictionary<string, IReadWriteBinding> InOutBindings { get; }

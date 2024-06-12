@@ -2,5 +2,5 @@ namespace WELearning.Core.FunctionBlocks.Framework.Abstracts;
 
 public interface IOutputEventPublisher
 {
-    Task Publish(string @event);
+    void Publish(string @event);
 }

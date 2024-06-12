@@ -1,44 +1,57 @@
 using WELearning.Samples.DeviceService.Models;
 using WELearning.Samples.DeviceService.Services.Abstracts;
+using WELearning.Shared.Concurrency.Abstracts;
 
 namespace WELearning.Samples.DeviceService.Services;
 
 public class FunctionBlockWorker : IFunctionBlockWorker
 {
     private readonly IConfiguration _configuration;
-    private readonly List<Thread> _workerThreads;
     private readonly IMessageQueue _messageQueue;
     private readonly IServiceProvider _serviceProvider;
+    private readonly IDynamicRateLimiter _dynamicRateLimiter;
+    private readonly ILogger<FunctionBlockWorker> _logger;
+    private readonly List<Thread> _workerThreads;
 
     public FunctionBlockWorker(
         IConfiguration configuration,
         IMessageQueue messageQueue,
-        IServiceProvider serviceProvider)
+        IServiceProvider serviceProvider,
+        IDynamicRateLimiter dynamicRateLimiter,
+        ILogger<FunctionBlockWorker> logger)
     {
-        _workerThreads = new();
         _configuration = configuration;
         _messageQueue = messageQueue;
         _serviceProvider = serviceProvider;
+        _dynamicRateLimiter = dynamicRateLimiter;
+        _dynamicRateLimiter.SetLimit(_configuration.GetValue<int>("AppSettings:InitialConcurrencyLimit")).Wait();
+        _logger = logger;
+        _workerThreads = new();
     }
 
-    public void StartWorkers(CancellationToken cancellationToken)
+    public void StartWorker(CancellationToken cancellationToken)
     {
-        var workerCount = _configuration.GetValue<int>("FunctionBlock:WorkerCount");
-        for (int i = 0; i < workerCount; i++)
+        var (concurrencyLimit, _, _, _) = _dynamicRateLimiter.State;
+        for (int i = 0; i < concurrencyLimit; i++)
         {
-            var thread = new Thread(async () =>
+            // [TODO] apply fuzzy thread controller
+            var worker = new Thread(async () =>
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    var message = _messageQueue.Consume<AttributeChangedEvent>(TopicNames.AttributeChanged);
-                    using var scope = _serviceProvider.CreateScope();
-                    var fbService = scope.ServiceProvider.GetRequiredService<IFunctionBlockService>();
-                    await fbService.HandleAttributeChanged(message, cancellationToken);
+                    try
+                    {
+                        var message = _messageQueue.Consume<AttributeChangedEvent>(TopicNames.AttributeChanged);
+                        using var scope = _serviceProvider.CreateScope();
+                        var fbService = scope.ServiceProvider.GetRequiredService<IFunctionBlockService>();
+                        await fbService.HandleAttributeChanged(message, cancellationToken);
+                    }
+                    catch (Exception ex) { _logger.LogError(ex, ex.Message); }
                 }
             });
-            thread.IsBackground = true;
-            thread.Start();
-            _workerThreads.Add(thread);
+            worker.IsBackground = true;
+            worker.Start();
+            _workerThreads.Add(worker);
         }
     }
 }

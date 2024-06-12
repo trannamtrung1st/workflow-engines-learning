@@ -34,11 +34,7 @@ public class WriteBinding : BlockBinding, IWriteBinding
     {
     }
 
-    public virtual Task Write(object value)
-    {
-        _valueObject.TempValue = value;
-        return Task.CompletedTask;
-    }
+    public virtual void Write(object value) => _valueObject.TempValue = value;
 }
 
 public class ReadWriteBinding : BlockBinding, IReadWriteBinding
@@ -56,7 +52,7 @@ public class ReadWriteBinding : BlockBinding, IReadWriteBinding
     public bool IsNumeric => _inputBinding.IsNumeric;
     public double AsDouble() => _inputBinding.AsDouble();
     public int AsInt() => _inputBinding.AsInt();
-    public Task Write(object value) => _outputBinding.Write(value);
+    public void Write(object value) => _outputBinding.Write(value);
 }
 
 public class InternalBinding : BlockBinding, IReadWriteBinding
@@ -71,9 +67,5 @@ public class InternalBinding : BlockBinding, IReadWriteBinding
     public bool IsNumeric => _readBinding.IsNumeric;
     public double AsDouble() => _readBinding.AsDouble();
     public int AsInt() => _readBinding.AsInt();
-    public Task Write(object value)
-    {
-        _valueObject.Value = value;
-        return Task.CompletedTask;
-    }
+    public void Write(object value) => _valueObject.Value = value;
 }

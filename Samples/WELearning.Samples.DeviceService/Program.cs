@@ -8,8 +8,10 @@ using WELearning.DynamicCodeExecution.Extensions;
 using WELearning.Core.Reflection.Extensions;
 using WELearning.ConsoleApp.Testing.Framework;
 
-var builder = WebApplication.CreateBuilder(args);
+int maxThreads = Environment.ProcessorCount * 2;
+ThreadPool.SetMinThreads(workerThreads: maxThreads, completionPortThreads: maxThreads);
 
+var builder = WebApplication.CreateBuilder(args);
 builder.Services
     .AddEndpointsApiExplorer()
     .AddSwaggerGen()
@@ -29,6 +31,7 @@ builder.Services
     .AddInMemoryLockManager()
     .AddDefaultDistributedLockManager()
     .AddDefaultSyncAsyncTaskRunner()
+    .AddDynamicRateLimiter()
     .AddDefaultBlockRunner()
     .AddDefaultFunctionRunner()
     .AddDefaultRuntimeEngineFactory()
@@ -98,9 +101,8 @@ app.Run();
 static void StartWorkers(WebApplication app)
 {
     var fbWorker = app.Services.GetRequiredService<IFunctionBlockWorker>();
+    fbWorker.StartWorker(cancellationToken: app.Lifetime.ApplicationStopping);
+
     var monitoring = app.Services.GetRequiredService<IMonitoring>();
-
-    fbWorker.StartWorkers(cancellationToken: app.Lifetime.ApplicationStopping);
-
     monitoring.StartReport();
 }

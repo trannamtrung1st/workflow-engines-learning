@@ -27,8 +27,9 @@ public class SyncAsyncTaskRunner : ISyncAsyncTaskRunner
 
         if (canRunAsync)
         {
-            await Task.Yield();
-            await task(new SimpleScope(onDispose: () => Interlocked.Decrement(ref _asyncCount)));
+            await Task.Factory.StartNew(
+                function: () => task(new SimpleScope(onDispose: () => Interlocked.Decrement(ref _asyncCount))),
+                creationOptions: TaskCreationOptions.LongRunning);
         }
         else
             await task(new SimpleScope());

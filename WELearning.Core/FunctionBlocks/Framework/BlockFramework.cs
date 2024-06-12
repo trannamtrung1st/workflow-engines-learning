@@ -52,7 +52,7 @@ public class BlockFramework : IBlockFramework
         }
     }
 
-    public virtual async Task HandleDynamicResult(dynamic result)
+    public virtual void HandleDynamicResult(dynamic result)
     {
         if (result is not ExpandoObject expObj) return;
         foreach (var kvp in expObj)
@@ -67,8 +67,7 @@ public class BlockFramework : IBlockFramework
                 case EVariableType.InOut: writeBinding = InOut(kvp.Key); break;
                 case EVariableType.Internal: writeBinding = Internal(kvp.Key); break;
             }
-            if (writeBinding != null)
-                await writeBinding.Write(kvp.Value);
+            writeBinding?.Write(kvp.Value);
         }
     }
 
@@ -94,10 +93,6 @@ public class BlockFramework : IBlockFramework
             _outputEvents = outputEvents;
         }
 
-        public Task Publish(string @event)
-        {
-            _outputEvents.Add(@event);
-            return Task.CompletedTask;
-        }
+        public void Publish(string @event) => _outputEvents.Add(@event);
     }
 }

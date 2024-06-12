@@ -139,7 +139,6 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                 var block = Definition.Blocks.FirstOrDefault(b => b.Id == trigger.BlockId)
                     ?? throw new KeyNotFoundException($"Block {trigger.BlockId} not found!");
                 var blockDef = Definition.GetDefinition(block.DefinitionId) as BasicBlockDef;
-                var shouldRunAsync = blockDef != null && blockDef.Functions?.Any(f => f.Async) == true;
 
                 async Task TriggerBlock(IDisposable taskScope)
                 {
@@ -162,7 +161,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
 
                 Task EnqueueTriggerBlock()
                 {
-                    EnqueueTask(shouldRunAsync
+                    EnqueueTask(blockDef.HasAsyncFunction
                         ? (scope) => TryRunTaskAsync(() => TriggerBlock(scope))
                         : TriggerBlock);
                     return Task.CompletedTask;

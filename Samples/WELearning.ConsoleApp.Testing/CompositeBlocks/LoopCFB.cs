@@ -157,13 +157,13 @@ public static class LoopCFB
             id: Guid.NewGuid().ToString(),
             name: "Trigger",
             content: @$"
-            await OUT[""Result""].Write(0.0);
+            OUT[""Result""].Write(0.0);
             var n = IN[""N""].AsInt();
             FB.Log(""Loop: N is"", n);
             if (n > 0) 
-                await EVENTS.Publish(""Loop"");
+                EVENTS.Publish(""Loop"");
             else 
-                await EVENTS.Publish(""Completed"");
+                EVENTS.Publish(""Completed"");
             ",
             runtime: ERuntime.CSharpScript,
             imports: null, assemblies: assemblies, types: null);
@@ -174,9 +174,9 @@ public static class LoopCFB
             var currentResult = IN[""Result""].AsInt();
             var n = IN[""N""].AsInt();
             if (currentResult < n) 
-                await EVENTS.Publish(""Loop"");
+                EVENTS.Publish(""Loop"");
             else 
-                await EVENTS.Publish(""Completed"");
+                EVENTS.Publish(""Completed"");
             ",
             runtime: ERuntime.CSharpScript,
             imports: null, assemblies: assemblies, types: null);

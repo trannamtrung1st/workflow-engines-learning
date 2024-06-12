@@ -16,7 +16,7 @@ public interface IReadBinding : IBlockBinding
 
 public interface IWriteBinding : IBlockBinding
 {
-    Task Write(object value);
+    void Write(object value);
 }
 
 public interface IReadWriteBinding : IReadBinding, IWriteBinding
