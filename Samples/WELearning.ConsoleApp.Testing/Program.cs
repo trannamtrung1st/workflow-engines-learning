@@ -23,6 +23,7 @@ using WELearning.DynamicCodeExecution.Constants;
 using WELearning.DynamicCodeExecution.Extensions;
 using WELearning.DynamicCodeExecution.Models;
 using WELearning.Shared.Concurrency;
+using WELearning.Shared.Concurrency.Abstracts;
 using WELearning.Shared.Concurrency.Extensions;
 
 const string LibraryFolderPath = "/Users/trungtran/MyPlace/Personal/Learning/workflow-engines-learning/local/libs";
@@ -31,7 +32,7 @@ var serviceCollection = new ServiceCollection()
     .AddLogging(cfg => cfg.AddSimpleConsole())
     .AddInMemoryLockManager()
     .AddDefaultDistributedLockManager()
-    // FunctionBlock services
+    .AddDefaultSyncAsyncTaskRunner()
     .AddDefaultBlockRunner()
     .AddDefaultFunctionRunner()
     .AddDefaultRuntimeEngineFactory()
@@ -249,6 +250,7 @@ static class TestFunctionBlocks
         var functionRunner = serviceProvider.GetRequiredService<IFunctionRunner>();
         var blockFrameworkFactory = serviceProvider.GetRequiredService<IBlockFrameworkFactory>();
         var functionFramework = serviceProvider.GetRequiredService<AppFunctionFramework>();
+        var taskRunner = serviceProvider.GetRequiredService<ISyncAsyncTaskRunner>();
         var jsEngine = engineFactory.CreateEngine(ERuntime.Javascript);
         var jsEngineName = jsEngine.GetType().Name;
         var csCompiledCFB = ComplexCFB.Build(
@@ -256,7 +258,7 @@ static class TestFunctionBlocks
             bMultiplyDef: PredefinedBFBs.MultiplyCsCompiled,
             bRandomDef: PredefinedBFBs.RandomCsCompiled,
             bDelayDef: PredefinedBFBs.DelayCsCompiled);
-        IExecutionControl CreateControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFramework);
+        IExecutionControl CreateControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFramework, taskRunner);
 
         Task<double> RunCsCompiled() => RunComplexCFB(
             blockRunner, CreateControl: () => CreateControl(blockDef: csCompiledCFB), runTokens: tokensProvider());
@@ -421,9 +423,10 @@ static class TestFunctionBlocks
         var functionRunner = serviceProvider.GetRequiredService<IFunctionRunner>();
         var blockFrameworkFactory = serviceProvider.GetRequiredService<IBlockFrameworkFactory>();
         var functionFramework = serviceProvider.GetRequiredService<AppFunctionFramework>();
+        var taskRunner = serviceProvider.GetRequiredService<ISyncAsyncTaskRunner>();
         var dataStore = serviceProvider.GetService<DataStore>();
         const int DelayMs = 5000;
-        ICompositeEC CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFramework);
+        ICompositeEC CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFramework, taskRunner);
         IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFunctionFramework>(block: new(blockDef.Id), blockDef, importBlocks: null, functionRunner, blockFrameworkFactory, functionFramework);
 
         Console.WriteLine("=== Test sample metric ===");

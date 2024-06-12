@@ -11,6 +11,7 @@ using WELearning.Samples.DeviceService.FunctionBlock.ValueObjects;
 using WELearning.Samples.DeviceService.Models;
 using WELearning.Samples.DeviceService.Persistent;
 using WELearning.Samples.DeviceService.Services.Abstracts;
+using WELearning.Shared.Concurrency.Abstracts;
 
 namespace WELearning.Samples.DeviceService.Services;
 
@@ -21,6 +22,7 @@ public class FunctionBlockService : IFunctionBlockService
     private readonly IFunctionRunner _functionRunner;
     private readonly IBlockFrameworkFactory _blockFrameworkFactory;
     private readonly DeviceFunctionFramework _functionFramework;
+    private readonly ISyncAsyncTaskRunner _taskRunner;
     private readonly IAssetService _assetService;
     private readonly DataStore _dataStore;
     private readonly IMonitoring _monitoring;
@@ -35,7 +37,8 @@ public class FunctionBlockService : IFunctionBlockService
         IAssetService assetService,
         DataStore dataStore,
         IMonitoring monitoring,
-        ILogger<IExecutionControl> controlLogger)
+        ILogger<IExecutionControl> controlLogger,
+        ISyncAsyncTaskRunner taskRunner)
     {
         _configuration = configuration;
         _blockRunner = blockRunner;
@@ -46,6 +49,7 @@ public class FunctionBlockService : IFunctionBlockService
         _dataStore = dataStore;
         _controlLogger = controlLogger;
         _monitoring = monitoring;
+        _taskRunner = taskRunner;
     }
 
     public async Task HandleAttributeChanged(AttributeChangedEvent @event, CancellationToken cancellationToken)
@@ -56,12 +60,12 @@ public class FunctionBlockService : IFunctionBlockService
             return;
 
         var fbTimeout = _configuration.GetValue<TimeSpan>("FunctionBlock:Timeout");
-        using var runTokens = new RunTokens(timeout: fbTimeout, termination: default); // [NOTE] should track termination token
+        using var runTokens = new RunTokens(timeout: fbTimeout, termination: cancellationToken);
 
         var cfbDef = await BuildBlock();
         using var execControl = new CompositeEC<DeviceFunctionFramework>(
-            block: new(cfbDef.Id),
-            definition: cfbDef, _blockRunner, _functionRunner, _blockFrameworkFactory, _functionFramework);
+            block: new(cfbDef.Id), definition: cfbDef,
+            _blockRunner, _functionRunner, _blockFrameworkFactory, _functionFramework, _taskRunner);
         execControl.Running += (o, e) => execControl.LogBlockActivity(logger: _controlLogger);
         execControl.Completed += (o, e) => execControl.LogBlockActivity(logger: _controlLogger);
         execControl.Failed += (o, e) => execControl.LogBlockActivity(logger: _controlLogger);

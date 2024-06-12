@@ -136,7 +136,8 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
                     actionFunction, blockFramework, globalObject, inputs, outputs,
                     modules: _importModules, optimizationScopeId, tokens: CurrentRunRequest.Tokens);
                 RunningFunction = null;
-                if (optimizationScope != null) optimizationScopes.Add(optimizationScope);
+                if (optimizationScope != null)
+                    optimizationScopes.Add(optimizationScope);
             }
             catch (CompilationError ex) { throw new FunctionCompilationError(ex, actionFunction); }
             catch (RuntimeException ex) { throw new FunctionRuntimeException(ex, actionFunction); }

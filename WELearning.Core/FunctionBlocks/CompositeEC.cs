@@ -6,6 +6,7 @@ using WELearning.Core.FunctionBlocks.Extensions;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
+using WELearning.Shared.Concurrency.Abstracts;
 
 namespace WELearning.Core.FunctionBlocks;
 
@@ -14,6 +15,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
 {
     private readonly TFunctionFramework _functionFramework;
     private readonly IBlockRunner _blockRunner;
+    private readonly ISyncAsyncTaskRunner _taskRunner;
     private ConcurrentDictionary<string, IExecutionControl> _blockExecControlMap;
     private ConcurrentBag<string> _outputEvents;
     private int _runningTasksCount;
@@ -33,10 +35,12 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         IBlockRunner blockRunner,
         IFunctionRunner functionRunner,
         IBlockFrameworkFactory blockFrameworkFactory,
-        TFunctionFramework functionFramework) : base(block, definition, functionRunner, blockFrameworkFactory)
+        TFunctionFramework functionFramework,
+        ISyncAsyncTaskRunner taskRunner) : base(block, definition, functionRunner, blockFrameworkFactory)
     {
         _functionFramework = functionFramework;
         _blockRunner = blockRunner;
+        _taskRunner = taskRunner;
         _runningTasksCount = 0;
         _blockExecControlMap = new();
         _outputEvents = new();
@@ -295,7 +299,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                 execControl = new BasicEC<TFunctionFramework>(block, definition: basicBlockDef, importBlocks: importBlocks, _functionRunner, _blockFrameworkFactory, _functionFramework);
             }
             else if (definition is CompositeBlockDef compositeBlockDef)
-                execControl = new CompositeEC<TFunctionFramework>(block, definition: compositeBlockDef, _blockRunner, _functionRunner, _blockFrameworkFactory, _functionFramework);
+                execControl = new CompositeEC<TFunctionFramework>(block, definition: compositeBlockDef, _blockRunner, _functionRunner, _blockFrameworkFactory, _functionFramework, _taskRunner);
             else throw new NotSupportedException($"Definition of type {definition.GetType().FullName} not supported!");
             execControl.Running += HandleControlRunning;
             execControl.Completed += HandleControlCompleted;
@@ -315,13 +319,13 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
 
     protected Task RunTaskAsync(Func<Task> func)
     {
-        StartTask();
-        return Task.Factory.StartNew(async () =>
+        return _taskRunner.TryRunTaskAsync(async (scope) =>
         {
+            using var _ = scope;
+            StartTask();
             try { await func(); }
             catch (Exception ex) { HandleFailed(ex); }
             finally { CompleteTask(); }
         }, creationOptions: TaskCreationOptions.LongRunning);
     }
-
 }

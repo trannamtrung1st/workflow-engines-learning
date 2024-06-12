@@ -28,6 +28,7 @@ builder.Services
     // Function block services
     .AddInMemoryLockManager()
     .AddDefaultDistributedLockManager()
+    .AddDefaultSyncAsyncTaskRunner()
     .AddDefaultBlockRunner()
     .AddDefaultFunctionRunner()
     .AddDefaultRuntimeEngineFactory()

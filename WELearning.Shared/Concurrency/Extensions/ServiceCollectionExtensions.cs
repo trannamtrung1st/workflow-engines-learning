@@ -14,4 +14,9 @@ public static class ServiceCollectionExtensions
     {
         return services.AddSingleton<IDistributedLockManager, InMemoryLockManager>();
     }
+
+    public static IServiceCollection AddDefaultSyncAsyncTaskRunner(this IServiceCollection services)
+    {
+        return services.AddSingleton<ISyncAsyncTaskRunner, SyncAsyncTaskRunner>();
+    }
 }
