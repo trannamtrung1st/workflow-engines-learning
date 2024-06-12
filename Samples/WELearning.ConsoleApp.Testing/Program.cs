@@ -373,7 +373,7 @@ static class TestFunctionBlocks
         bindings.Add(new(variableName: oFinalReport.Name, reference: oFinalReportRef, type: EBindingType.Output));
 
         var runRequest = new RunBlockRequest(bindings, runTokens);
-        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
+        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default);
 
         var finalResult = execControl.GetOutput("FinalReport") as EntryValueObject;
         dataStore.UpdateEntry(finalResult.EntryKey, finalResult.Value);
@@ -395,7 +395,7 @@ static class TestFunctionBlocks
         bindings.Add(new(variableName: iMetric.Name, reference: iMetricRef, type: EBindingType.Input));
 
         var runRequest = new RunBlockRequest(bindings, runTokens);
-        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
+        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default);
 
         var snapshot = execControl.GetOutput("Snapshot");
         var previous = execControl.GetOutput("Previous");
@@ -410,7 +410,7 @@ static class TestFunctionBlocks
         bindings.Add(new(variableName: "Add1Y", value: 10, type: EBindingType.Input));
         using var execControl = CreateControl();
         var runRequest = new RunBlockRequest(bindings, runTokens);
-        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
+        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default);
 
         var finalResult = execControl.GetOutput("Result");
         return (double)finalResult.Value;
@@ -478,7 +478,7 @@ static class TestFunctionBlocks
         using var execControl = CreateControl();
         var bindings = new VariableBinding[] { new("Ms", delayMs, type: EBindingType.Input) };
         var runRequest = new RunBlockRequest(bindings, runTokens, triggerEvent: null);
-        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
+        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default);
         Console.WriteLine(string.Join(Environment.NewLine, execControl.Result.OutputEvents));
     }
 
@@ -488,7 +488,7 @@ static class TestFunctionBlocks
     {
         using var execControl = CreateControl();
         var runRequest = new RunBlockRequest(bindings: Array.Empty<VariableBinding>(), runTokens, triggerEvent: null);
-        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
+        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default);
         Console.WriteLine(string.Join(Environment.NewLine, execControl.Result.OutputEvents));
         Console.WriteLine(execControl.GetOutput("Result"));
     }
@@ -500,7 +500,7 @@ static class TestFunctionBlocks
         using var execControl = CreateControl();
         var bindings = new VariableBinding[] { new("N", 5, type: EBindingType.Input) };
         var runRequest = new RunBlockRequest(bindings, runTokens, triggerEvent: null);
-        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
+        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default);
         Console.WriteLine(string.Join(Environment.NewLine, execControl.Result.OutputEvents));
         Console.WriteLine(execControl.GetOutput("Result"));
     }
@@ -513,7 +513,7 @@ static class TestFunctionBlocks
         bindings.Add(new(variableName: "Width", value: 2, type: EBindingType.Input));
         using var execControl = CreateControl();
         var runRequest = new RunBlockRequest(bindings, runTokens);
-        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
+        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default);
 
         var finalResult = execControl.GetOutput("Result");
         Console.WriteLine(finalResult);
@@ -531,7 +531,7 @@ static class TestFunctionBlocks
         }, type: EBindingType.Input));
         using var execControl = CreateControl();
         var runRequest = new RunBlockRequest(bindings, runTokens);
-        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
+        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default);
 
         var finalResult = execControl.GetOutput("Output");
         Console.WriteLine(finalResult);
@@ -545,7 +545,7 @@ static class TestFunctionBlocks
             {
                 using var runTokens = tokensProvider();
                 var runRequest = new RunBlockRequest(bindings: Array.Empty<VariableBinding>(), tokens: runTokens);
-                await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
+                await blockRunner.Run(runRequest, execControl, optimizationScopeId: default);
             }
             catch { }
         }
@@ -589,7 +589,7 @@ static class TestFunctionBlocks
             {
                 using var runTokens = tokensProvider();
                 var runRequest = new RunBlockRequest(bindings, tokens: runTokens);
-                await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
+                await blockRunner.Run(runRequest, execControl, optimizationScopeId: default);
                 var finalResult = execControl.GetOutput("Result");
                 Console.WriteLine("Complex CFB result: {0}", finalResult);
             }
@@ -605,7 +605,7 @@ static class TestFunctionBlocks
         bindings.Add(new(variableName: "Width", value: 2, type: EBindingType.Input));
         using var execControl = CreateControl();
         var runRequest = new RunBlockRequest(bindings, runTokens);
-        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
+        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default);
 
         var finalResult = execControl.GetOutput("Result");
         Console.WriteLine(finalResult);
@@ -618,7 +618,7 @@ static class TestFunctionBlocks
         bindings.Add(new(variableName: "N", value: 1000, type: EBindingType.Input));
         using var execControl = CreateControl();
         var runRequest = new RunBlockRequest(bindings, runTokens);
-        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
+        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default);
 
         var finalResult = execControl.GetOutput("Result");
         Console.WriteLine(finalResult);
@@ -635,7 +635,7 @@ static class TestFunctionBlocks
         bindings.Add(new(variableName: "Add2Y", value: 4, type: EBindingType.Input));
         using var execControl = CreateControl();
         var runRequest = new RunBlockRequest(bindings, runTokens);
-        await blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
+        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default);
 
         var finalResult = execControl.GetOutput("Result");
         Console.WriteLine(finalResult);

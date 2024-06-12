@@ -13,7 +13,7 @@ public class SyncAsyncTaskRunner : ISyncAsyncTaskRunner
         _syncLock = new();
     }
 
-    public async Task TryRunTaskAsync(Func<IDisposable, Task> func, TaskCreationOptions creationOptions = default)
+    public async Task TryRunTaskAsync(Func<IDisposable, Task> func)
     {
         bool canRunAsync = false;
         lock (_syncLock)
@@ -27,9 +27,8 @@ public class SyncAsyncTaskRunner : ISyncAsyncTaskRunner
 
         if (canRunAsync)
         {
-            _ = Task.Factory.StartNew(
-                async () => await func(new AsyncScope(onDispose: () => Interlocked.Decrement(ref _asyncCount))),
-                creationOptions);
+            await Task.Yield();
+            await func(new AsyncScope(onDispose: () => Interlocked.Decrement(ref _asyncCount)));
         }
         else
             await func(new SyncScope());

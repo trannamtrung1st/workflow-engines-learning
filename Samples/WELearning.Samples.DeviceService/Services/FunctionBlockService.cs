@@ -77,7 +77,7 @@ public class FunctionBlockService : IFunctionBlockService
         var runRequest = new RunBlockRequest(bindings, runTokens);
         try
         {
-            await _blockRunner.RunAndWait(runRequest, execControl, optimizationScopeId: default);
+            await _blockRunner.Run(runRequest, execControl, optimizationScopeId: default);
             await RecordOutputs(execControl);
             _monitoring.Capture(MonitoringCategory, count: 1);
         }

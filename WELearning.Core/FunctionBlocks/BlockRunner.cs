@@ -21,13 +21,4 @@ public class BlockRunner : IBlockRunner
             }, request.Tokens.Combined);
         }
     }
-
-    public async Task RunAndWait(RunBlockRequest request, IExecutionControl control, Guid? optimizationScopeId)
-    {
-        var tcs = new TaskCompletionSource();
-        control.Completed += (o, e) => tcs.SetResult();
-        control.Failed += (o, e) => tcs.SetException(e);
-        await Run(request, control, optimizationScopeId);
-        await tcs.Task;
-    }
 }

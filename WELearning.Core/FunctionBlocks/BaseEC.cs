@@ -43,9 +43,9 @@ public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where
     public virtual BlockExecutionResult Result { get; protected set; }
     public virtual BlockActivity LastActivity { get; protected set; }
 
-    public abstract event EventHandler Running;
-    public abstract event EventHandler<Exception> Failed;
-    public abstract event EventHandler Completed;
+    public event EventHandler Running;
+    public event EventHandler<Exception> Failed;
+    public event EventHandler Completed;
 
     public virtual IValueObject GetInOut(string key) => GetValueObject(key, EVariableType.InOut);
     public virtual IValueObject GetInput(string key) => GetValueObject(key, EVariableType.Input);
@@ -85,23 +85,45 @@ public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where
     protected virtual Variable ValidateVariable(string name, EVariableType type)
         => GetVariable(name, type) ?? throw new KeyNotFoundException($"Variable {name} not found!");
 
-    protected virtual void PrepareRunningStatus(RunBlockRequest runRequest)
+    protected virtual void PrepareRunningStatus(RunBlockRequest request)
     {
-        CurrentRunRequest = runRequest;
+        CurrentRunRequest = request;
         Exception = null; Result = null;
         Status = EBlockExecutionStatus.Running;
-        LastActivity = new BlockActivity(this, runRequest: runRequest);
+        LastActivity = new BlockActivity(this, runRequest: request);
     }
 
-    protected virtual bool SetFailedStatus()
+    protected virtual void HandleRunning(RunBlockRequest request)
     {
+        PrepareRunningStatus(request);
+        PublishRunning();
+        PrepareStates(request.Bindings);
+    }
+
+    protected virtual void HandleFailed(Exception ex, IExecutionControl from = null)
+    {
+        if (Status != EBlockExecutionStatus.Running) return;
         lock (_handleFailedLock)
         {
-            if (Status == EBlockExecutionStatus.Failed) return false;
+            if (Status == EBlockExecutionStatus.Failed) return;
             Status = EBlockExecutionStatus.Failed;
         }
-        return true;
+        PrepareFailedStatus(ex, from);
+        PublishFailed(ex);
     }
+
+    protected virtual void HandleCompleted()
+    {
+        if (Status == EBlockExecutionStatus.Running)
+        {
+            PrepareCompletedStatus();
+            PublishCompleted();
+        }
+    }
+
+    protected void PublishFailed(Exception ex) => Failed?.Invoke(this, ex);
+    protected void PublishCompleted() => Completed?.Invoke(this, EventArgs.Empty);
+    protected void PublishRunning() => Running?.Invoke(this, EventArgs.Empty);
 
     protected virtual void PrepareFailedStatus(Exception ex, IExecutionControl from = null)
     {

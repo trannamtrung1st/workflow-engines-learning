@@ -38,10 +38,6 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
     }
     BFBExecutionResult IBasicEC.Result => _result;
 
-    public override event EventHandler Running;
-    public override event EventHandler<Exception> Failed;
-    public override event EventHandler Completed;
-
     protected virtual async Task<BlockStateTransition> FindTransition(string triggerEvent, Func<Function, Task<bool>> Evaluate)
     {
         foreach (var transition in Definition.ExecutionControlChart.StateTransitions)
@@ -69,9 +65,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
         {
             IEnumerable<string> outputEvents = Array.Empty<string>();
             var fromState = CurrentState;
-            PrepareRunningStatus(request);
-            Running?.Invoke(this, EventArgs.Empty);
-            PrepareStates(request.Bindings);
+            HandleRunning(request);
 
             if (Definition.ExecutionControlChart != null)
             {
@@ -81,16 +75,11 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
 
             var finalState = CurrentState;
             _result = new BFBExecutionResult(fromState, finalState, outputEvents: outputEvents);
-            PrepareCompletedStatus();
-            Completed?.Invoke(this, EventArgs.Empty);
+            HandleCompleted();
         }
         catch (Exception ex)
         {
-            if (SetFailedStatus())
-            {
-                PrepareFailedStatus(ex, this);
-                Failed?.Invoke(this, ex);
-            }
+            HandleFailed(ex, this);
             throw;
         }
         finally

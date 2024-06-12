@@ -13,18 +13,18 @@ namespace WELearning.Core.FunctionBlocks;
 public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompositeEC, IDisposable
     where TFunctionFramework : class
 {
+    private const int TaskLoopWaitTimeout = 5000;
     private readonly TFunctionFramework _functionFramework;
     private readonly IBlockRunner _blockRunner;
     private readonly ISyncAsyncTaskRunner _taskRunner;
     private ConcurrentDictionary<string, IExecutionControl> _blockExecControlMap;
     private ConcurrentBag<string> _outputEvents;
-    private int _runningTasksCount;
+    private readonly ManualResetEventSlim _taskLoopEvent;
+    private readonly ConcurrentQueue<Func<Task>> _tasks;
+    private int _taskCount = 0;
 
     public virtual IExecutionControl ExceptionFrom { get; protected set; }
 
-    public override event EventHandler Running;
-    public override event EventHandler<Exception> Failed;
-    public override event EventHandler Completed;
     public event EventHandler ControlRunning;
     public event EventHandler ControlCompleted;
     public event EventHandler<Exception> ControlFailed;
@@ -41,30 +41,44 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         _functionFramework = functionFramework;
         _blockRunner = blockRunner;
         _taskRunner = taskRunner;
-        _runningTasksCount = 0;
+        _taskCount = 0;
+        _taskLoopEvent = new();
         _blockExecControlMap = new();
         _outputEvents = new();
+        _tasks = new();
     }
 
-    public override Task Execute(RunBlockRequest request, Guid? optimizationScopeId)
+    public override async Task Execute(RunBlockRequest request, Guid? optimizationScopeId)
     {
         EnterOrThrow();
         var triggerEvent = GetTriggerOrDefault(request.TriggerEvent);
         try
         {
-            _outputEvents = new();
-            PrepareRunningStatus(request);
-            Running?.Invoke(this, EventArgs.Empty);
-            PrepareStates(request.Bindings);
+            HandleRunning(request);
+
             var startingTriggers = Definition.FindNextBlocks(triggerEvent);
-            TriggerBlocks(blockTriggers: startingTriggers, optimizationScopeId);
+            EnqueueTask((taskScope) => TriggerBlocks(blockTriggers: startingTriggers, optimizationScopeId, taskScope));
+
+            while (_taskCount > 0)
+            {
+                _taskLoopEvent.Reset();
+                while (_tasks.TryDequeue(out var func))
+                    await func();
+                _taskLoopEvent.Wait(millisecondsTimeout: TaskLoopWaitTimeout);
+            }
+
+            Result = new BlockExecutionResult(_outputEvents);
+            HandleCompleted();
         }
         catch (Exception ex)
         {
             HandleFailed(ex);
             throw;
         }
-        return Task.CompletedTask;
+        finally
+        {
+            _idleWait.Set();
+        }
     }
 
     protected override void PrepareStates(IEnumerable<VariableBinding> bindings)
@@ -98,6 +112,8 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
 
     protected override void PrepareRunningStatus(RunBlockRequest runRequest)
     {
+        _outputEvents = new();
+        _taskLoopEvent.Reset();
         ExceptionFrom = null;
         base.PrepareRunningStatus(runRequest);
     }
@@ -108,23 +124,18 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         base.PrepareFailedStatus(ex, from);
     }
 
-    protected void HandleFailed(Exception ex, IExecutionControl from = null)
+    protected virtual async Task TriggerBlocks(IEnumerable<BlockTrigger> blockTriggers, Guid? optimizationScopeId, IDisposable taskScope)
     {
-        if (!SetFailedStatus()) return;
-        PrepareFailedStatus(ex, from);
-        Failed?.Invoke(this, ex);
-    }
-
-    protected virtual void TriggerBlocks(IEnumerable<BlockTrigger> blockTriggers, Guid? optimizationScopeId)
-    {
+        using var _ = taskScope;
         foreach (var trigger in blockTriggers)
         {
             if (trigger.BlockId != null)
             {
                 var block = Definition.Blocks.FirstOrDefault(b => b.Id == trigger.BlockId)
                     ?? throw new KeyNotFoundException($"Block {trigger.BlockId} not found!");
-                _ = RunTaskAsync(async () =>
+                await TryRunTaskAsync(async (taskScope) =>
                 {
+                    using var _ = taskScope;
                     var execControl = GetOrInitExecutionControl(block);
                     var triggerEvent = trigger.TriggerEvent ?? Definition.GetDefinition(block.DefinitionId).DefaultTriggerEvent;
                     var blockBindings = PrepareBindings(triggerEvent, block);
@@ -134,7 +145,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                         triggerEvent: triggerEvent);
                     await _blockRunner.Run(runRequest, execControl, optimizationScopeId);
                     var nextBlockTriggers = Definition.FindNextBlocks(block.Id, outputEvents: execControl.Result.OutputEvents);
-                    TriggerBlocks(nextBlockTriggers, optimizationScopeId);
+                    EnqueueTask((taskScope) => TriggerBlocks(nextBlockTriggers, optimizationScopeId, taskScope));
                 });
             }
             else _outputEvents.Add(trigger.TriggerEvent);
@@ -254,30 +265,6 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
             outputValue.TryCommit();
     }
 
-    protected virtual void StartTask()
-    {
-        lock (_idleWait) { _runningTasksCount++; }
-    }
-
-    protected virtual void CompleteTask()
-    {
-        bool cfbCompleted = false;
-        lock (_idleWait)
-        {
-            if (_runningTasksCount > 0 && --_runningTasksCount == 0)
-            {
-                if (Status == EBlockExecutionStatus.Running)
-                {
-                    Result = new BlockExecutionResult(_outputEvents);
-                    PrepareCompletedStatus();
-                    cfbCompleted = true;
-                }
-                _idleWait.Set();
-            }
-        }
-        if (cfbCompleted) Completed?.Invoke(this, EventArgs.Empty);
-    }
-
     public bool TryGetExecutionControl(string blockId, out IExecutionControl execControl)
     {
         execControl = null;
@@ -317,15 +304,46 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         HandleFailed(ex, sender as IExecutionControl);
     }
 
-    protected Task RunTaskAsync(Func<Task> func)
+    protected Task TryRunTaskAsync(Func<IDisposable, Task> func)
     {
-        return _taskRunner.TryRunTaskAsync(async (scope) =>
+        SafeAccessTasks(() => _taskCount++);
+        return _taskRunner.TryRunTaskAsync(async (asyncScope) =>
         {
-            using var _ = scope;
-            StartTask();
-            try { await func(); }
+            using var _2 = asyncScope;
+            try { await func(CreateTaskScope()); }
             catch (Exception ex) { HandleFailed(ex); }
-            finally { CompleteTask(); }
-        }, creationOptions: TaskCreationOptions.LongRunning);
+        });
+    }
+
+    private TaskScope CreateTaskScope() => new(() => SafeAccessTasks(() =>
+    {
+        if (_taskCount > 0 && --_taskCount == 0)
+            _taskLoopEvent.Set();
+    }));
+
+    private void EnqueueTask(Func<IDisposable, Task> func)
+    {
+        SafeAccessTasks(() =>
+        {
+            _taskCount++;
+            _tasks.Enqueue(() => func(CreateTaskScope()));
+            _taskLoopEvent.Set();
+        });
+    }
+
+    private void SafeAccessTasks(Action action)
+    {
+        lock (_taskLoopEvent) { action(); }
+    }
+
+    class TaskScope : IDisposable
+    {
+        private readonly Action _onDispose;
+        public TaskScope(Action onDispose)
+        {
+            _onDispose = onDispose;
+        }
+
+        public void Dispose() => _onDispose();
     }
 }
