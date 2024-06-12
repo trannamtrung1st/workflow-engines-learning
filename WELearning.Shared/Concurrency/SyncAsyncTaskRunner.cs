@@ -28,25 +28,9 @@ public class SyncAsyncTaskRunner : ISyncAsyncTaskRunner
         if (canRunAsync)
         {
             await Task.Yield();
-            await func(new AsyncScope(onDispose: () => Interlocked.Decrement(ref _asyncCount)));
+            await func(new SimpleScope(onDispose: () => Interlocked.Decrement(ref _asyncCount)));
         }
         else
-            await func(new SyncScope());
-    }
-
-    class AsyncScope : IDisposable
-    {
-        private readonly Action _onDispose;
-        public AsyncScope(Action onDispose)
-        {
-            _onDispose = onDispose;
-        }
-
-        public void Dispose() => _onDispose();
-    }
-
-    class SyncScope : IDisposable
-    {
-        public void Dispose() { }
+            await func(new SimpleScope());
     }
 }

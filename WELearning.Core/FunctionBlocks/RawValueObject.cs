@@ -6,7 +6,7 @@ namespace WELearning.Core.FunctionBlocks;
 
 public class RawValueObject : IValueObject, IDisposable
 {
-    protected readonly ManualResetEventSlim _valueSet;
+    private readonly ManualResetEventSlim _valueSet;
 
     public RawValueObject(Variable variable)
     {
@@ -22,6 +22,8 @@ public class RawValueObject : IValueObject, IDisposable
         Value = value;
     }
 
+    public event EventHandler ValueSetEvent;
+
     public Variable Variable { get; }
     public virtual bool ValueChanged { get; protected set; }
     public virtual bool ValueSet => _valueSet.IsSet;
@@ -34,7 +36,7 @@ public class RawValueObject : IValueObject, IDisposable
             SetCoreValue(value);
             _tempValue = null;
             _tempValueSet = false;
-            _valueSet.Set();
+            SetValueSet();
         }
     }
 
@@ -57,6 +59,12 @@ public class RawValueObject : IValueObject, IDisposable
     }
 
     protected virtual void SetCoreValue(object value) => _value = value;
+
+    protected virtual void SetValueSet()
+    {
+        lock (_valueSet) { _valueSet.Set(); }
+        ValueSetEvent?.Invoke(this, EventArgs.Empty);
+    }
 
     public virtual void WaitValueSet(CancellationToken cancellationToken) => _valueSet.Wait(cancellationToken);
 
@@ -115,4 +123,22 @@ public class RawValueObject : IValueObject, IDisposable
     }
 
     public virtual IValueObject CloneFor(Variable variable) => new RawValueObject(variable, value: Value);
+
+    public bool RegisterTempValueSet(Func<Task> func)
+    {
+        lock (_valueSet)
+        {
+            var registered = !ValueSet;
+            if (registered)
+            {
+                void Handle(object o, EventArgs e)
+                {
+                    ValueSetEvent -= Handle;
+                    _ = func();
+                }
+                ValueSetEvent += Handle;
+            }
+            return registered;
+        }
+    }
 }

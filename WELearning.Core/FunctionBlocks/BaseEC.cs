@@ -13,9 +13,9 @@ namespace WELearning.Core.FunctionBlocks;
 public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where TDefinition : BaseBlockDef
 {
     private readonly object _handleFailedLock = new();
+    private readonly ManualResetEventSlim _idleWait;
     protected readonly ConcurrentDictionary<Variable, IValueObject> _valueMap;
     protected readonly SemaphoreSlim _mutexLock;
-    protected readonly ManualResetEventSlim _idleWait;
     protected readonly IFunctionRunner _functionRunner;
     protected readonly IBlockFrameworkFactory _blockFrameworkFactory;
 
@@ -46,6 +46,7 @@ public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where
     public event EventHandler Running;
     public event EventHandler<Exception> Failed;
     public event EventHandler Completed;
+    public event EventHandler Idle;
 
     public virtual IValueObject GetInOut(string key) => GetValueObject(key, EVariableType.InOut);
     public virtual IValueObject GetInput(string key) => GetValueObject(key, EVariableType.Input);
@@ -81,6 +82,12 @@ public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where
     }
 
     public virtual IEnumerable<Variable> GetVariables() => Definition.Variables;
+
+    protected virtual void SetIdle()
+    {
+        Idle?.Invoke(this, EventArgs.Empty);
+        _idleWait.Set();
+    }
 
     protected virtual Variable ValidateVariable(string name, EVariableType type)
         => GetVariable(name, type) ?? throw new KeyNotFoundException($"Variable {name} not found!");
@@ -277,4 +284,21 @@ Original content (error located):
             LogFailure(LastActivity.Exception, logger);
     }
 
+    public bool RegisterTempIdleCallback(Func<Task> func)
+    {
+        lock (_idleWait)
+        {
+            var registered = !IsIdle;
+            if (registered)
+            {
+                void Handle(object o, EventArgs e)
+                {
+                    Idle -= Handle;
+                    _ = func();
+                }
+                Idle += Handle;
+            }
+            return registered;
+        }
+    }
 }

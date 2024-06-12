@@ -5,6 +5,8 @@ namespace WELearning.Core.FunctionBlocks.Abstracts;
 
 public interface IValueObject
 {
+    event EventHandler ValueSetEvent;
+
     Variable Variable { get; }
     bool ValueChanged { get; }
     bool ValueSet { get; }
@@ -19,5 +21,6 @@ public interface IValueObject
     object As(EDataType dataType);
     void TryCommit();
     void WaitValueSet(CancellationToken cancellationToken);
+    bool RegisterTempValueSet(Func<Task> func);
     IValueObject CloneFor(Variable variable);
 }

@@ -10,6 +10,7 @@ public interface IExecutionControl : IDisposable
     event EventHandler Running;
     event EventHandler<Exception> Failed;
     event EventHandler Completed;
+    event EventHandler Idle;
 
     RunBlockRequest CurrentRunRequest { get; }
     BlockInstance Block { get; }
@@ -30,6 +31,7 @@ public interface IExecutionControl : IDisposable
     void SetValue(string name, EVariableType type, object value);
     Task Execute(RunBlockRequest request, Guid? optimizationScopeId);
     void WaitForIdle(CancellationToken cancellationToken);
+    bool RegisterTempIdleCallback(Func<Task> func);
     Task MutexAccess(Func<Task> task, CancellationToken cancellationToken);
     void LogFailure(Exception ex, ILogger logger = null);
     void LogBlockActivity(ILogger logger = null);

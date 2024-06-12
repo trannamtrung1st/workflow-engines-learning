@@ -83,7 +83,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
         }
         finally
         {
-            _idleWait.Set();
+            SetIdle();
             if (optimizationScopes != null)
                 foreach (var optimizationScope in optimizationScopes)
                     optimizationScope.Dispose();
