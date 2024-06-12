@@ -188,7 +188,6 @@ static class TestEngines
         finally { scope?.Dispose(); }
     }
 
-    // [IMPORTANT] currently Jint only supports await Func<Task<...>> like this
     private static readonly Func<Task<string>> TestAsync = async () =>
     {
         using var httpClient = new HttpClient();
@@ -286,7 +285,7 @@ static class TestFunctionBlocks
         await Loop(ThirdLoop, task: RunCsCompiled);
         Console.WriteLine("C# compiled ({0}): {1}", ThirdLoop, sw.ElapsedMilliseconds);
 
-        // sw.Restart();
+        sw.Restart();
         await Loop(FirstLoop, task: RunCsScript);
         Console.WriteLine("C# script (1st): {0}", sw.ElapsedMilliseconds);
         await Loop(SecondLoop, task: RunCsScript);
@@ -294,7 +293,7 @@ static class TestFunctionBlocks
         await Loop(ThirdLoop, task: RunCsScript);
         Console.WriteLine("C# script ({0}): {1}", ThirdLoop, sw.ElapsedMilliseconds);
 
-        // sw.Restart();
+        sw.Restart();
         await Loop(FirstLoop, task: RunJs);
         Console.WriteLine("{0} (1st): {1}", jsEngineName, sw.ElapsedMilliseconds);
         await Loop(SecondLoop, task: RunJs);
