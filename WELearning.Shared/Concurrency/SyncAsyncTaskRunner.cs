@@ -5,7 +5,7 @@ namespace WELearning.Shared.Concurrency;
 public class SyncAsyncTaskRunner : ISyncAsyncTaskRunner
 {
     private static readonly int DefaultMaxAsync = Environment.ProcessorCount * 2;
-    private object _syncLock;
+    private readonly object _syncLock;
     private long _asyncCount;
 
     public SyncAsyncTaskRunner()

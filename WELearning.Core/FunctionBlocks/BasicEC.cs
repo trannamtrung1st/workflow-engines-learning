@@ -58,9 +58,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
     public override async Task Execute(RunBlockRequest request, Guid? optimizationScopeId)
     {
         EnterOrThrow();
-        var triggerEvent = GetTriggerOrDefault(request.TriggerEvent);
         HashSet<IDisposable> optimizationScopes = null;
-        optimizationScopeId ??= Guid.NewGuid();
         try
         {
             IEnumerable<string> outputEvents = Array.Empty<string>();
@@ -70,7 +68,8 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
             if (Definition.ExecutionControlChart != null)
             {
                 optimizationScopes = new HashSet<IDisposable>();
-                outputEvents = await TriggerStateMachine(triggerEvent, optimizationScopes, optimizationScopeId.Value);
+                var triggerEvent = GetTriggerOrDefault(request.TriggerEvent);
+                outputEvents = await TriggerStateMachine(triggerEvent, optimizationScopes, optimizationScopeId ?? Guid.NewGuid());
             }
 
             var finalState = CurrentState;

@@ -13,12 +13,12 @@ namespace WELearning.Core.FunctionBlocks;
 public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompositeEC, IDisposable
     where TFunctionFramework : class
 {
-    private const int TaskLoopWaitTimeout = 5000;
     private readonly TFunctionFramework _functionFramework;
     private readonly IBlockRunner _blockRunner;
     private readonly ISyncAsyncTaskRunner _taskRunner;
     private ConcurrentDictionary<string, IExecutionControl> _blockExecControlMap;
     private ConcurrentBag<string> _outputEvents;
+    private CancellationTokenSource _taskLoopCts;
     private readonly ManualResetEventSlim _taskLoopEvent;
     private readonly ConcurrentQueue<Func<Task>> _tasks;
     private int _taskCount = 0;
@@ -51,11 +51,11 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
     public override async Task Execute(RunBlockRequest request, Guid? optimizationScopeId)
     {
         EnterOrThrow();
-        var triggerEvent = GetTriggerOrDefault(request.TriggerEvent);
         try
         {
             HandleRunning(request);
 
+            var triggerEvent = GetTriggerOrDefault(request.TriggerEvent);
             var startingTriggers = Definition.FindNextBlocks(triggerEvent);
             EnqueueTask((taskScope) => TriggerBlocks(blockTriggers: startingTriggers, optimizationScopeId, taskScope));
 
@@ -64,7 +64,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                 _taskLoopEvent.Reset();
                 while (_tasks.TryDequeue(out var func))
                     await func();
-                _taskLoopEvent.Wait(millisecondsTimeout: TaskLoopWaitTimeout);
+                WaitForTasks();
             }
 
             Result = new BlockExecutionResult(_outputEvents);
@@ -77,6 +77,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         }
         finally
         {
+            _taskLoopCts?.Dispose();
             _idleWait.Set();
         }
     }
@@ -113,6 +114,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
     protected override void PrepareRunningStatus(RunBlockRequest runRequest)
     {
         _outputEvents = new();
+        _taskLoopCts = new();
         _taskLoopEvent.Reset();
         ExceptionFrom = null;
         base.PrepareRunningStatus(runRequest);
@@ -318,8 +320,17 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
     private TaskScope CreateTaskScope() => new(() => SafeAccessTasks(() =>
     {
         if (_taskCount > 0 && --_taskCount == 0)
+        {
             _taskLoopEvent.Set();
+            _taskLoopCts.Cancel();
+        }
     }));
+
+    private void WaitForTasks()
+    {
+        try { _taskLoopEvent.Wait(cancellationToken: _taskLoopCts.Token); }
+        catch { }
+    }
 
     private void EnqueueTask(Func<IDisposable, Task> func)
     {
@@ -334,6 +345,13 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
     private void SafeAccessTasks(Action action)
     {
         lock (_taskLoopEvent) { action(); }
+    }
+
+    public override void Dispose()
+    {
+        _taskLoopCts?.Dispose();
+        _taskLoopEvent?.Dispose();
+        base.Dispose();
     }
 
     class TaskScope : IDisposable
