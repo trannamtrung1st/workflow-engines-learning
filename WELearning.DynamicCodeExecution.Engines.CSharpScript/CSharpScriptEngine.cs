@@ -36,7 +36,7 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
         var (CacheKey, CacheSize) = await GetScriptCacheEntry(request.Content, request.Imports, assemblies, cancellationToken: request.Tokens.Combined);
 
         var script = _lockManager.MutexAccess(CacheKey,
-            func: () => _scriptCache.GetOrCreate(CacheKey, (entry) =>
+            task: () => _scriptCache.GetOrCreate(CacheKey, (entry) =>
             {
                 ConfigureCacheEntry(entry, CacheSize);
                 var scriptOptions = PrepareScriptOptions(request.Imports, assemblies);
@@ -55,7 +55,7 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
         var (CacheKey, CacheSize) = await GetScriptCacheEntry(request.Content, request.Imports, assemblies, cancellationToken: request.Tokens.Combined);
 
         var script = _lockManager.MutexAccess(CacheKey,
-            func: () => _scriptCache.GetOrCreate(CacheKey, (entry) =>
+            task: () => _scriptCache.GetOrCreate(CacheKey, (entry) =>
             {
                 ConfigureCacheEntry(entry, CacheSize);
                 var scriptOptions = PrepareScriptOptions(request.Imports, assemblies);

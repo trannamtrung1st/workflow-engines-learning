@@ -21,6 +21,6 @@ public interface IValueObject
     object As(EDataType dataType);
     void TryCommit();
     void WaitValueSet(CancellationToken cancellationToken);
-    bool RegisterTempValueSet(Func<Task> func);
+    bool RegisterTempValueSet(Func<Task> callback);
     IValueObject CloneFor(Variable variable);
 }

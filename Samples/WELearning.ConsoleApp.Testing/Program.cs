@@ -12,7 +12,6 @@ using WELearning.ConsoleApp.Testing.ValueObjects;
 using WELearning.Core.FunctionBlocks;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
-using WELearning.Core.FunctionBlocks.Exceptions;
 using WELearning.Core.FunctionBlocks.Extensions;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Design;
@@ -48,11 +47,11 @@ using var rootServiceProvider = serviceCollection.BuildServiceProvider();
 using var terminationCts = new CancellationTokenSource();
 var tokensProvider = () => new RunTokens(timeout: TimeSpan.FromSeconds(30), termination: terminationCts.Token);
 
-async Task ExecuteWithScope(Func<IServiceProvider, Task> func)
+async Task ExecuteWithScope(Func<IServiceProvider, Task> task)
 {
     using var scope = rootServiceProvider.CreateScope();
     var serviceProvider = scope.ServiceProvider;
-    await func(serviceProvider);
+    await task(serviceProvider);
 }
 
 await StartInputThread(terminationCts);
@@ -280,27 +279,27 @@ static class TestFunctionBlocks
             blockRunner, CreateControl: () => CreateControl(blockDef: jsCFB), runTokens: tokensProvider());
 
         var sw = Stopwatch.StartNew();
-        await Loop(FirstLoop, func: RunCsCompiled);
+        await Loop(FirstLoop, task: RunCsCompiled);
         Console.WriteLine("C# compiled (1st): {0}", sw.ElapsedMilliseconds);
-        await Loop(SecondLoop, func: RunCsCompiled);
+        await Loop(SecondLoop, task: RunCsCompiled);
         Console.WriteLine("C# compiled ({0}): {1}", SecondLoop, sw.ElapsedMilliseconds);
-        await Loop(ThirdLoop, func: RunCsCompiled);
+        await Loop(ThirdLoop, task: RunCsCompiled);
         Console.WriteLine("C# compiled ({0}): {1}", ThirdLoop, sw.ElapsedMilliseconds);
 
-        sw.Restart();
-        await Loop(FirstLoop, func: RunCsScript);
+        // sw.Restart();
+        await Loop(FirstLoop, task: RunCsScript);
         Console.WriteLine("C# script (1st): {0}", sw.ElapsedMilliseconds);
-        await Loop(SecondLoop, func: RunCsScript);
+        await Loop(SecondLoop, task: RunCsScript);
         Console.WriteLine("C# script ({0}): {1}", SecondLoop, sw.ElapsedMilliseconds);
-        await Loop(ThirdLoop, func: RunCsScript);
+        await Loop(ThirdLoop, task: RunCsScript);
         Console.WriteLine("C# script ({0}): {1}", ThirdLoop, sw.ElapsedMilliseconds);
 
-        sw.Restart();
-        await Loop(FirstLoop, func: RunJs);
+        // sw.Restart();
+        await Loop(FirstLoop, task: RunJs);
         Console.WriteLine("{0} (1st): {1}", jsEngineName, sw.ElapsedMilliseconds);
-        await Loop(SecondLoop, func: RunJs);
+        await Loop(SecondLoop, task: RunJs);
         Console.WriteLine("{0} ({1}): {2}", jsEngineName, SecondLoop, sw.ElapsedMilliseconds);
-        await Loop(ThirdLoop, func: RunJs);
+        await Loop(ThirdLoop, task: RunJs);
         Console.WriteLine("{0} ({1}): {2}", jsEngineName, ThirdLoop, sw.ElapsedMilliseconds);
 
         const int ParallelLoopCount = 1000;
@@ -317,13 +316,13 @@ static class TestFunctionBlocks
         Console.WriteLine("{0} ({1}): {2}", jsEngineName, ParallelLoopCount, sw.ElapsedMilliseconds);
     }
 
-    public static async Task Loop(int n, Func<Task> func)
+    public static async Task Loop(int n, Func<Task> task)
     {
         for (int i = 0; i < n; i++)
-            await func();
+            await task();
     }
 
-    public static async Task ParallelLoop(int n, Func<Task> func)
+    public static async Task ParallelLoop(int n, Func<Task> task)
     {
         var waits = new List<TaskCompletionSource>();
         for (int i = 0; i < n; i++)
@@ -334,7 +333,7 @@ static class TestFunctionBlocks
             {
                 try
                 {
-                    await func();
+                    await task();
                     tcs.SetResult();
                 }
                 catch (Exception ex) { tcs.SetException(ex); }

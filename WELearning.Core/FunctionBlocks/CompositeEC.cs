@@ -65,8 +65,8 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
             while (_taskCount > 0)
             {
                 _taskLoopEvent.Reset();
-                while (_tasks.TryDequeue(out var func))
-                    await TryRunTaskAsync(func);
+                while (_tasks.TryDequeue(out var task))
+                    await task();
                 WaitForTasks(cancellationToken: waitToken.Token);
             }
 
@@ -138,6 +138,8 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
             {
                 var block = Definition.Blocks.FirstOrDefault(b => b.Id == trigger.BlockId)
                     ?? throw new KeyNotFoundException($"Block {trigger.BlockId} not found!");
+                var blockDef = Definition.GetDefinition(block.DefinitionId) as BasicBlockDef;
+                var shouldRunAsync = blockDef != null && blockDef.Functions?.Any(f => f.Async) == true;
 
                 async Task TriggerBlock(IDisposable taskScope)
                 {
@@ -160,7 +162,9 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
 
                 Task EnqueueTriggerBlock()
                 {
-                    EnqueueTask(TriggerBlock);
+                    EnqueueTask(shouldRunAsync
+                        ? (scope) => TryRunTaskAsync(() => TriggerBlock(scope))
+                        : TriggerBlock);
                     return Task.CompletedTask;
                 }
 
@@ -327,12 +331,12 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         HandleFailed(ex, sender as IExecutionControl);
     }
 
-    protected Task TryRunTaskAsync(Func<Task> func)
+    protected Task TryRunTaskAsync(Func<Task> task)
     {
         return _taskRunner.TryRunTaskAsync(async (asyncScope) =>
         {
             using var _2 = asyncScope;
-            try { await func(); }
+            try { await task(); }
             catch (Exception ex) { HandleFailed(ex); }
         });
     }
@@ -352,12 +356,12 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         catch { }
     }
 
-    private void EnqueueTask(Func<IDisposable, Task> func)
+    private void EnqueueTask(Func<IDisposable, Task> task)
     {
         SafeAccessTasks(() =>
         {
             _taskCount++;
-            _tasks.Enqueue(() => func(CreateTaskScope()));
+            _tasks.Enqueue(() => task(CreateTaskScope()));
             _taskLoopEvent.Set();
         });
     }

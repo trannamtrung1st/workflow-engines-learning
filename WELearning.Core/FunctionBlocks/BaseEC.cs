@@ -284,7 +284,7 @@ Original content (error located):
             LogFailure(LastActivity.Exception, logger);
     }
 
-    public bool RegisterTempIdleCallback(Func<Task> func)
+    public bool RegisterTempIdleCallback(Func<Task> callback)
     {
         lock (_idleWait)
         {
@@ -294,7 +294,7 @@ Original content (error located):
                 void Handle(object o, EventArgs e)
                 {
                     Idle -= Handle;
-                    _ = func();
+                    _ = callback();
                 }
                 Idle += Handle;
             }

@@ -31,7 +31,7 @@ public interface IExecutionControl : IDisposable
     void SetValue(string name, EVariableType type, object value);
     Task Execute(RunBlockRequest request, Guid? optimizationScopeId);
     void WaitForIdle(CancellationToken cancellationToken);
-    bool RegisterTempIdleCallback(Func<Task> func);
+    bool RegisterTempIdleCallback(Func<Task> callback);
     Task MutexAccess(Func<Task> task, CancellationToken cancellationToken);
     void LogFailure(Exception ex, ILogger logger = null);
     void LogBlockActivity(ILogger logger = null);

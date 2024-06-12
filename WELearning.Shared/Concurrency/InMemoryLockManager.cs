@@ -57,16 +57,16 @@ public class InMemoryLockManager : IInMemoryLockManager, IDistributedLockManager
         await action();
     }
 
-    public T MutexAccess<T>(string key, Func<T> func)
+    public T MutexAccess<T>(string key, Func<T> task)
     {
         using var mutex = Acquire(key);
-        return func();
+        return task();
     }
 
-    public async Task<T> MutexAccess<T>(string key, Func<Task<T>> func)
+    public async Task<T> MutexAccess<T>(string key, Func<Task<T>> task)
     {
         using var mutex = Acquire(key);
-        return await func();
+        return await task();
     }
 
     private void Release(LockObject lockObj)

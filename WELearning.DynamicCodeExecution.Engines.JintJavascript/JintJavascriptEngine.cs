@@ -171,7 +171,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                     engineWrap.ResetNodePosition();
                     SetValues(engine, request.Arguments);
                     var module = _lockManager.MutexAccess($"MODULE_OBJECTS.{moduleName}",
-                        func: () => engineWrap.GetModuleObject(preparedModule, moduleName, cacheSize));
+                        task: () => engineWrap.GetModuleObject(preparedModule, moduleName, cacheSize));
                     var exportedFunction = module.Get(ExportedFunctionName);
                     result = await CallWithHandles(engineWrap, exportedFunction, arguments, tokens: request.Tokens);
                     result = result.UnwrapIfPromise();
@@ -290,7 +290,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         PreprocessContent<TArg>(ExecuteCodeRequest<TArg> request)
     {
         return _lockManager.MutexAccess(key: $"CONTENTS.{request.ContentId}",
-            func: () => _preprocessedContentCache.GetOrCreate(request.ContentId, (entry) =>
+            task: () => _preprocessedContentCache.GetOrCreate(request.ContentId, (entry) =>
             {
                 var flattenArguments = new HashSet<string>();
                 if (request.Inputs != null)
@@ -355,7 +355,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     private Prepared<Acornima.Ast.Module> GetPreparedModule(string moduleKey, Func<string> contentProvider)
     {
         return _lockManager.MutexAccess($"MODULES.{moduleKey}",
-            func: () => _preparedModuleCache.GetOrCreate(moduleKey, (entry) =>
+            task: () => _preparedModuleCache.GetOrCreate(moduleKey, (entry) =>
             {
                 var moduleContent = contentProvider();
                 var contentSizeInBytes = moduleContent.Length * 2;
@@ -508,10 +508,10 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             return default;
         }
 
-        public async Task SafeAccessEngine(Func<Engine, Task> func, CancellationToken cancellationToken)
+        public async Task SafeAccessEngine(Func<Engine, Task> task, CancellationToken cancellationToken)
         {
             await _lock.WaitAsync(cancellationToken);
-            try { await func(Engine); }
+            try { await task(Engine); }
             finally { _lock.Release(); }
         }
 

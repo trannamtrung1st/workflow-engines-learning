@@ -124,7 +124,7 @@ public class RawValueObject : IValueObject, IDisposable
 
     public virtual IValueObject CloneFor(Variable variable) => new RawValueObject(variable, value: Value);
 
-    public bool RegisterTempValueSet(Func<Task> func)
+    public bool RegisterTempValueSet(Func<Task> callback)
     {
         lock (_valueSet)
         {
@@ -134,7 +134,7 @@ public class RawValueObject : IValueObject, IDisposable
                 void Handle(object o, EventArgs e)
                 {
                     ValueSetEvent -= Handle;
-                    _ = func();
+                    _ = callback();
                 }
                 ValueSetEvent += Handle;
             }

@@ -82,7 +82,7 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
     {
         var (AssemblyName, CacheSize) = await GetScriptCacheEntry(content, imports, assemblies, cancellationToken);
         return _lockManager.MutexAccess(AssemblyName,
-            func: () => _assemblyCache.GetOrCreate(AssemblyName, (entry) =>
+            task: () => _assemblyCache.GetOrCreate(AssemblyName, (entry) =>
             {
                 entry.SetSize(CacheSize);
                 entry.SetSlidingExpiration(DefaultSlidingExpiration);
