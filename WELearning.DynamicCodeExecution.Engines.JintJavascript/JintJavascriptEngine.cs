@@ -266,7 +266,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         try
         {
             using var timeoutReg = tokens.Timeout.Register(HandleTokensCanceled(exceptionProvider: () => new TimeoutException("Execution timed out!")));
-            using var terminationReg = tokens.Termination.Register(HandleTokensCanceled(exceptionProvider: () => new TerminationException("Received termination request!")));
+            using var terminationReg = tokens.Termination.Register(HandleTokensCanceled(exceptionProvider: () => new TerminatedException("Received termination request!")));
             result = exportedFunction.Call(arguments: arguments);
             lock (tcs) { tcs.TrySetResult(result); }
         }

@@ -41,16 +41,28 @@ public class DataStore
             _assetAttributes.TryAdd(prevSum.GetCompositePk(), prevSum);
         }
 
-        var lastSeriesBeforeBfb = LastSeriesBeforeBFB.Build();
-        var sumAttributesCfb = SumAttributesCFB.Build(
-            lastSeriesBeforeBfbDefId: lastSeriesBeforeBfb.Id,
-            out var bMainDef, out var bInputsDef, out var bOutputsDef
-        );
-        _cfbDefinitions.TryAdd(sumAttributesCfb.Id, JsonSerializer.Serialize(sumAttributesCfb));
-        _bfbDefinitions.TryAdd(lastSeriesBeforeBfb.Id, JsonSerializer.Serialize(lastSeriesBeforeBfb));
-        _bfbDefinitions.TryAdd(bMainDef.Id, JsonSerializer.Serialize(bMainDef));
-        _bfbDefinitions.TryAdd(bInputsDef.Id, JsonSerializer.Serialize(bInputsDef));
-        _bfbDefinitions.TryAdd(bOutputsDef.Id, JsonSerializer.Serialize(bOutputsDef));
+        {
+            var bLastSeriesBeforeDef = LastSeriesBeforeBFB.Build();
+            var cfb = SumAttributesCFB.BuildIOBound(
+                lastSeriesBeforeBfbDefId: bLastSeriesBeforeDef.Id,
+                out var bPreprocessDef, out var bInputsDef, out var bOutputsDef
+            );
+            _cfbDefinitions.TryAdd(cfb.Id, JsonSerializer.Serialize(cfb));
+            _bfbDefinitions.TryAdd(bLastSeriesBeforeDef.Id, JsonSerializer.Serialize(bLastSeriesBeforeDef));
+            _bfbDefinitions.TryAdd(bPreprocessDef.Id, JsonSerializer.Serialize(bPreprocessDef));
+            _bfbDefinitions.TryAdd(bInputsDef.Id, JsonSerializer.Serialize(bInputsDef));
+            _bfbDefinitions.TryAdd(bOutputsDef.Id, JsonSerializer.Serialize(bOutputsDef));
+        }
+
+        {
+            var cfb = SumAttributesCFB.BuildCpuBound(
+                out var bMainDef, out var bInputsDef, out var bOutputsDef
+            );
+            _cfbDefinitions.TryAdd(cfb.Id, JsonSerializer.Serialize(cfb));
+            _bfbDefinitions.TryAdd(bMainDef.Id, JsonSerializer.Serialize(bMainDef));
+            _bfbDefinitions.TryAdd(bInputsDef.Id, JsonSerializer.Serialize(bInputsDef));
+            _bfbDefinitions.TryAdd(bOutputsDef.Id, JsonSerializer.Serialize(bOutputsDef));
+        }
     }
 
     public int NoOfAssets => _assets.Count;
@@ -81,7 +93,7 @@ public class DataStore
 
     public async Task AddMetricSeries(IEnumerable<MetricSeriesEntity> series)
     {
-        await Latency();
+        await Task.CompletedTask; // [NOTE] remove latency for stable publish rate
         foreach (var s in series)
         {
             _metricSeries.Add(s);
@@ -109,7 +121,7 @@ public class DataStore
 
     public async Task<CompositeBlockDef> GetCfbDefinition(string id)
     {
-        await Latency();
+        await Task.CompletedTask; // [NOTE] assuming this one is cached and optimized
         var defJson = _cfbDefinitions[id];
         var definition = JsonSerializer.Deserialize<CompositeBlockDef>(defJson);
         return definition;
@@ -117,7 +129,7 @@ public class DataStore
 
     public async Task<IEnumerable<BasicBlockDef>> GetBfbDefinitions(IEnumerable<string> ids)
     {
-        await Latency();
+        await Task.CompletedTask; // [NOTE] assuming this one is cached and optimized
         var definitions = _bfbDefinitions
             .Where(d => ids.Contains(d.Key))
             .Select(d => JsonSerializer.Deserialize<BasicBlockDef>(d.Value))

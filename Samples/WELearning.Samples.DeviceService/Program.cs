@@ -64,22 +64,25 @@ app.MapGet("/api/assets/{id}/snapshot", async (string id, [FromServices] IAssetS
 .WithName("Get asset snapshot");
 
 
-app.MapPost("/api/series/simulation", async (
+app.MapPost("/api/series/simulation/{demoBlockId}", async (
     [FromQuery] string assetId,
+    [FromRoute] string demoBlockId,
     [FromServices] IMetricSeriesSimulator simulator,
     [FromServices] IAssetService assetService) =>
 {
     var series = simulator.GetRandomMetricSeries(assetId);
-    await assetService.AddMetricSeries(series);
+    await assetService.AddMetricSeries(series, demoBlockId);
     return Results.NoContent();
 })
 .WithDisplayName("Add random series simulation")
 .WithName("Add random series simulation");
 
 
-app.MapPost("/api/series/simulation/start", ([FromServices] IMetricSeriesSimulator simulator) =>
+app.MapPost("/api/series/simulation/{demoBlockId}/start", (
+    [FromRoute] string demoBlockId,
+    [FromServices] IMetricSeriesSimulator simulator) =>
 {
-    simulator.StartSimulation();
+    simulator.StartSimulation(demoBlockId);
     return Results.Accepted();
 })
 .WithDisplayName("Start series simulation")

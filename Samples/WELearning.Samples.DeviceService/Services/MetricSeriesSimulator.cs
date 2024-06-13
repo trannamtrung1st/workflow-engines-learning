@@ -11,6 +11,7 @@ public class MetricSeriesSimulator : IMetricSeriesSimulator
     private readonly ILogger<MetricSeriesSimulator> _logger;
     private readonly IServiceProvider _serviceProvider;
     private readonly int _devicesPerInterval;
+    private string _demoBlockId;
 
     public MetricSeriesSimulator(
         DataStore dataStore,
@@ -29,7 +30,11 @@ public class MetricSeriesSimulator : IMetricSeriesSimulator
         _timer.Elapsed += async (o, e) => await SimulateNewMetricSeries();
     }
 
-    public void StartSimulation() => _timer.Start();
+    public void StartSimulation(string demoBlockId)
+    {
+        _demoBlockId = demoBlockId;
+        _timer.Start();
+    }
 
     public void StopSimulation() => _timer.Stop();
 
@@ -59,8 +64,9 @@ public class MetricSeriesSimulator : IMetricSeriesSimulator
 
             while (count <= _devicesPerInterval)
             {
-
-                await assetService.AddMetricSeries(GetRandomMetricSeries($"asset-{assetIdx}"));
+                await assetService.AddMetricSeries(
+                    series: GetRandomMetricSeries($"asset-{assetIdx}"),
+                    demoBlockId: _demoBlockId);
 
                 count++;
                 assetIdx++;

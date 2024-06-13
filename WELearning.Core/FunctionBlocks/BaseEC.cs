@@ -107,21 +107,31 @@ public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where
         PrepareStates(request.Bindings);
     }
 
-    protected virtual void HandleFailed(Exception ex, IExecutionControl from = null)
+    protected virtual void HandleException(Exception ex, IExecutionControl from = null)
     {
-        if (Status != EBlockExecutionStatus.Running) return;
         lock (_handleFailedLock)
         {
-            if (Status == EBlockExecutionStatus.Failed) return;
-            Status = EBlockExecutionStatus.Failed;
+            if (Status != EBlockExecutionStatus.Running) return;
+
+            if (ex is FunctionRuntimeException runtimeEx && runtimeEx.IsGracefulTerminated())
+                Status = EBlockExecutionStatus.Completed;
+
+            if (Status == EBlockExecutionStatus.Running)
+                Status = EBlockExecutionStatus.Failed;
         }
-        PrepareFailedStatus(ex, from);
-        PublishFailed(ex);
+
+        if (Status == EBlockExecutionStatus.Completed)
+            HandleCompleted(force: true);
+        else
+        {
+            PrepareFailedStatus(ex, from);
+            PublishFailed(ex);
+        }
     }
 
-    protected virtual void HandleCompleted()
+    protected virtual void HandleCompleted(bool force = false)
     {
-        if (Status == EBlockExecutionStatus.Running)
+        if (force || Status == EBlockExecutionStatus.Running)
         {
             PrepareCompletedStatus();
             PublishCompleted();

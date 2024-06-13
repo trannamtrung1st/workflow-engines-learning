@@ -75,7 +75,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         }
         catch (Exception ex)
         {
-            HandleFailed(ex);
+            HandleException(ex);
             throw;
         }
         finally
@@ -265,6 +265,9 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
 
     protected override void RefreshOutputs()
     {
+        if (Result?.OutputEvents.Any() != true)
+            return;
+
         var outputEvents = Definition.Events.Where(e => !e.IsInput && Result.OutputEvents.Contains(e.Name));
         var allVariableNames = outputEvents.SelectMany(ev => ev.VariableNames);
         var usingDataConnections = Definition.DataConnections
@@ -327,7 +330,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
     protected virtual void HandleControlFailed(object sender, Exception ex)
     {
         ControlFailed?.Invoke(sender, ex);
-        HandleFailed(ex, sender as IExecutionControl);
+        HandleException(ex, sender as IExecutionControl);
     }
 
     protected Task TryRunTaskAsync(Func<Task> task)
@@ -336,7 +339,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         {
             using var _2 = asyncScope;
             try { await task(); }
-            catch (Exception ex) { HandleFailed(ex); }
+            catch (Exception ex) { HandleException(ex); }
         });
     }
 

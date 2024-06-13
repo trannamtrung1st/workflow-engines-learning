@@ -17,4 +17,6 @@ public class FunctionRuntimeException : Exception
 
     public void PrintError(string locator = "->", ILogger logger = null)
         => Exception.PrintError(Function.Content, locator, logger);
+
+    public bool IsGracefulTerminated() => Exception.UnderlyingException is BlockTerminatedException eTerminated && eTerminated.Graceful;
 }

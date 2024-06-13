@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using WELearning.Core.FunctionBlocks.Exceptions;
 
 namespace WELearning.Core.FunctionBlocks.Framework;
 
@@ -46,4 +47,6 @@ public class FunctionFramework
     }
 
     public static string GetLogMessage(object[] data) => string.Join(' ', data);
+
+    public void Terminate(bool graceful = true, string message = null) => throw new BlockTerminatedException(graceful, message);
 }

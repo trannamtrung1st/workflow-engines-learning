@@ -145,6 +145,7 @@ public static class PredefinedBFBs
             ",
             handleInvalidScript: @$"
             FB.LogWarning(""Invalid arguments X, Y"");
+            Result = null;
             EVENTS.Publish('Completed');
             ",
             invalidConditionScript: @$"
@@ -237,7 +238,8 @@ public static class PredefinedBFBs
             Result = X + Y
             ",
             handleInvalidScript: @$"
-            throw new Error('Invalid arguments');
+            FB.LogWarning(""Invalid arguments X, Y"");
+            Result = null;
             ",
             invalidConditionScript: @$"
             const x = IN.X; const y = IN.Y;

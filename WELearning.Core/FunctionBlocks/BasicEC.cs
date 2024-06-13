@@ -78,7 +78,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
         }
         catch (Exception ex)
         {
-            HandleFailed(ex, this);
+            HandleException(ex, this);
             throw;
         }
         finally
@@ -155,6 +155,9 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
 
     protected override void RefreshOutputs()
     {
+        if (_result?.OutputEvents.Any() != true)
+            return;
+
         var outputEvents = Definition.Events.Where(e => !e.IsInput && _result.OutputEvents.Contains(e.Name));
         foreach (var outputEvent in outputEvents)
         {

@@ -2,11 +2,11 @@ using WELearning.ConsoleApp.Testing.Framework;
 using WELearning.Core.FunctionBlocks;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
+using WELearning.Core.FunctionBlocks.Exceptions;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
 using WELearning.DynamicCodeExecution.Models;
-using WELearning.Samples.DeviceService.FunctionBlock.Composites;
 using WELearning.Samples.DeviceService.FunctionBlock.ValueObjects;
 using WELearning.Samples.DeviceService.Models;
 using WELearning.Samples.DeviceService.Persistent;
@@ -62,7 +62,7 @@ public class FunctionBlockService : IFunctionBlockService
         var fbTimeout = _configuration.GetValue<TimeSpan>("FunctionBlock:Timeout");
         using var runTokens = new RunTokens(timeout: fbTimeout, termination: cancellationToken);
 
-        var cfbDef = await BuildBlock();
+        var cfbDef = await BuildBlock(@event.DemoBlockId);
         using var execControl = new CompositeEC<DeviceFunctionFramework>(
             block: new(cfbDef.Id), definition: cfbDef,
             _blockRunner, _functionRunner, _blockFrameworkFactory, _functionFramework, _taskRunner);
@@ -79,17 +79,19 @@ public class FunctionBlockService : IFunctionBlockService
         {
             await _blockRunner.Run(runRequest, execControl, optimizationScopeId: default);
             await RecordOutputs(execControl);
-            _monitoring.Capture(MonitoringCategory, count: 1);
         }
-        catch
+        catch (Exception ex)
         {
+            if (ex is not FunctionRuntimeException runtimeEx || !runtimeEx.IsGracefulTerminated())
+                throw;
             // [NOTE] retry
         }
+        _monitoring.Capture(MonitoringCategory, count: 1);
     }
 
-    private async Task<CompositeBlockDef> BuildBlock()
+    private async Task<CompositeBlockDef> BuildBlock(string demoBlockId)
     {
-        var cfbDef = await _dataStore.GetCfbDefinition(SumAttributesCFB.CfbId);
+        var cfbDef = await _dataStore.GetCfbDefinition(demoBlockId);
 
         var usingBfbDefIds = cfbDef.Blocks.Select(b => b.DefinitionId);
         var usingBfbDefs = await _dataStore.GetBfbDefinitions(usingBfbDefIds);

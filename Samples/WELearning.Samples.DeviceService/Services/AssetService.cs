@@ -21,7 +21,7 @@ public class AssetService : IAssetService
         _monitoring = monitoring;
     }
 
-    public async Task AddMetricSeries(IEnumerable<MetricSeries> series)
+    public async Task AddMetricSeries(IEnumerable<MetricSeries> series, string demoBlockId)
     {
         const string MonitoringCategory = "Trigger incoming";
 
@@ -31,13 +31,9 @@ public class AssetService : IAssetService
 
         foreach (var s in series)
         {
-            await _messageQueue.Publish(TopicNames.AttributeChanged, new AttributeChangedEvent
-            {
-                AssetId = s.AssetId,
-                AttributeName = s.AttributeName,
-                Timestamp = s.Timestamp,
-                Value = s.Value
-            });
+            await _messageQueue.Publish(
+                topic: TopicNames.AttributeChanged,
+                message: new AttributeChangedEvent(s.AssetId, s.AttributeName, s.Value, s.Timestamp, demoBlockId));
         }
 
         _monitoring.Capture(category: MonitoringCategory, count: 1);

@@ -34,6 +34,7 @@ public class FunctionBlockWorker : IFunctionBlockWorker
         var (concurrencyLimit, _, _, _) = _dynamicRateLimiter.State;
         for (int i = 0; i < concurrencyLimit; i++)
         {
+            // [TODO] add manual control
             // [TODO] apply fuzzy thread controller
             var worker = new Thread(async () =>
             {
