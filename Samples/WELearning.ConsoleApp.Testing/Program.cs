@@ -106,18 +106,21 @@ static class TestEngines
         Console.WriteLine("C# compiled (1st): {0}", sw.ElapsedMilliseconds);
         await LoopCSharpCompiled(SecondLoop, csCompiledEngine, imports: imports, assemblies: compiledAssemblies, tokensProvider);
         Console.WriteLine("C# compiled ({0}): {1}", SecondLoop, sw.ElapsedMilliseconds);
+        Program.ForceGCCollect();
 
         sw.Restart();
         await LoopCSharpScript(FirstLoop, csScriptEngine, tokensProvider);
         Console.WriteLine("C# script (1st): {0}", sw.ElapsedMilliseconds);
         await LoopCSharpScript(SecondLoop, csScriptEngine, tokensProvider);
         Console.WriteLine("C# script ({0}): {1}", SecondLoop, sw.ElapsedMilliseconds);
+        Program.ForceGCCollect();
 
         sw.Restart();
         await LoopJavascript(FirstLoop, jsEngine, tokensProvider);
         Console.WriteLine("{0} (1st): {1}", jsEngineName, sw.ElapsedMilliseconds);
         await LoopJavascript(SecondLoop, jsEngine, tokensProvider);
         Console.WriteLine("{0} ({1}): {2}", jsEngineName, SecondLoop, sw.ElapsedMilliseconds);
+        Program.ForceGCCollect();
     }
 
     public static async Task Run(IServiceProvider serviceProvider, Func<RunTokens> tokensProvider)
@@ -284,6 +287,7 @@ static class TestFunctionBlocks
         Console.WriteLine("C# compiled ({0}): {1}", SecondLoop, sw.ElapsedMilliseconds);
         await Loop(ThirdLoop, task: RunCsCompiled);
         Console.WriteLine("C# compiled ({0}): {1}", ThirdLoop, sw.ElapsedMilliseconds);
+        Program.ForceGCCollect();
 
         sw.Restart();
         await Loop(FirstLoop, task: RunCsScript);
@@ -292,6 +296,7 @@ static class TestFunctionBlocks
         Console.WriteLine("C# script ({0}): {1}", SecondLoop, sw.ElapsedMilliseconds);
         await Loop(ThirdLoop, task: RunCsScript);
         Console.WriteLine("C# script ({0}): {1}", ThirdLoop, sw.ElapsedMilliseconds);
+        Program.ForceGCCollect();
 
         sw.Restart();
         await Loop(FirstLoop, task: RunJs);
@@ -300,6 +305,7 @@ static class TestFunctionBlocks
         Console.WriteLine("{0} ({1}): {2}", jsEngineName, SecondLoop, sw.ElapsedMilliseconds);
         await Loop(ThirdLoop, task: RunJs);
         Console.WriteLine("{0} ({1}): {2}", jsEngineName, ThirdLoop, sw.ElapsedMilliseconds);
+        Program.ForceGCCollect();
 
         const int ParallelLoopCount = 1000;
         Console.WriteLine();
@@ -307,12 +313,17 @@ static class TestFunctionBlocks
         sw.Restart();
         await ParallelLoop(ParallelLoopCount, RunCsCompiled);
         Console.WriteLine("C# compiled ({0}): {1}", ParallelLoopCount, sw.ElapsedMilliseconds);
+        Program.ForceGCCollect();
+
         sw.Restart();
         await ParallelLoop(ParallelLoopCount, RunCsScript);
         Console.WriteLine("C# script ({0}): {1}", ParallelLoopCount, sw.ElapsedMilliseconds);
+        Program.ForceGCCollect();
+
         sw.Restart();
         await ParallelLoop(ParallelLoopCount, RunJs);
         Console.WriteLine("{0} ({1}): {2}", jsEngineName, ParallelLoopCount, sw.ElapsedMilliseconds);
+        Program.ForceGCCollect();
     }
 
     public static async Task Loop(int n, Func<Task> task)
@@ -708,5 +719,11 @@ partial class Program
         thread.IsBackground = true;
         thread.Start();
         await Task.Delay(2000);
+    }
+
+    public static void ForceGCCollect()
+    {
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
     }
 }
