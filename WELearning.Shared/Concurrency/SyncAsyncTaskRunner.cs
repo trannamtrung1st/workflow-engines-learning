@@ -1,15 +1,17 @@
+using Microsoft.Extensions.Configuration;
 using WELearning.Shared.Concurrency.Abstracts;
 
 namespace WELearning.Shared.Concurrency;
 
 public class SyncAsyncTaskRunner : ISyncAsyncTaskRunner
 {
-    private static readonly int DefaultMaxAsync = Environment.ProcessorCount * 2;
     private readonly object _syncLock;
+    private readonly int _maxAsync;
     private long _asyncCount;
 
-    public SyncAsyncTaskRunner()
+    public SyncAsyncTaskRunner(IConfiguration configuration)
     {
+        _maxAsync = configuration.GetValue<int>("AppSettings:TaskRunnerMaxAsync");
         _syncLock = new();
     }
 
@@ -18,7 +20,7 @@ public class SyncAsyncTaskRunner : ISyncAsyncTaskRunner
         bool canRunAsync = false;
         lock (_syncLock)
         {
-            if (_asyncCount < DefaultMaxAsync)
+            if (_asyncCount < _maxAsync)
             {
                 canRunAsync = true;
                 _asyncCount++;
