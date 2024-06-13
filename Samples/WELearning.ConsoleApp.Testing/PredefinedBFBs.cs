@@ -199,7 +199,7 @@ static class PredefinedBFBs
             EVENTS.Publish(""Completed"");
             ",
             handleInvalidScript: @$"
-            FB.LogWarning(""Invalid arguments X, Y"");
+            FB.LogTrace(""Invalid arguments X, Y"");
             EVENTS.Publish(""Completed"");
             ",
             invalidConditionScript: @$"
@@ -222,7 +222,7 @@ static class PredefinedBFBs
             EVENTS.Publish(""Completed"");
             "),
             handleInvalidScript: BaseCompiledFunction<AppFunctionFramework>.WrapScript(@$"
-            FB.LogWarning(""Invalid arguments X, Y"");
+            FB.LogTrace(""Invalid arguments X, Y"");
             EVENTS.Publish(""Completed"");
             "),
             invalidConditionScript: BaseCompiledFunction<bool, AppFunctionFramework>.WrapScript(@$"
@@ -242,7 +242,7 @@ static class PredefinedBFBs
             EVENTS.Publish('Completed');
             ",
             handleInvalidScript: @$"
-            FB.LogWarning(""Invalid arguments X, Y"");
+            FB.LogTrace(""Invalid arguments X, Y"");
             EVENTS.Publish('Completed');
             ",
             invalidConditionScript: @$"
@@ -338,7 +338,7 @@ static class PredefinedBFBs
             OUT[""Result""].Write(result);
             ",
             handleInvalidScript: @$"
-            FB.LogWarning(""Invalid arguments X, Y"");
+            FB.LogTrace(""Invalid arguments X, Y"");
             EVENTS.Publish(""Completed"");
             ",
             invalidConditionScript: @$"
@@ -360,7 +360,7 @@ static class PredefinedBFBs
             OUT[""Result""].Write(result);
             "),
             handleInvalidScript: BaseCompiledFunction<AppFunctionFramework>.WrapScript(@$"
-            FB.LogWarning(""Invalid arguments X, Y"");
+            FB.LogTrace(""Invalid arguments X, Y"");
             EVENTS.Publish(""Completed"");
             "),
             invalidConditionScript: BaseCompiledFunction<bool, AppFunctionFramework>.WrapScript(@$"

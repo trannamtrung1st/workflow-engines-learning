@@ -77,9 +77,14 @@ public class Monitoring : IMonitoring
 
         public int GetRate()
         {
-            long second = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - 1;
-            var countRef = CountPerSecond.GetOrAdd(second, (_) => new CountRef());
-            return countRef.Count;
+            if (CountPerSecond.IsEmpty)
+                return 0;
+            long current = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            long past = current - 5;
+            var avgRate = CountPerSecond
+                .Where(kvp => kvp.Key > past && kvp.Key < current)
+                .Average(kvp => kvp.Value.Count);
+            return (int)avgRate;
         }
     }
 

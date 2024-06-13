@@ -30,7 +30,42 @@ public class DynamicRateLimiter : IDynamicRateLimiter
         _availableEvent = new ManualResetEventSlim();
     }
 
-    public async Task<IAsyncDisposable> Acquire(CancellationToken cancellationToken = default)
+    public Task<IDisposable> Acquire(CancellationToken cancellationToken = default)
+        => AcquireCore(wait: true, cancellationToken);
+
+    private void Release(CancellationToken cancellationToken = default)
+    {
+        _semaphore.WaitAsync(cancellationToken: cancellationToken);
+        try
+        {
+            if (_acquired > 0)
+            {
+                _acquired--;
+                _availableEvent.Set();
+            }
+        }
+        finally { _semaphore.Release(); }
+    }
+
+    public async Task SetLimit(int limit, CancellationToken cancellationToken = default)
+    {
+        await _semaphore.WaitAsync(cancellationToken: cancellationToken);
+        try
+        {
+            var prevLimit = _limit;
+            _limit = limit;
+            if (limit > prevLimit) _availableEvent.Set();
+        }
+        finally { _semaphore.Release(); }
+    }
+
+    public bool TryAcquire(out IDisposable scope, CancellationToken cancellationToken = default)
+    {
+        scope = AcquireCore(wait: false, cancellationToken).Result;
+        return scope != null;
+    }
+
+    public async Task<IDisposable> AcquireCore(bool wait, CancellationToken cancellationToken = default)
     {
         bool queued = false;
         bool canAcquired = false;
@@ -59,40 +94,18 @@ public class DynamicRateLimiter : IDynamicRateLimiter
                 finally { _semaphore.Release(); }
 
                 if (!canAcquired)
-                    _availableEvent.Wait(cancellationToken);
+                {
+                    if (wait)
+                        _availableEvent.Wait(cancellationToken);
+                    else return null;
+                }
             }
-            return new SimpleAsyncScope(() => Release(cancellationToken));
+            return new SimpleScope(() => Release(cancellationToken));
         }
         catch
         {
             if (queued) Interlocked.Decrement(ref _queueCount);
             throw;
         }
-    }
-
-    private async Task Release(CancellationToken cancellationToken = default)
-    {
-        await _semaphore.WaitAsync(cancellationToken: cancellationToken);
-        try
-        {
-            if (_acquired > 0)
-            {
-                _acquired--;
-                _availableEvent.Set();
-            }
-        }
-        finally { _semaphore.Release(); }
-    }
-
-    public async Task SetLimit(int limit, CancellationToken cancellationToken = default)
-    {
-        await _semaphore.WaitAsync(cancellationToken: cancellationToken);
-        try
-        {
-            var prevLimit = _limit;
-            _limit = limit;
-            if (limit > prevLimit) _availableEvent.Set();
-        }
-        finally { _semaphore.Release(); }
     }
 }

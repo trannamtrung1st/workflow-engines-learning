@@ -163,7 +163,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                 Task EnqueueTriggerBlock()
                 {
                     EnqueueTask(blockDef.HasAsyncFunction
-                        ? (scope) => TryRunTaskAsync(() => TriggerBlock(scope))
+                        ? (scope) => TryRunTaskAsync(task: () => TriggerBlock(scope), cancellationToken: tokens.Combined)
                         : TriggerBlock);
                     return Task.CompletedTask;
                 }
@@ -364,14 +364,14 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         HandleException(ex, sender as IExecutionControl);
     }
 
-    protected Task TryRunTaskAsync(Func<Task> task)
+    protected Task TryRunTaskAsync(Func<Task> task, CancellationToken cancellationToken)
     {
         return _taskRunner.TryRunTaskAsync(async (asyncScope) =>
         {
             using var _2 = asyncScope;
             try { await task(); }
             catch (Exception ex) { HandleException(ex); }
-        });
+        }, cancellationToken);
     }
 
     private IDisposable CreateTaskScope() => new SimpleScope(() => SafeAccessTasks(() =>

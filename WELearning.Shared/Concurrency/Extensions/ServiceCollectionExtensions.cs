@@ -20,8 +20,13 @@ public static class ServiceCollectionExtensions
         return services.AddSingleton<ISyncAsyncTaskRunner, SyncAsyncTaskRunner>();
     }
 
-    public static IServiceCollection AddDynamicRateLimiter(this IServiceCollection services)
+    public static IServiceCollection AddDynamicRateLimiter(this IServiceCollection services, int initialLimit)
     {
-        return services.AddSingleton<IDynamicRateLimiter, DynamicRateLimiter>();
+        return services.AddSingleton<IDynamicRateLimiter>(_ =>
+        {
+            var limiter = new DynamicRateLimiter();
+            limiter.SetLimit(initialLimit).Wait();
+            return limiter;
+        });
     }
 }

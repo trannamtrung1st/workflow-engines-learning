@@ -25,10 +25,14 @@ using WELearning.Shared.Concurrency;
 using WELearning.Shared.Concurrency.Abstracts;
 using WELearning.Shared.Concurrency.Extensions;
 
+const int minThreads = 512;
+ThreadPool.SetMinThreads(workerThreads: minThreads, completionPortThreads: minThreads);
+
 const string LibraryFolderPath = "/Users/trungtran/MyPlace/Personal/Learning/workflow-engines-learning/local/libs";
 var serviceCollection = new ServiceCollection()
     .AddSingleton<DataStore>()
     .AddLogging(cfg => cfg.AddSimpleConsole())
+    .AddDynamicRateLimiter(initialLimit: minThreads)
     .AddInMemoryLockManager()
     .AddDefaultDistributedLockManager()
     .AddDefaultSyncAsyncTaskRunner()

@@ -144,7 +144,7 @@ public static class PredefinedBFBs
             EVENTS.Publish('Completed');
             ",
             handleInvalidScript: @$"
-            FB.LogWarning(""Invalid arguments X, Y"");
+            FB.LogTrace(""Invalid arguments X, Y"");
             Result = null;
             EVENTS.Publish('Completed');
             ",
@@ -238,7 +238,7 @@ public static class PredefinedBFBs
             Result = X + Y
             ",
             handleInvalidScript: @$"
-            FB.LogWarning(""Invalid arguments X, Y"");
+            FB.LogTrace(""Invalid arguments X, Y"");
             Result = null;
             ",
             invalidConditionScript: @$"

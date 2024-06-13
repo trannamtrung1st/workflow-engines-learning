@@ -8,8 +8,8 @@ using WELearning.DynamicCodeExecution.Extensions;
 using WELearning.Core.Reflection.Extensions;
 using WELearning.ConsoleApp.Testing.Framework;
 
-int maxThreads = Environment.ProcessorCount * 2;
-ThreadPool.SetMinThreads(workerThreads: maxThreads, completionPortThreads: maxThreads);
+const int minThreads = 512;
+ThreadPool.SetMinThreads(workerThreads: minThreads, completionPortThreads: minThreads);
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services
@@ -28,10 +28,10 @@ builder.Services
     .AddScoped<IFunctionBlockService, FunctionBlockService>()
     .AddScoped<IAssetService, AssetService>()
     // Function block services
+    .AddDynamicRateLimiter(initialLimit: builder.Configuration.GetValue<int>("AppSettings:InitialConcurrencyLimit"))
     .AddInMemoryLockManager()
     .AddDefaultDistributedLockManager()
     .AddDefaultSyncAsyncTaskRunner()
-    .AddDynamicRateLimiter()
     .AddDefaultBlockRunner()
     .AddDefaultFunctionRunner()
     .AddDefaultRuntimeEngineFactory()

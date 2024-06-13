@@ -10,20 +10,23 @@ namespace WELearning.Samples.DeviceService.Persistent;
 
 public class DataStore
 {
-    public const int DefaultNoOfAssets = 1000;
+    private const int DefaultNoOfAssets = 1000;
+    private const int MaxSeriesCount = 3000;
     private readonly ConcurrentDictionary<string, AssetEntity> _assets;
     private readonly ConcurrentDictionary<(string, string), AssetAttributeEntity> _assetAttributes;
-    private readonly ConcurrentBag<MetricSeriesEntity> _metricSeries;
+    private readonly MetricSeriesEntity[] _metricSeries;
     private readonly ConcurrentDictionary<string, string> _cfbDefinitions;
     private readonly ConcurrentDictionary<string, string> _bfbDefinitions;
     private readonly int _latencyMs;
+    private readonly object _currentSeriesLock = new();
+    private int _currentSeriesIdx;
 
     public DataStore(IConfiguration configuration)
     {
         _latencyMs = configuration.GetValue<int>("AppSettings:LatencyMs");
         _assets = new();
         _assetAttributes = new();
-        _metricSeries = new();
+        _metricSeries = new MetricSeriesEntity[MaxSeriesCount];
         _cfbDefinitions = new();
         _bfbDefinitions = new();
 
@@ -101,7 +104,15 @@ public class DataStore
         await Task.CompletedTask; // [NOTE] remove latency for stable publish rate
         foreach (var s in series)
         {
-            _metricSeries.Add(s);
+            int seriesIdx;
+            lock (_currentSeriesLock)
+            {
+                seriesIdx = _currentSeriesIdx++;
+                if (_currentSeriesIdx % MaxSeriesCount == 0)
+                    _currentSeriesIdx = 0;
+            }
+            _metricSeries[_currentSeriesIdx] = s;
+
             var attribute = _assetAttributes[(s.AssetId, s.AttributeName)];
             attribute.Value = s.Value;
             attribute.Timestamp = s.Timestamp;
@@ -111,9 +122,10 @@ public class DataStore
     public async Task<MetricSeriesEntity> LastSeriesBefore(string assetId, string attributeName, DateTime beforeTime)
     {
         await Latency();
-        var series = _metricSeries.OrderByDescending(s => s.Timestamp)
-            .Where(s => s.AssetId == assetId && s.AttributeName == attributeName && s.Timestamp < beforeTime)
-            .FirstOrDefault();
+        var series = _metricSeries
+            .Where(s => s != null)
+            .OrderByDescending(s => s.Timestamp)
+            .FirstOrDefault(s => s.AssetId == assetId && s.AttributeName == attributeName && s.Timestamp < beforeTime);
         return series;
     }
 
@@ -142,5 +154,6 @@ public class DataStore
         return definitions;
     }
 
-    private Task Latency() => Task.Delay(millisecondsDelay: Random.Shared.Next(maxValue: _latencyMs));
+    private Task Latency(int factor = 1) => Task.Delay(
+        millisecondsDelay: Random.Shared.Next(maxValue: _latencyMs) * factor);
 }

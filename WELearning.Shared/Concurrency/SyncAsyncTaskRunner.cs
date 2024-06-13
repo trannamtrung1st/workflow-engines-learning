@@ -1,36 +1,22 @@
-using Microsoft.Extensions.Configuration;
 using WELearning.Shared.Concurrency.Abstracts;
 
 namespace WELearning.Shared.Concurrency;
 
 public class SyncAsyncTaskRunner : ISyncAsyncTaskRunner
 {
-    private readonly object _syncLock;
-    private readonly int _maxAsync;
-    private long _asyncCount;
+    private readonly IDynamicRateLimiter _dynamicRateLimiter;
 
-    public SyncAsyncTaskRunner(IConfiguration configuration)
+    public SyncAsyncTaskRunner(IDynamicRateLimiter dynamicRateLimiter)
     {
-        _maxAsync = configuration.GetValue<int>("AppSettings:TaskRunnerMaxAsync");
-        _syncLock = new();
+        _dynamicRateLimiter = dynamicRateLimiter;
     }
 
-    public async Task TryRunTaskAsync(Func<IDisposable, Task> task)
+    public async Task TryRunTaskAsync(Func<IDisposable, Task> task, CancellationToken cancellationToken)
     {
-        bool canRunAsync = false;
-        lock (_syncLock)
-        {
-            if (_asyncCount < _maxAsync)
-            {
-                canRunAsync = true;
-                _asyncCount++;
-            }
-        }
-
-        if (canRunAsync)
+        if (_dynamicRateLimiter.TryAcquire(out var scope, cancellationToken))
         {
             _ = Task.Factory.StartNew(
-                function: () => task(new SimpleScope(onDispose: () => Interlocked.Decrement(ref _asyncCount))),
+                function: () => task(scope),
                 creationOptions: TaskCreationOptions.LongRunning);
         }
         else
