@@ -15,6 +15,7 @@ public interface IValueObject
     object TempValue { get; set; }
     bool IsNumeric { get; }
     bool IsRaw { get; }
+    object GetProperty(string name);
     double AsDouble();
     int AsInt();
     bool AsBool();

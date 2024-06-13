@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using WELearning.Core.FunctionBlocks;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Samples.DeviceService.Entities;
 using WELearning.Samples.DeviceService.FunctionBlock.Basics;
@@ -41,15 +42,19 @@ public class DataStore
             _assetAttributes.TryAdd(prevSum.GetCompositePk(), prevSum);
         }
 
+        _bfbDefinitions.TryAdd(PredefinedBFBs.AddJs.Id, JsonSerializer.Serialize(PredefinedBFBs.AddJs));
+        _bfbDefinitions.TryAdd(PredefinedBFBs.MultiplyJs.Id, JsonSerializer.Serialize(PredefinedBFBs.MultiplyJs));
+        // ... etc
+
         {
             var bLastSeriesBeforeDef = LastSeriesBeforeBFB.Build();
             var cfb = SumAttributesCFB.BuildIOBound(
-                lastSeriesBeforeBfbDefId: bLastSeriesBeforeDef.Id,
-                out var bPreprocessDef, out var bInputsDef, out var bOutputsDef
+                bLastSeriesBeforeId: bLastSeriesBeforeDef.Id, bAddId: PredefinedBFBs.AddJs.Id,
+                out var bSumDef, out var bInputsDef, out var bOutputsDef
             );
             _cfbDefinitions.TryAdd(cfb.Id, JsonSerializer.Serialize(cfb));
             _bfbDefinitions.TryAdd(bLastSeriesBeforeDef.Id, JsonSerializer.Serialize(bLastSeriesBeforeDef));
-            _bfbDefinitions.TryAdd(bPreprocessDef.Id, JsonSerializer.Serialize(bPreprocessDef));
+            _bfbDefinitions.TryAdd(bSumDef.Id, JsonSerializer.Serialize(bSumDef));
             _bfbDefinitions.TryAdd(bInputsDef.Id, JsonSerializer.Serialize(bInputsDef));
             _bfbDefinitions.TryAdd(bOutputsDef.Id, JsonSerializer.Serialize(bOutputsDef));
         }

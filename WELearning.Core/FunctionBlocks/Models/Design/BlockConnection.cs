@@ -17,5 +17,7 @@ public class BlockConnection
     public string DisplayName { get; set; }
     public string SourceBlockId { get; set; }
     public string SourceVariableName { get; set; }
+    public string SourceProperty { get; set; }
+    public Function Preprocessing { get; set; }
     public EBindingType BindingType { get; set; }
 }

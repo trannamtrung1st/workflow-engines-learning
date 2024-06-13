@@ -3,6 +3,7 @@ using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.Constants;
 using WELearning.ConsoleApp.Testing.Framework.Bindings;
 using WELearning.Core.FunctionBlocks;
+using WELearning.DynamicCodeExecution.Constants;
 
 namespace WELearning.Samples.DeviceService.FunctionBlock.Composites;
 
@@ -11,7 +12,7 @@ public static class SumAttributesCFB
     const string IOBoundId = "io";
     const string CpuBoundId = "cpu";
 
-    public static CompositeBlockDef BuildIOBound(string lastSeriesBeforeBfbDefId, out BasicBlockDef bPreprocessDef, out BasicBlockDef bInputsDef, out BasicBlockDef bOutputsDef)
+    public static CompositeBlockDef BuildIOBound(string bLastSeriesBeforeId, string bAddId, out BasicBlockDef bSumDef, out BasicBlockDef bInputsDef, out BasicBlockDef bOutputsDef)
     {
         var cfb = new CompositeBlockDef(
             id: IOBoundId,
@@ -29,16 +30,15 @@ public static class SumAttributesCFB
         cfb.Events = new[] { eTrigger, eCompleted };
         cfb.DefaultTriggerEvent = eTrigger.Name;
 
-        bPreprocessDef = PredefinedBFBs.CreateBlockSimple(
-            id: $"{IOBoundId}_Preprocess",
-            name: "Preprocess",
+        var bAddDef = PredefinedBFBs.AddJs;
+        bSumDef = PredefinedBFBs.CreateBlockSimple(
+            id: $"{IOBoundId}_Sum",
+            name: "Sum",
             content:
             @$"
             if (!Attr1.Value || !Attr2.Value) {{
                 FB.Terminate();
             }}
-            Timestamp1 = Attr1.Timestamp;
-            Timestamp2 = Attr2.Timestamp;
             AttrSum = Attr1.Value + Attr2.Value;
             ",
             imports: null, importBlockIds: null, signature: null, exported: false,
@@ -46,9 +46,11 @@ public static class SumAttributesCFB
             new Variable("Attr2", EDataType.Reference, EVariableType.Input, objectType: attrType),
             new Variable("AttrSum", EDataType.Reference, EVariableType.Output, objectType: attrType)
         );
-        var bPreprocess = new BlockInstance(bPreprocessDef.Id, id: $"Main-{Guid.NewGuid()}");
+        var bSum = new BlockInstance(bSumDef.Id, id: $"Sum-{Guid.NewGuid()}");
 
-        // [TODO] continue
+        var bLastSeries1 = new BlockInstance(bLastSeriesBeforeId, id: $"LastSeries1-{Guid.NewGuid()}");
+        var bLastSeries2 = new BlockInstance(bLastSeriesBeforeId, id: $"LastSeries2-{Guid.NewGuid()}");
+        var bAdd = new BlockInstance(bAddId, id: $"Add-{Guid.NewGuid()}");
 
         bInputsDef = PredefinedBFBs.CreateInOutBlock(
             new Variable(name: "Attr1", dataType: EDataType.Reference, variableType: EVariableType.InOut, objectType: attrType),
@@ -63,7 +65,7 @@ public static class SumAttributesCFB
         var bOutputs = new BlockInstance(definitionId: bOutputsDef.Id, id: $"Outputs-{Guid.NewGuid()}");
 
         {
-            var blocks = new List<BlockInstance> { bPreprocess, bInputs, bOutputs };
+            var blocks = new List<BlockInstance> { bSum, bLastSeries1, bLastSeries2, bAdd, bInputs, bOutputs };
             cfb.Blocks = blocks;
         }
 
@@ -76,14 +78,29 @@ public static class SumAttributesCFB
                 SourceEventName = "Trigger"
             });
 
-            eventConnections.Add(new(blockId: bPreprocess.Id, eventName: "Trigger")
+            eventConnections.Add(new(blockId: bSum.Id, eventName: "Trigger")
             {
                 SourceBlockId = bInputs.Id,
                 SourceEventName = "Completed"
             });
+            eventConnections.Add(new(blockId: bLastSeries1.Id, eventName: "Trigger")
+            {
+                SourceBlockId = bInputs.Id,
+                SourceEventName = "Completed"
+            });
+            eventConnections.Add(new(blockId: bLastSeries2.Id, eventName: "Trigger")
+            {
+                SourceBlockId = bInputs.Id,
+                SourceEventName = "Completed"
+            });
+            eventConnections.Add(new(blockId: bAdd.Id, eventName: "Trigger")
+            {
+                SourceBlockId = bLastSeries1.Id,
+                SourceEventName = "Completed"
+            });
             eventConnections.Add(new(blockId: bOutputs.Id, eventName: "Trigger")
             {
-                SourceBlockId = bPreprocess.Id,
+                SourceBlockId = bAdd.Id,
                 SourceEventName = "Completed"
             });
 
@@ -100,25 +117,49 @@ public static class SumAttributesCFB
         {
             var dataConnections = new List<BlockConnection>();
 
-            dataConnections.Add(new(blockId: bPreprocess.Id, variableName: "Attr1", displayName: null, bindingType: EBindingType.Input)
+            dataConnections.Add(new(blockId: bLastSeries1.Id, variableName: "Attribute", displayName: null, bindingType: EBindingType.Input)
             {
                 SourceBlockId = bInputs.Id,
                 SourceVariableName = "Attr1"
             });
-            dataConnections.Add(new(blockId: bPreprocess.Id, variableName: "Attr2", displayName: null, bindingType: EBindingType.Input)
+            dataConnections.Add(new(blockId: bLastSeries1.Id, variableName: "BeforeTime", displayName: null, bindingType: EBindingType.Input)
+            {
+                SourceBlockId = bInputs.Id,
+                SourceVariableName = "Attr1",
+                SourceProperty = "Timestamp"
+            });
+            dataConnections.Add(new(blockId: bLastSeries2.Id, variableName: "Attribute", displayName: null, bindingType: EBindingType.Input)
             {
                 SourceBlockId = bInputs.Id,
                 SourceVariableName = "Attr2"
             });
+            dataConnections.Add(new(blockId: bLastSeries2.Id, variableName: "BeforeTime", displayName: null, bindingType: EBindingType.Input)
+            {
+                SourceBlockId = bInputs.Id,
+                SourceVariableName = "Attr2",
+                SourceProperty = "Timestamp"
+            });
+            dataConnections.Add(new(blockId: bAdd.Id, variableName: "X", displayName: null, bindingType: EBindingType.Input)
+            {
+                SourceBlockId = bLastSeries1.Id,
+                SourceVariableName = "Result",
+                Preprocessing = Function.CreateRawExpression(content: "THIS?.Value", runtime: ERuntime.Javascript)
+            });
+            dataConnections.Add(new(blockId: bAdd.Id, variableName: "Y", displayName: null, bindingType: EBindingType.Input)
+            {
+                SourceBlockId = bLastSeries2.Id,
+                SourceVariableName = "Result",
+                Preprocessing = Function.CreateRawExpression(content: "THIS?.Value", runtime: ERuntime.Javascript)
+            });
             dataConnections.Add(new(blockId: bOutputs.Id, variableName: "AttrSum", displayName: null, bindingType: EBindingType.Input)
             {
-                SourceBlockId = bPreprocess.Id,
+                SourceBlockId = bSum.Id,
                 SourceVariableName = "AttrSum"
             });
             dataConnections.Add(new(blockId: bOutputs.Id, variableName: "AttrPrevSum", displayName: null, bindingType: EBindingType.Input)
             {
-                SourceBlockId = bPreprocess.Id,
-                SourceVariableName = "AttrPrevSum"
+                SourceBlockId = bAdd.Id,
+                SourceVariableName = "Result"
             });
 
             // [NOTE] CFB output data
@@ -144,25 +185,20 @@ public static class SumAttributesCFB
             {
                 SourceVariableName = "Attr2"
             });
-            references.Add(new(blockId: bPreprocess.Id, variableName: "Attr1", displayName: null, bindingType: EBindingType.Input)
+            references.Add(new(blockId: bSum.Id, variableName: "Attr1", displayName: null, bindingType: EBindingType.Input)
             {
                 SourceBlockId = bInputs.Id,
                 SourceVariableName = "Attr1"
             });
-            references.Add(new(blockId: bPreprocess.Id, variableName: "Attr2", displayName: null, bindingType: EBindingType.Input)
+            references.Add(new(blockId: bSum.Id, variableName: "Attr2", displayName: null, bindingType: EBindingType.Input)
             {
                 SourceBlockId = bInputs.Id,
                 SourceVariableName = "Attr2"
             });
-            references.Add(new(blockId: bPreprocess.Id, variableName: "AttrSum", displayName: null, bindingType: EBindingType.Output)
+            references.Add(new(blockId: bSum.Id, variableName: "AttrSum", displayName: null, bindingType: EBindingType.Output)
             {
                 SourceBlockId = bOutputs.Id,
                 SourceVariableName = "AttrSum"
-            });
-            references.Add(new(blockId: bPreprocess.Id, variableName: "AttrPrevSum", displayName: null, bindingType: EBindingType.Output)
-            {
-                SourceBlockId = bOutputs.Id,
-                SourceVariableName = "AttrPrevSum"
             });
             references.Add(new(blockId: bOutputs.Id, variableName: "AttrSum", displayName: null, bindingType: EBindingType.Output)
             {
@@ -263,27 +299,6 @@ AttrSum = Attr1.Value + Attr2.Value;",
 
         {
             var dataConnections = new List<BlockConnection>();
-
-            dataConnections.Add(new(blockId: bMain.Id, variableName: "Attr1", displayName: null, bindingType: EBindingType.Input)
-            {
-                SourceBlockId = bInputs.Id,
-                SourceVariableName = "Attr1"
-            });
-            dataConnections.Add(new(blockId: bMain.Id, variableName: "Attr2", displayName: null, bindingType: EBindingType.Input)
-            {
-                SourceBlockId = bInputs.Id,
-                SourceVariableName = "Attr2"
-            });
-            dataConnections.Add(new(blockId: bOutputs.Id, variableName: "AttrSum", displayName: null, bindingType: EBindingType.Input)
-            {
-                SourceBlockId = bMain.Id,
-                SourceVariableName = "AttrSum"
-            });
-            dataConnections.Add(new(blockId: bOutputs.Id, variableName: "AttrPrevSum", displayName: null, bindingType: EBindingType.Input)
-            {
-                SourceBlockId = bMain.Id,
-                SourceVariableName = "AttrPrevSum"
-            });
 
             // [NOTE] CFB output data
             foreach (var variable in cfb.Variables.Where(v => v.VariableType == EVariableType.Output || v.VariableType == EVariableType.InOut))

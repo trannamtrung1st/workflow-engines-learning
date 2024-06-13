@@ -16,4 +16,7 @@ public interface IFunctionRunner
         Function function, IBlockFramework blockFramework, BlockGlobalObject<TFunctionFramework> globalObject,
         IDictionary<string, object> inputs, IDictionary<string, object> outputs,
         IEnumerable<ImportModule> modules, Guid? optimizationScopeId, RunTokens tokens);
+
+    Task<(TReturn Result, IDisposable OptimizationScope)> Evaluate<TReturn, TArg>(
+        Function function, TArg arguments, Guid? optimizationScopeId, RunTokens tokens);
 }

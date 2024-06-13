@@ -7,6 +7,7 @@ using WELearning.Core.FunctionBlocks.Extensions;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
+using WELearning.DynamicCodeExecution.Models;
 using WELearning.Shared.Concurrency;
 using WELearning.Shared.Concurrency.Abstracts;
 
@@ -59,7 +60,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
 
             var triggerEvent = GetTriggerOrDefault(request.TriggerEvent);
             var startingTriggers = Definition.FindNextBlocks(triggerEvent);
-            EnqueueTask((taskScope) => TriggerBlocks(blockTriggers: startingTriggers, optimizationScopeId, taskScope));
+            EnqueueTask((taskScope) => TriggerBlocks(blockTriggers: startingTriggers, optimizationScopeId, taskScope, tokens: request.Tokens));
 
             using var waitToken = CancellationTokenSource.CreateLinkedTokenSource(_taskLoopCts.Token, request.Tokens.Combined);
             while (_taskCount > 0)
@@ -129,7 +130,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         base.PrepareFailedStatus(ex, from);
     }
 
-    protected virtual async Task TriggerBlocks(IEnumerable<BlockTrigger> blockTriggers, Guid? optimizationScopeId, IDisposable taskScope)
+    protected virtual async Task TriggerBlocks(IEnumerable<BlockTrigger> blockTriggers, Guid? optimizationScopeId, IDisposable taskScope, RunTokens tokens)
     {
         using var _ = taskScope;
         foreach (var trigger in blockTriggers)
@@ -147,14 +148,14 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                         using var _ = taskScope;
                         var execControl = GetOrInitExecutionControl(block);
                         var triggerEvent = trigger.TriggerEvent ?? Definition.GetDefinition(block.DefinitionId).DefaultTriggerEvent;
-                        var blockBindings = PrepareBindings(triggerEvent, block, onDelayed: EnqueueTriggerBlock);
+                        var blockBindings = await PrepareBindings(triggerEvent, block, onDelayed: EnqueueTriggerBlock, tokens);
                         var runRequest = new RunBlockRequest(
                             runId: CurrentRunRequest.RunId, blockBindings,
                             tokens: CurrentRunRequest.Tokens,
                             triggerEvent: triggerEvent);
                         await _blockRunner.Run(runRequest, execControl, optimizationScopeId);
                         var nextBlockTriggers = Definition.FindNextBlocks(block.Id, outputEvents: execControl.Result.OutputEvents);
-                        EnqueueTask((taskScope) => TriggerBlocks(nextBlockTriggers, optimizationScopeId, taskScope));
+                        EnqueueTask((taskScope) => TriggerBlocks(nextBlockTriggers, optimizationScopeId, taskScope, tokens));
                     }
                     catch (BlockDelayedException) { }
                 }
@@ -173,7 +174,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         }
     }
 
-    protected virtual IEnumerable<VariableBinding> PrepareBindings(string triggerEvent, BlockInstance block, Func<Task> onDelayed)
+    protected virtual async Task<IEnumerable<VariableBinding>> PrepareBindings(string triggerEvent, BlockInstance block, Func<Task> onDelayed, RunTokens tokens)
     {
         var bindings = new List<VariableBinding>();
         var inputEvent = Definition.GetDefinition(block.DefinitionId).Events.FirstOrDefault(ev => ev.Name == triggerEvent && ev.IsInput)
@@ -218,46 +219,76 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
             }
         }
 
-        var inputDataConnections = Definition.DataConnections
-            .Where(c => c.BindingType == EBindingType.Input && c.BlockId == block.Id && inputEvent.VariableNames.Contains(c.VariableName))
-            .ToArray();
-        foreach (var connection in inputDataConnections)
+        var optimizationScopes = new HashSet<IDisposable>();
+        try
         {
-            if (connection.SourceVariableName == null)
-                throw new ArgumentException("Invalid connection!");
+            var optimizationScopeId = Guid.NewGuid();
+            var inputDataConnections = Definition.DataConnections
+                .Where(c => c.BindingType == EBindingType.Input && c.BlockId == block.Id && inputEvent.VariableNames.Contains(c.VariableName))
+                .ToArray();
 
-            var bindingVariable = blockExecControl.GetVariable(key: connection.VariableName, type: EVariableType.Input)
-                ?? throw new KeyNotFoundException($"Variable {connection.VariableName} not found!");
-
-            object value = null; IValueObject reference = null; IValueObject sourceValue;
-            if (connection.SourceBlockId != null)
+            foreach (var connection in inputDataConnections)
             {
-                var sourceBlock = Definition.Blocks.FirstOrDefault(b => b.Id == connection.SourceBlockId)
-                    ?? throw new KeyNotFoundException($"Block {connection.SourceBlockId} not found!");
-                var sourceExecControl = GetOrInitExecutionControl(sourceBlock);
-                if (sourceExecControl.RegisterTempIdleCallback(onDelayed))
-                    throw new BlockDelayedException();
+                if (connection.SourceVariableName == null)
+                    throw new ArgumentException("Invalid connection!");
 
-                var outputValue = sourceExecControl.GetOutput(connection.SourceVariableName);
-                if (outputValue.RegisterTempValueSet(onDelayed))
-                    throw new BlockDelayedException();
-                sourceValue = outputValue;
+                var bindingVariable = blockExecControl.GetVariable(key: connection.VariableName, type: EVariableType.Input)
+                    ?? throw new KeyNotFoundException($"Variable {connection.VariableName} not found!");
+
+                object value = null; IValueObject reference = null; IValueObject sourceValue;
+                if (connection.SourceBlockId != null)
+                {
+                    var sourceBlock = Definition.Blocks.FirstOrDefault(b => b.Id == connection.SourceBlockId)
+                        ?? throw new KeyNotFoundException($"Block {connection.SourceBlockId} not found!");
+                    var sourceExecControl = GetOrInitExecutionControl(sourceBlock);
+                    if (sourceExecControl.RegisterTempIdleCallback(onDelayed))
+                        throw new BlockDelayedException();
+
+                    var outputValue = sourceExecControl.GetOutput(connection.SourceVariableName);
+                    if (outputValue.RegisterTempValueSet(onDelayed))
+                        throw new BlockDelayedException();
+                    sourceValue = outputValue;
+                }
+                else sourceValue = GetInput(connection.SourceVariableName);
+
+                if (bindingVariable.DataType == EDataType.Reference
+                    && !blockBindings.Any(b => b.VariableName == connection.VariableName && b.Reference != null))
+                    reference = sourceValue.CloneFor(bindingVariable);
+                else
+                {
+                    if (sourceValue.ValueSet)
+                        value = connection.SourceProperty != null
+                            ? sourceValue.GetProperty(connection.SourceProperty)
+                            : sourceValue.Value;
+                    else
+                        value = bindingVariable.DefaultValue;
+
+                    if (connection.Preprocessing != null)
+                    {
+                        var (result, scope) = await _functionRunner.Evaluate<object, Dictionary<string, object>>(
+                            function: connection.Preprocessing, arguments: new()
+                            {
+                                [BuiltInVariables.FB] = _functionFramework,
+                                [BuiltInVariables.THIS] = value,
+                            },
+                            optimizationScopeId, tokens);
+                        value = result;
+                        optimizationScopes.Add(scope);
+                    }
+                }
+
+                blockBindings.Add(new(
+                    variableName: connection.VariableName,
+                    value: value,
+                    reference: reference,
+                    type: EBindingType.Input));
             }
-            else
-            {
-                sourceValue = GetInput(connection.SourceVariableName);
-            }
-
-            if (bindingVariable.DataType == EDataType.Reference
-                && !blockBindings.Any(b => b.VariableName == connection.VariableName && b.Reference != null))
-                reference = sourceValue.CloneFor(bindingVariable);
-            else value = sourceValue.ValueSet ? sourceValue.Value : bindingVariable.DefaultValue;
-
-            blockBindings.Add(new(
-                variableName: connection.VariableName,
-                value: value,
-                reference: reference,
-                type: EBindingType.Input));
+        }
+        finally
+        {
+            if (optimizationScopes != null)
+                foreach (var optimizationScope in optimizationScopes)
+                    optimizationScope.Dispose();
         }
 
         return blockBindings;

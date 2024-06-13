@@ -33,4 +33,13 @@ public class AttributeValueObject : RawValueObject
     }
 
     public override IValueObject CloneFor(Variable variable) => new AttributeValueObject(variable, _snapshot);
+
+    public override object GetProperty(string name)
+    {
+        switch (name)
+        {
+            case nameof(Snapshot.Timestamp): return Snapshot?.Timestamp;
+            default: return base.GetProperty(name);
+        }
+    }
 }

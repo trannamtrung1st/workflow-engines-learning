@@ -8,11 +8,12 @@ public static class JavascriptHelper
     public static (string Content, int LineStart, int LineEnd, int IndexStart, int IndexEnd) WrapModuleFunction(
         string script, bool async, string returnStatements = null, string topStatements = null,
         string bottomStatements = null, string functionName = JsEngineConstants.ExportedFunctionName,
-        IEnumerable<string> flattenArguments = null, IEnumerable<string> flattenOutputs = null
+        bool isScript = false, IEnumerable<string> flattenArguments = null, IEnumerable<string> flattenOutputs = null
     )
     {
         var argumentsStr = flattenArguments?.Any() == true ? string.Join(',', flattenArguments) : null;
         var asyncStr = async ? "async " : null;
+        var exportStr = isScript ? null : "export ";
         returnStatements ??= GetPreprocessOutputContent(flattenOutputs);
 
         const string Inputs = JsEngineConstants.InputsArgument;
@@ -22,7 +23,7 @@ public static class JavascriptHelper
 
         var topContent =
 @$"{topStatements}
-export {asyncStr}function {functionName}({Inputs}, {Outputs}) {{
+{exportStr}{asyncStr}function {functionName}({Inputs}, {Outputs}) {{
     let {{{argumentsStr}}} = {{...{Inputs}, ...{Outputs}}};
     {asyncStr}function {Wrap}() {{
 ";

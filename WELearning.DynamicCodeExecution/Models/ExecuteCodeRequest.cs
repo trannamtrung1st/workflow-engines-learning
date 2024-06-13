@@ -9,7 +9,7 @@ public class ExecuteCodeRequest<TArg>
         string content, string contentId, TArg arguments, IEnumerable<string> imports,
         IEnumerable<Assembly> assemblies, IEnumerable<Type> types, RunTokens tokens, bool? async = null,
         IDictionary<string, object> inputs = null, IDictionary<string, object> outputs = null,
-        Guid? optimizationScopeId = default, bool useRawContent = false,
+        Guid? optimizationScopeId = default, bool useRawContent = false, bool isScriptOnly = false,
         IEnumerable<ImportModule> modules = null)
     {
         Content = content;
@@ -23,6 +23,7 @@ public class ExecuteCodeRequest<TArg>
         Async = async ?? SyntaxHelper.HasAsyncSyntax(content);
         OptimizationScopeId = optimizationScopeId;
         UseRawContent = useRawContent;
+        IsScriptOnly = isScriptOnly;
         Modules = modules;
     }
 
@@ -38,5 +39,6 @@ public class ExecuteCodeRequest<TArg>
     public Guid? OptimizationScopeId { get; }
     public RunTokens Tokens { get; }
     public bool UseRawContent { get; }
+    public bool IsScriptOnly { get; }
     public IEnumerable<ImportModule> Modules { get; }
 }

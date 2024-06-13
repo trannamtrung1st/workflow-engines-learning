@@ -30,7 +30,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
     private static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan ModuleSlidingExpiration = TimeSpan.FromSeconds(5);
-    private readonly MemoryCache _preparedModuleCache;
+    private readonly MemoryCache _preparedContentCache;
     private readonly MemoryCache _preprocessedContentCache;
     private readonly IOptions<JintOptions> _jintOptions;
     private readonly EngineCache _engineCache;
@@ -42,7 +42,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         {
             SizeLimit = DefaultCacheSizeLimitInBytes
         };
-        _preparedModuleCache = new(cacheOption);
+        _preparedContentCache = new(cacheOption);
         _preprocessedContentCache = new(cacheOption);
         _engineCache = new();
         _jintOptions = JintOptions;
@@ -128,7 +128,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     public void Dispose()
     {
         _preprocessedContentCache.Dispose();
-        _preparedModuleCache.Dispose();
+        _preparedContentCache.Dispose();
         _engineCache.Dispose();
     }
 
@@ -164,18 +164,9 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             var arguments = GetArgumentValues(engine: engineWrap.Engine, inputs: request.Inputs, outputs: request.Outputs);
             try
             {
-                var preparedModule = GetPreparedModule(moduleKey: request.ContentId, () => content);
-                var (moduleName, cacheSize) = GetModuleObjectCacheEntry(engineId: engineWrap.Id, contentId: request.ContentId, content);
-                await engineWrap.SafeAccessEngine(async (engine) =>
-                {
-                    engineWrap.ResetNodePosition();
-                    SetValues(engine, request.Arguments);
-                    var module = _lockManager.MutexAccess($"MODULE_OBJECTS.{moduleName}",
-                        task: () => engineWrap.GetModuleObject(preparedModule, moduleName, cacheSize));
-                    var exportedFunction = module.Get(ExportedFunctionName);
-                    result = await CallWithHandles(engineWrap, exportedFunction, arguments, tokens: request.Tokens);
-                    result = result.UnwrapIfPromise();
-                }, cancellationToken: request.Tokens.Combined);
+                result = request.IsScriptOnly
+                    ? await ExecuteScript(request, engineWrap, arguments, content)
+                    : await ExecuteModule(request, engineWrap, arguments, content);
             }
             catch (Acornima.ParseErrorException ex)
             {
@@ -243,14 +234,54 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         }
     }
 
-    private static void SetValues<TArg>(Engine engine, TArg arguments)
+    private async Task<JsValue> ExecuteModule<TArg>(ExecuteCodeRequest<TArg> request, EngineWrap engineWrap, JsValue[] arguments, string content)
     {
-        var properties = arguments.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public);
-        foreach (var property in properties)
-            engine.SetValue(property.Name, property.GetValue(arguments));
+        JsValue result = default;
+        var preparedModule = GetPreparedModule(key: request.ContentId, () => content);
+        var (moduleName, cacheSize) = GetModuleObjectCacheEntry(engineId: engineWrap.Id, contentId: request.ContentId, content);
+        await engineWrap.SafeAccessEngine(async (engine) =>
+        {
+            engineWrap.ResetNodePosition();
+            SetValues(engine, request.Arguments);
+            var module = _lockManager.MutexAccess($"MODULE_OBJECTS.{moduleName}",
+                task: () => engineWrap.GetModuleObject(preparedModule, moduleName, cacheSize));
+            var exportedFunction = module.Get(ExportedFunctionName);
+            result = await CallWithHandles(engineWrap, callFunction: () => exportedFunction.Call(arguments), tokens: request.Tokens);
+            result = result.UnwrapIfPromise();
+        }, cancellationToken: request.Tokens.Combined);
+        return result;
     }
 
-    private static async Task<JsValue> CallWithHandles(EngineWrap engineWrap, JsValue exportedFunction, JsValue[] arguments, RunTokens tokens)
+    private async Task<JsValue> ExecuteScript<TArg>(ExecuteCodeRequest<TArg> request, EngineWrap engineWrap, JsValue[] arguments, string content)
+    {
+        JsValue result = default;
+        var preparedScript = GetPreparedScript(key: request.ContentId, () => content);
+        await engineWrap.SafeAccessEngine(async (engine) =>
+        {
+            engineWrap.ResetNodePosition();
+            SetValues(engine, request.Arguments);
+            result = await CallWithHandles(engineWrap, callFunction: () => engine.Evaluate(preparedScript), tokens: request.Tokens);
+            result = result.UnwrapIfPromise();
+        }, cancellationToken: request.Tokens.Combined);
+        return result;
+    }
+
+    private static void SetValues<TArg>(Engine engine, TArg arguments)
+    {
+        if (arguments is IDictionary<string, object> dict)
+        {
+            foreach (var kvp in dict)
+                engine.SetValue(kvp.Key, kvp.Value);
+        }
+        else
+        {
+            var properties = arguments.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public);
+            foreach (var property in properties)
+                engine.SetValue(property.Name, property.GetValue(arguments));
+        }
+    }
+
+    private static async Task<JsValue> CallWithHandles(EngineWrap engineWrap, Func<JsValue> callFunction, RunTokens tokens)
     {
         var tcs = new TaskCompletionSource<JsValue>();
         JsValue result = null;
@@ -267,7 +298,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         {
             using var timeoutReg = tokens.Timeout.Register(HandleTokensCanceled(exceptionProvider: () => new TimeoutException("Execution timed out!")));
             using var terminationReg = tokens.Termination.Register(HandleTokensCanceled(exceptionProvider: () => new TerminatedException("Received termination request!")));
-            result = exportedFunction.Call(arguments: arguments);
+            result = callFunction();
             lock (tcs) { tcs.TrySetResult(result); }
         }
         catch (Exception ex)
@@ -305,7 +336,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                 var contentInfo = request.UseRawContent
                     ? (request.Content, 1, contentLineCount, 0, request.Content.Length - 1)
                     : JavascriptHelper.WrapModuleFunction(
-                        script: request.Content, request.Async,
+                        script: request.Content, async: request.Async, isScript: request.IsScriptOnly,
                         topStatements: importStatements,
                         flattenArguments: flattenArguments,
                         flattenOutputs: flattenOutputs);
@@ -352,19 +383,31 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             builder.AddModule(preparedModule));
     }
 
-    private Prepared<Acornima.Ast.Module> GetPreparedModule(string moduleKey, Func<string> contentProvider)
+    private Prepared<Acornima.Ast.Module> GetPreparedModule(string key, Func<string> contentProvider)
     {
-        return _lockManager.MutexAccess($"MODULES.{moduleKey}",
-            task: () => _preparedModuleCache.GetOrCreate(moduleKey, (entry) =>
+        return _lockManager.MutexAccess($"PREPARED_CONTENTS.{key}",
+            task: () => _preparedContentCache.GetOrCreate(key, (entry) =>
             {
-                var moduleContent = contentProvider();
-                var contentSizeInBytes = moduleContent.Length * 2;
+                var content = contentProvider();
+                var contentSizeInBytes = content.Length * 2;
                 entry.SetSize(contentSizeInBytes);
                 entry.SetSlidingExpiration(DefaultSlidingExpiration);
-                return Engine.PrepareModule(moduleContent);
+                return Engine.PrepareModule(content);
             }));
     }
 
+    private Prepared<Acornima.Ast.Script> GetPreparedScript(string key, Func<string> contentProvider)
+    {
+        return _lockManager.MutexAccess($"PREPARED_CONTENTS.{key}",
+            task: () => _preparedContentCache.GetOrCreate(key, (entry) =>
+            {
+                var content = contentProvider();
+                var contentSizeInBytes = content.Length * 2;
+                entry.SetSize(contentSizeInBytes);
+                entry.SetSlidingExpiration(DefaultSlidingExpiration);
+                return Engine.PrepareScript(content);
+            }));
+    }
 
     private static TReturn Cast<TReturn>(JsValue jsValue)
     {

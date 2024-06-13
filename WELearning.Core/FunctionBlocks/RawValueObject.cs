@@ -141,4 +141,6 @@ public class RawValueObject : IValueObject, IDisposable
             return registered;
         }
     }
+
+    public virtual object GetProperty(string name) => throw new NotSupportedException($"Property {name} is not supported!");
 }
