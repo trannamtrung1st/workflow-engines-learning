@@ -408,6 +408,8 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
     {
         _taskLoopCts?.Dispose();
         _taskLoopEvent?.Dispose();
+        foreach (var control in _blockExecControlMap.Values)
+            control.Dispose();
         base.Dispose();
     }
 }
