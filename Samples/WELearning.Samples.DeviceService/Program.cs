@@ -12,6 +12,8 @@ const int minThreads = 512;
 ThreadPool.SetMinThreads(workerThreads: minThreads, completionPortThreads: minThreads);
 
 var builder = WebApplication.CreateBuilder(args);
+var initialConcurrencyLimit = builder.Configuration.GetValue<int>("AppSettings:InitialConcurrencyLimit");
+
 builder.Services
     .AddEndpointsApiExplorer()
     .AddSwaggerGen()
@@ -28,10 +30,9 @@ builder.Services
     .AddScoped<IFunctionBlockService, FunctionBlockService>()
     .AddScoped<IAssetService, AssetService>()
     // Function block services
-    .AddDynamicRateLimiter(initialLimit: builder.Configuration.GetValue<int>("AppSettings:InitialConcurrencyLimit"))
     .AddInMemoryLockManager()
     .AddDefaultDistributedLockManager()
-    .AddDefaultSyncAsyncTaskRunner()
+    .AddDefaultSyncAsyncTaskRunner(initialLimit: initialConcurrencyLimit)
     .AddDefaultBlockRunner()
     .AddDefaultFunctionRunner()
     .AddDefaultRuntimeEngineFactory()

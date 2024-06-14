@@ -1,3 +1,4 @@
+using System;
 using Microsoft.Extensions.DependencyInjection;
 using WELearning.Shared.Concurrency.Abstracts;
 
@@ -15,14 +16,20 @@ public static class ServiceCollectionExtensions
         return services.AddSingleton<IDistributedLockManager, InMemoryLockManager>();
     }
 
-    public static IServiceCollection AddDefaultSyncAsyncTaskRunner(this IServiceCollection services)
+    public static IServiceCollection AddDefaultSyncAsyncTaskRunner(this IServiceCollection services, int initialLimit)
     {
-        return services.AddSingleton<ISyncAsyncTaskRunner, SyncAsyncTaskRunner>();
+        return services.AddSingleton<ISyncAsyncTaskRunner, SyncAsyncTaskRunner>()
+            .AddSingleton<ISyncAsyncTaskLimiter>(provider =>
+            {
+                var limiter = new SyncAsyncTaskLimiter();
+                limiter.SetLimit(initialLimit);
+                return limiter;
+            });
     }
 
     public static IServiceCollection AddDynamicRateLimiter(this IServiceCollection services, int initialLimit)
     {
-        return services.AddSingleton<IDynamicRateLimiter>(_ =>
+        return services.AddTransient<IDynamicRateLimiter>(_ =>
         {
             var limiter = new DynamicRateLimiter();
             limiter.SetLimit(initialLimit);

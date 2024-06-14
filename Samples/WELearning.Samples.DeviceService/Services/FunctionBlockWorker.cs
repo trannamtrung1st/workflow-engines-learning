@@ -8,19 +8,19 @@ public class FunctionBlockWorker : IFunctionBlockWorker
 {
     private readonly IMessageQueue _messageQueue;
     private readonly IServiceProvider _serviceProvider;
-    private readonly IDynamicRateLimiter _dynamicRateLimiter;
+    private readonly ISyncAsyncTaskRunner _taskRunner;
     private readonly ILogger<FunctionBlockWorker> _logger;
     private Thread _workerThread;
 
     public FunctionBlockWorker(
         IMessageQueue messageQueue,
         IServiceProvider serviceProvider,
-        IDynamicRateLimiter dynamicRateLimiter,
+        ISyncAsyncTaskRunner taskRunner,
         ILogger<FunctionBlockWorker> logger)
     {
         _messageQueue = messageQueue;
         _serviceProvider = serviceProvider;
-        _dynamicRateLimiter = dynamicRateLimiter;
+        _taskRunner = taskRunner;
         _logger = logger;
     }
 
@@ -32,27 +32,20 @@ public class FunctionBlockWorker : IFunctionBlockWorker
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                try
+                var message = _messageQueue.Consume<AttributeChangedEvent>(TopicNames.AttributeChanged);
+                async Task Handle()
                 {
-                    var message = _messageQueue.Consume<AttributeChangedEvent>(TopicNames.AttributeChanged);
-                    async Task Handle()
-                    {
-                        using var scope = _serviceProvider.CreateScope();
-                        var fbService = scope.ServiceProvider.GetRequiredService<IFunctionBlockService>();
-                        await fbService.HandleAttributeChanged(message, cancellationToken);
-                    }
-
-                    if (_dynamicRateLimiter.TryAcquire(out var scope, cancellationToken))
-                    {
-                        _ = Task.Factory.StartNew(function: async () =>
-                        {
-                            using var _ = scope;
-                            await Handle();
-                        }, creationOptions: TaskCreationOptions.LongRunning);
-                    }
-                    else await Handle();
+                    using var scope = _serviceProvider.CreateScope();
+                    var fbService = scope.ServiceProvider.GetRequiredService<IFunctionBlockService>();
+                    await fbService.HandleAttributeChanged(message, cancellationToken);
                 }
-                catch (Exception ex) { _logger.LogError(ex, ex.Message); }
+
+                await _taskRunner.TryRunTaskAsync(async (asyncScope) =>
+                {
+                    using var _2 = asyncScope;
+                    try { await Handle(); }
+                    catch (Exception ex) { _logger.LogError(ex, ex.Message); }
+                }, cancellationToken);
             }
         });
         _workerThread.IsBackground = true;
