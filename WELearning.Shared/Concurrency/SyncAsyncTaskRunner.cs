@@ -14,11 +14,7 @@ public class SyncAsyncTaskRunner : ISyncAsyncTaskRunner
     public async Task TryRunTaskAsync(Func<IDisposable, Task> task, CancellationToken cancellationToken)
     {
         if (_dynamicRateLimiter.TryAcquire(out var scope, cancellationToken))
-        {
-            _ = Task.Factory.StartNew(
-                function: () => task(scope),
-                creationOptions: TaskCreationOptions.LongRunning);
-        }
+            _ = Task.Factory.StartNew(function: () => task(scope), creationOptions: TaskCreationOptions.LongRunning);
         else
             await task(new SimpleScope());
     }

@@ -25,7 +25,7 @@ public static class ServiceCollectionExtensions
         return services.AddSingleton<IDynamicRateLimiter>(_ =>
         {
             var limiter = new DynamicRateLimiter();
-            limiter.SetLimit(initialLimit).Wait();
+            limiter.SetLimit(initialLimit);
             return limiter;
         });
     }

@@ -30,12 +30,12 @@ public class DynamicRateLimiter : IDynamicRateLimiter
         _availableEvent = new ManualResetEventSlim();
     }
 
-    public Task<IDisposable> Acquire(CancellationToken cancellationToken = default)
+    public IDisposable Acquire(CancellationToken cancellationToken = default)
         => AcquireCore(wait: true, cancellationToken);
 
     private void Release(CancellationToken cancellationToken = default)
     {
-        _semaphore.WaitAsync(cancellationToken: cancellationToken);
+        _semaphore.Wait(cancellationToken: cancellationToken);
         try
         {
             if (_acquired > 0)
@@ -47,9 +47,9 @@ public class DynamicRateLimiter : IDynamicRateLimiter
         finally { _semaphore.Release(); }
     }
 
-    public async Task SetLimit(int limit, CancellationToken cancellationToken = default)
+    public void SetLimit(int limit, CancellationToken cancellationToken = default)
     {
-        await _semaphore.WaitAsync(cancellationToken: cancellationToken);
+        _semaphore.Wait(cancellationToken: cancellationToken);
         try
         {
             var prevLimit = _limit;
@@ -61,11 +61,11 @@ public class DynamicRateLimiter : IDynamicRateLimiter
 
     public bool TryAcquire(out IDisposable scope, CancellationToken cancellationToken = default)
     {
-        scope = AcquireCore(wait: false, cancellationToken).Result;
+        scope = AcquireCore(wait: false, cancellationToken);
         return scope != null;
     }
 
-    public async Task<IDisposable> AcquireCore(bool wait, CancellationToken cancellationToken = default)
+    public IDisposable AcquireCore(bool wait, CancellationToken cancellationToken = default)
     {
         bool queued = false;
         bool canAcquired = false;
@@ -73,7 +73,7 @@ public class DynamicRateLimiter : IDynamicRateLimiter
         {
             while (!canAcquired)
             {
-                await _semaphore.WaitAsync(cancellationToken: cancellationToken);
+                _semaphore.Wait(cancellationToken: cancellationToken);
                 if (!queued)
                 {
                     Interlocked.Increment(ref _queueCount);

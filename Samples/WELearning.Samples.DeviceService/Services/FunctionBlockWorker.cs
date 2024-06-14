@@ -44,7 +44,7 @@ public class FunctionBlockWorker : IFunctionBlockWorker
 
                     if (_dynamicRateLimiter.TryAcquire(out var scope, cancellationToken))
                     {
-                        _ = Task.Factory.StartNew(async () =>
+                        _ = Task.Factory.StartNew(function: async () =>
                         {
                             using var _ = scope;
                             await Handle();

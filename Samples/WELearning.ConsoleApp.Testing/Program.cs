@@ -183,11 +183,12 @@ static class TestEngines
                 var runTokens = tokensProvider();
                 scope = await runtimeEngine.Execute<LoopTestArgs>(
                     new(
-                        content: @$"return X * 5",
+                        content: @$"X * 5",
                         contentId: contentId,
                         arguments: new LoopTestArgs { X = i },
-                        imports: null, assemblies: null, types: null, tokens: runTokens,
-                        inputs: new Dictionary<string, object>() { ["X"] = i },
+                        imports: null, assemblies: null, types: null,
+                        tokens: runTokens, inputs: null,
+                        isScriptOnly: true, useRawContent: true,
                         optimizationScopeId: optimizationScopeId
                     ));
             }
