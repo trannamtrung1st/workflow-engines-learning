@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using Microsoft.Extensions.Options;
 using WELearning.Core.FunctionBlocks;
 using WELearning.Core.FunctionBlocks.Models.Design;
+using WELearning.Samples.DeviceService.Configurations;
 using WELearning.Samples.DeviceService.Entities;
 using WELearning.Samples.DeviceService.FunctionBlock.Basics;
 using WELearning.Samples.DeviceService.FunctionBlock.Composites;
@@ -12,18 +14,18 @@ public class DataStore
 {
     private const int DefaultNoOfAssets = 1000;
     private const int MaxSeriesCount = 3000;
+    private readonly IOptions<AppSettings> _appSettings;
     private readonly ConcurrentDictionary<string, AssetEntity> _assets;
     private readonly ConcurrentDictionary<(string, string), AssetAttributeEntity> _assetAttributes;
     private readonly MetricSeriesEntity[] _metricSeries;
     private readonly ConcurrentDictionary<string, string> _cfbDefinitions;
     private readonly ConcurrentDictionary<string, string> _bfbDefinitions;
-    private readonly int _latencyMs;
     private readonly object _currentSeriesLock = new();
     private int _currentSeriesIdx;
 
-    public DataStore(IConfiguration configuration)
+    public DataStore(IOptions<AppSettings> appSettings)
     {
-        _latencyMs = configuration.GetValue<int>("AppSettings:LatencyMs");
+        _appSettings = appSettings;
         _assets = new();
         _assetAttributes = new();
         _metricSeries = new MetricSeriesEntity[MaxSeriesCount];
@@ -155,5 +157,5 @@ public class DataStore
     }
 
     private Task Latency(int factor = 1) => Task.Delay(
-        millisecondsDelay: Random.Shared.Next(maxValue: _latencyMs) * factor);
+        millisecondsDelay: Random.Shared.Next(maxValue: _appSettings.Value.LatencyMs) * factor);
 }

@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using WELearning.Samples.DeviceService.Configurations;
 using WELearning.Samples.DeviceService.Models;
 using WELearning.Samples.DeviceService.Persistent;
 using WELearning.Samples.DeviceService.Services.Abstracts;
@@ -7,27 +9,31 @@ namespace WELearning.Samples.DeviceService.Services;
 public class MetricSeriesSimulator : IMetricSeriesSimulator
 {
     private readonly DataStore _dataStore;
-    private readonly System.Timers.Timer _timer;
     private readonly ILogger<MetricSeriesSimulator> _logger;
     private readonly IServiceProvider _serviceProvider;
-    private readonly int _devicesPerInterval;
+    private readonly IOptions<AppSettings> _appSettings;
+    private System.Timers.Timer _timer;
     private string _demoBlockId;
 
     public MetricSeriesSimulator(
         DataStore dataStore,
-        IConfiguration configuration,
+        IOptions<AppSettings> appSettings,
         ILogger<MetricSeriesSimulator> logger,
         IServiceProvider serviceProvider)
     {
         _dataStore = dataStore;
         _logger = logger;
         _serviceProvider = serviceProvider;
-        _devicesPerInterval = configuration.GetValue<int>("AppSettings:DevicesPerInterval");
+        _appSettings = appSettings;
 
-        var simulatorInterval = configuration.GetValue<int>("AppSettings:SimulatorInterval");
-        _timer = new System.Timers.Timer(simulatorInterval);
+        _timer = new System.Timers.Timer(interval: _appSettings.Value.SimulatorInterval);
         _timer.AutoReset = true;
         _timer.Elapsed += async (o, e) => await SimulateNewMetricSeries();
+        _appSettings.Value.Changed += (o, e) =>
+        {
+            if (_timer.Interval != _appSettings.Value.SimulatorInterval)
+                _timer.Interval = _appSettings.Value.SimulatorInterval;
+        };
     }
 
     public void StartSimulation(string demoBlockId)
@@ -62,7 +68,7 @@ public class MetricSeriesSimulator : IMetricSeriesSimulator
             using var scope = _serviceProvider.CreateScope();
             var assetService = scope.ServiceProvider.GetRequiredService<IAssetService>();
 
-            while (count <= _devicesPerInterval)
+            while (count <= _appSettings.Value.DevicesPerInterval)
             {
                 await assetService.AddMetricSeries(
                     series: GetRandomMetricSeries($"asset-{assetIdx}"),

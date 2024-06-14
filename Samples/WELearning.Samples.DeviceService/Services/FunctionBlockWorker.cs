@@ -26,7 +26,6 @@ public class FunctionBlockWorker : IFunctionBlockWorker
 
     public void StartWorker(CancellationToken cancellationToken)
     {
-        // [TODO] add manual control
         // [TODO] apply fuzzy thread controller
         _workerThread = new Thread(async () =>
         {

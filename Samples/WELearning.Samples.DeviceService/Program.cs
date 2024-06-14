@@ -7,14 +7,19 @@ using WELearning.Shared.Concurrency.Extensions;
 using WELearning.DynamicCodeExecution.Extensions;
 using WELearning.Core.Reflection.Extensions;
 using WELearning.ConsoleApp.Testing.Framework;
+using WELearning.Samples.DeviceService.Configurations;
+using Microsoft.Extensions.Options;
+using WELearning.Shared.Concurrency.Abstracts;
 
 const int minThreads = 512;
 ThreadPool.SetMinThreads(workerThreads: minThreads, completionPortThreads: minThreads);
 
 var builder = WebApplication.CreateBuilder(args);
-var initialConcurrencyLimit = builder.Configuration.GetValue<int>("AppSettings:InitialConcurrencyLimit");
+var appSettingsConfig = builder.Configuration.GetSection("AppSettings");
+var concurrencyLimit = appSettingsConfig.GetValue<int>("ConcurrencyLimit");
 
 builder.Services
+    .Configure<AppSettings>(appSettings => appSettingsConfig.Bind(appSettings))
     .AddEndpointsApiExplorer()
     .AddSwaggerGen()
     .AddLogging(cfg =>
@@ -32,7 +37,7 @@ builder.Services
     // Function block services
     .AddInMemoryLockManager()
     .AddDefaultDistributedLockManager()
-    .AddDefaultSyncAsyncTaskRunner(initialLimit: initialConcurrencyLimit)
+    .AddDefaultSyncAsyncTaskRunner(initialLimit: concurrencyLimit)
     .AddDefaultBlockRunner()
     .AddDefaultFunctionRunner()
     .AddDefaultRuntimeEngineFactory()
@@ -84,7 +89,7 @@ app.MapPost("/api/series/simulation/{demoBlockId}/start", (
     [FromServices] IMetricSeriesSimulator simulator) =>
 {
     simulator.StartSimulation(demoBlockId);
-    return Results.Accepted();
+    return Results.NoContent();
 })
 .WithDisplayName("Start series simulation")
 .WithName("Start series simulation");
@@ -93,20 +98,44 @@ app.MapPost("/api/series/simulation/{demoBlockId}/start", (
 app.MapPost("/api/series/simulation/stop", ([FromServices] IMetricSeriesSimulator simulator) =>
 {
     simulator.StopSimulation();
-    return Results.Accepted();
+    return Results.NoContent();
 })
 .WithDisplayName("Stop series simulation")
 .WithName("Stop series simulation");
 
-StartWorkers(app);
+
+app.MapPut("/api/configs/app-settings", (
+    [FromQuery] int? concurrencyLimit,
+    [FromQuery] int? devicesPerInterval,
+    [FromQuery] int? simulatorInterval,
+    [FromQuery] int? latencyMs,
+    [FromServices] IOptions<AppSettings> appSettings) =>
+{
+    if (concurrencyLimit.HasValue) appSettings.Value.ConcurrencyLimit = concurrencyLimit.Value;
+    if (devicesPerInterval.HasValue) appSettings.Value.DevicesPerInterval = devicesPerInterval.Value;
+    if (simulatorInterval.HasValue) appSettings.Value.SimulatorInterval = simulatorInterval.Value;
+    if (latencyMs.HasValue) appSettings.Value.LatencyMs = latencyMs.Value;
+    appSettings.Value.InvokeChanged();
+    return Results.NoContent();
+})
+.WithDisplayName("Update app settings")
+.WithName("Update app settings");
+
+
+Setup(app);
 
 app.Run();
 
-static void StartWorkers(WebApplication app)
+static void Setup(WebApplication app)
 {
     var fbWorker = app.Services.GetRequiredService<IFunctionBlockWorker>();
     fbWorker.StartWorker(cancellationToken: app.Lifetime.ApplicationStopping);
 
     var monitoring = app.Services.GetRequiredService<IMonitoring>();
     monitoring.StartReport();
+
+    var appSettingsOpt = app.Services.GetRequiredService<IOptions<AppSettings>>();
+    var taskLimiter = app.Services.GetRequiredService<ISyncAsyncTaskLimiter>();
+    var appSettings = appSettingsOpt.Value;
+    appSettings.Changed += (o, e) => taskLimiter.SetLimit(limit: appSettings.ConcurrencyLimit);
 }
