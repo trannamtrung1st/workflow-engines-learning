@@ -117,8 +117,8 @@ public class InMemoryLockManager : IInMemoryLockManager, IDistributedLockManager
         public void SetReady()
         {
             _currentExpiryCts?.Dispose();
-            _currentReg.Dispose();
             _currentExpiryCts = null;
+            _currentReg.Dispose();
             _currentReg = default;
             ReadyEvent.Set();
         }
@@ -126,12 +126,15 @@ public class InMemoryLockManager : IInMemoryLockManager, IDistributedLockManager
         public void HandleLockRemoved()
         {
             _currentExpiryCts?.Dispose();
+            _currentExpiryCts = null;
             _currentReg.Dispose();
+            _currentReg = default;
             ReadyEvent.Dispose();
         }
 
         private void SetExpiryInterval()
         {
+            _currentExpiryCts?.Dispose();
             _currentExpiryCts = new CancellationTokenSource(_expiry);
             _currentReg = _currentExpiryCts.Token.Register(() =>
             {
