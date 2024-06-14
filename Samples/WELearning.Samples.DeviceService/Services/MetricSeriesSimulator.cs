@@ -6,7 +6,7 @@ using WELearning.Samples.DeviceService.Services.Abstracts;
 
 namespace WELearning.Samples.DeviceService.Services;
 
-public class MetricSeriesSimulator : IMetricSeriesSimulator
+public class MetricSeriesSimulator : IMetricSeriesSimulator, IDisposable
 {
     private readonly DataStore _dataStore;
     private readonly ILogger<MetricSeriesSimulator> _logger;
@@ -83,5 +83,11 @@ public class MetricSeriesSimulator : IMetricSeriesSimulator
         {
             _logger.LogError(ex, ex.Message);
         }
+    }
+
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
+        _timer?.Dispose();
     }
 }

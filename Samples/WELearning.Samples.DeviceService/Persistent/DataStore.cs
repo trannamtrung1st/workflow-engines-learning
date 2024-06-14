@@ -156,6 +156,8 @@ public class DataStore
         return definitions;
     }
 
-    private Task Latency(int factor = 1) => Task.Delay(
-        millisecondsDelay: Random.Shared.Next(maxValue: _appSettings.Value.LatencyMs) * factor);
+    private Task Latency(int factor = 1) =>
+        _appSettings.Value.LatencyMs == 0
+            ? Task.CompletedTask
+            : Task.Delay(millisecondsDelay: Random.Shared.Next(maxValue: _appSettings.Value.LatencyMs) * factor);
 }

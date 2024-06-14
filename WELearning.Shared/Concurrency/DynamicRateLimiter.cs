@@ -67,6 +67,8 @@ public class DynamicRateLimiter : IDynamicRateLimiter
 
     public IDisposable AcquireCore(bool wait, CancellationToken cancellationToken = default)
     {
+        if (_limit == 0)
+            return null;
         bool queued = false;
         bool canAcquired = false;
         try

@@ -105,12 +105,14 @@ app.MapPost("/api/series/simulation/stop", ([FromServices] IMetricSeriesSimulato
 
 
 app.MapPut("/api/configs/app-settings", (
+    [FromQuery] int? workerCount,
     [FromQuery] int? concurrencyLimit,
     [FromQuery] int? devicesPerInterval,
     [FromQuery] int? simulatorInterval,
     [FromQuery] int? latencyMs,
     [FromServices] IOptions<AppSettings> appSettings) =>
 {
+    if (workerCount.HasValue) appSettings.Value.WorkerCount = workerCount.Value;
     if (concurrencyLimit.HasValue) appSettings.Value.ConcurrencyLimit = concurrencyLimit.Value;
     if (devicesPerInterval.HasValue) appSettings.Value.DevicesPerInterval = devicesPerInterval.Value;
     if (simulatorInterval.HasValue) appSettings.Value.SimulatorInterval = simulatorInterval.Value;

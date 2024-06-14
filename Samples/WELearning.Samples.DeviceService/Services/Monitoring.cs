@@ -79,11 +79,14 @@ public class Monitoring : IMonitoring
         {
             if (CountPerSecond.IsEmpty)
                 return 0;
+
             long current = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             long past = current - 5;
-            var avgRate = CountPerSecond
-                .Where(kvp => kvp.Key > past && kvp.Key < current)
-                .Average(kvp => kvp.Value.Count);
+            var lastCounts = CountPerSecond.Where(kvp => kvp.Key > past && kvp.Key < current).ToArray();
+            if (lastCounts.Length == 0)
+                return 0;
+
+            var avgRate = lastCounts.Average(kvp => kvp.Value.Count);
             return (int)avgRate;
         }
     }

@@ -5,6 +5,7 @@ namespace WELearning.Samples.DeviceService.Services;
 
 public class MessageQueue : IMessageQueue
 {
+    private const int MaxMessagesCount = 10000;
     private readonly ConcurrentDictionary<string, TopicQueue> _queueMap;
 
     public MessageQueue()
@@ -18,13 +19,12 @@ public class MessageQueue : IMessageQueue
 
         while (true)
         {
-            topicQueue.ReadyEvent.Wait();
-            lock (topicQueue)
+            if (topicQueue.Queue.TryDequeue(out var message))
+                return (T)message;
+            else
             {
-                if (topicQueue.Queue.TryDequeue(out var message))
-                    return (T)message;
-                else
-                    topicQueue.ReadyEvent.Reset();
+                topicQueue.ReadyEvent.Reset();
+                topicQueue.ReadyEvent.Wait();
             }
         }
     }
@@ -32,7 +32,7 @@ public class MessageQueue : IMessageQueue
     public Task Publish<T>(string topic, T message)
     {
         var topicQueue = _queueMap.GetOrAdd(topic, (key) => new TopicQueue(key));
-        lock (topicQueue)
+        if (topicQueue.Queue.Count < MaxMessagesCount)
         {
             topicQueue.Queue.Enqueue(message);
             topicQueue.ReadyEvent.Set();
