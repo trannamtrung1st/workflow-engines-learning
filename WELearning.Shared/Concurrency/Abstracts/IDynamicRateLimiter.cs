@@ -1,6 +1,6 @@
 namespace WELearning.Shared.Concurrency.Abstracts;
 
-public interface IDynamicRateLimiter
+public interface IDynamicRateLimiter : IDisposable
 {
     (int Limit, int Acquired, int Available, int QueueCount) State { get; }
 

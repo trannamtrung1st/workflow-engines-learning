@@ -2,7 +2,7 @@ using WELearning.Shared.Concurrency.Abstracts;
 
 namespace WELearning.Shared.Concurrency;
 
-public class DynamicRateLimiter : IDynamicRateLimiter
+public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
 {
     private readonly ManualResetEventSlim _availableEvent;
     private readonly SemaphoreSlim _semaphore;
@@ -109,5 +109,11 @@ public class DynamicRateLimiter : IDynamicRateLimiter
             if (queued) Interlocked.Decrement(ref _queueCount);
             throw;
         }
+    }
+
+    public void Dispose()
+    {
+        _semaphore.Dispose();
+        _availableEvent.Dispose();
     }
 }
