@@ -12,7 +12,7 @@ public class MetricSeriesSimulator : IMetricSeriesSimulator, IDisposable
     private readonly ILogger<MetricSeriesSimulator> _logger;
     private readonly IServiceProvider _serviceProvider;
     private readonly IOptions<AppSettings> _appSettings;
-    private System.Timers.Timer _timer;
+    private readonly System.Timers.Timer _timer;
     private string _demoBlockId;
 
     public MetricSeriesSimulator(
@@ -29,11 +29,13 @@ public class MetricSeriesSimulator : IMetricSeriesSimulator, IDisposable
         _timer = new System.Timers.Timer(interval: _appSettings.Value.SimulatorInterval);
         _timer.AutoReset = true;
         _timer.Elapsed += async (o, e) => await SimulateNewMetricSeries();
-        _appSettings.Value.Changed += (o, e) =>
-        {
-            if (_timer.Interval != _appSettings.Value.SimulatorInterval)
-                _timer.Interval = _appSettings.Value.SimulatorInterval;
-        };
+        _appSettings.Value.Changed += HandleAppSettingsChanged;
+    }
+
+    private void HandleAppSettingsChanged(object sender, EventArgs e)
+    {
+        if (_timer.Interval != _appSettings.Value.SimulatorInterval)
+            _timer.Interval = _appSettings.Value.SimulatorInterval;
     }
 
     public void StartSimulation(string demoBlockId)
@@ -88,6 +90,7 @@ public class MetricSeriesSimulator : IMetricSeriesSimulator, IDisposable
     public void Dispose()
     {
         GC.SuppressFinalize(this);
+        _appSettings.Value.Changed -= HandleAppSettingsChanged;
         _timer?.Dispose();
     }
 }

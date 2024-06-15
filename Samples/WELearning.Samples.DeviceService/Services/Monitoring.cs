@@ -4,7 +4,7 @@ using WELearning.Samples.DeviceService.Services.Abstracts;
 
 namespace WELearning.Samples.DeviceService.Services;
 
-public class Monitoring : IMonitoring
+public class Monitoring : IMonitoring, IDisposable
 {
     private readonly ConcurrentDictionary<string, CategoryCount> _categoryMap;
     private readonly ILogger<Monitoring> _logger;
@@ -16,7 +16,7 @@ public class Monitoring : IMonitoring
         _logger = logger;
         _reportTimer = new(interval: 5000);
         _reportTimer.AutoReset = true;
-        _reportTimer.Elapsed += (o, e) => PrintAll();
+        _reportTimer.Elapsed += HandleReport;
     }
 
     public void Capture(string category, int count)
@@ -25,11 +25,20 @@ public class Monitoring : IMonitoring
         categoryCount.Increase(count);
     }
 
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
+        _reportTimer.Elapsed -= HandleReport;
+        _reportTimer.Dispose();
+    }
+
     public int GetRate(string category)
     {
         var categoryCount = _categoryMap.GetOrAdd(category, (key) => new CategoryCount(key));
         return categoryCount.GetRate();
     }
+
+    private void HandleReport(object e, EventArgs args) => PrintAll();
 
     public void PrintAll()
     {

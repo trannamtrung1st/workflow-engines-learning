@@ -7,7 +7,7 @@ using WELearning.Shared.Concurrency.Abstracts;
 
 namespace WELearning.Samples.DeviceService.Services;
 
-public class FunctionBlockWorker : IFunctionBlockWorker
+public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
 {
     private readonly IMessageQueue _messageQueue;
     private readonly IServiceProvider _serviceProvider;
@@ -38,7 +38,7 @@ public class FunctionBlockWorker : IFunctionBlockWorker
 
         ScaleUp(_appSettings.Value.WorkerCount);
 
-        _appSettings.Value.Changed += (o, e) => HandleWokerChanged();
+        _appSettings.Value.Changed += HandleWokerChanged;
     }
 
     private WorkerControl NewWorker()
@@ -70,7 +70,7 @@ public class FunctionBlockWorker : IFunctionBlockWorker
         return workerControl;
     }
 
-    private void HandleWokerChanged()
+    private void HandleWokerChanged(object o, EventArgs e)
     {
         var currentCount = _workers.Count;
         var newWorkerCount = _appSettings.Value.WorkerCount;
@@ -95,6 +95,12 @@ public class FunctionBlockWorker : IFunctionBlockWorker
     {
         while (_workers.Count > to && _workers.TryDequeue(out var workerControl))
             workerControl.Stopped = true;
+    }
+
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
+        _appSettings.Value.Changed -= HandleWokerChanged;
     }
 
     class WorkerControl

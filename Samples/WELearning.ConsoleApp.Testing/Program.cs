@@ -343,7 +343,8 @@ static class TestFunctionBlocks
         {
             var tcs = new TaskCompletionSource();
             waits.Add(tcs);
-            _ = Task.Factory.StartNew(function: async () =>
+            Task parallelTask = null;
+            parallelTask = Task.Factory.StartNew(function: async () =>
             {
                 try
                 {
@@ -351,6 +352,7 @@ static class TestFunctionBlocks
                     tcs.SetResult();
                 }
                 catch (Exception ex) { tcs.SetException(ex); }
+                finally { parallelTask.Dispose(); }
             }, creationOptions: TaskCreationOptions.LongRunning);
         }
         await Task.WhenAll(waits.Select(w => w.Task));
@@ -550,6 +552,10 @@ static class TestFunctionBlocks
         Console.WriteLine(finalResult);
     }
 
+    private static void HandleLogActivity(object o, EventArgs e) => (o as IExecutionControl)?.LogBlockActivity();
+    private static void HandleLogActivity(object o, Exception e) => (o as IExecutionControl)?.LogBlockActivity();
+    private static void HandleLogFailure(object o, Exception e) => (o as IExecutionControl)?.LogFailure(e);
+
     public static async Task RunLogAndDebug(IBlockRunner blockRunner, Func<CompositeBlockDef, ICompositeEC> CreateControl, Func<RunTokens> tokensProvider)
     {
         async Task TryRunBlock(IExecutionControl execControl)
@@ -565,18 +571,21 @@ static class TestFunctionBlocks
 
         {
             using var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.CompilationErrorJs));
-            execControl.Failed += (o, e) => execControl.LogFailure(e);
-            await TryRunBlock(execControl);
+            execControl.Failed += HandleLogFailure;
+            try { await TryRunBlock(execControl); }
+            finally { execControl.Failed -= HandleLogFailure; }
         }
         {
             using var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.RuntimeExceptionJs));
-            execControl.Failed += (o, e) => execControl.LogFailure(e);
-            await TryRunBlock(execControl);
+            execControl.Failed += HandleLogFailure;
+            try { await TryRunBlock(execControl); }
+            finally { execControl.Failed -= HandleLogFailure; }
         }
         {
             using var execControl = CreateControl(SimpleCFB.Build(bSimpleDef: PredefinedBFBs.RuntimeExceptionJsFromCs));
-            execControl.Failed += (o, e) => execControl.LogFailure(e);
-            await TryRunBlock(execControl);
+            execControl.Failed += HandleLogFailure;
+            try { await TryRunBlock(execControl); }
+            finally { execControl.Failed -= HandleLogFailure; }
         }
 
         {
@@ -591,12 +600,12 @@ static class TestFunctionBlocks
                 bRandomDef: PredefinedBFBs.RandomJs,
                 bDelayDef: PredefinedBFBs.DelayInfiniteJs);
             using var execControl = CreateControl(jsCFB);
-            execControl.Running += (o, e) => execControl.LogBlockActivity();
-            execControl.Completed += (o, e) => execControl.LogBlockActivity();
-            execControl.Failed += (o, e) => execControl.LogBlockActivity();
-            execControl.ControlRunning += (o, e) => (o as IExecutionControl)?.LogBlockActivity();
-            execControl.ControlCompleted += (o, e) => (o as IExecutionControl)?.LogBlockActivity();
-            execControl.ControlFailed += (o, e) => (o as IExecutionControl)?.LogBlockActivity();
+            execControl.Running += HandleLogActivity;
+            execControl.Completed += HandleLogActivity;
+            execControl.Failed += HandleLogActivity;
+            execControl.ControlRunning += HandleLogActivity;
+            execControl.ControlCompleted += HandleLogActivity;
+            execControl.ControlFailed += HandleLogActivity;
 
             try
             {
@@ -607,6 +616,15 @@ static class TestFunctionBlocks
                 Console.WriteLine("Complex CFB result: {0}", finalResult);
             }
             catch { }
+            finally
+            {
+                execControl.Running -= HandleLogActivity;
+                execControl.Completed -= HandleLogActivity;
+                execControl.Failed -= HandleLogActivity;
+                execControl.ControlRunning -= HandleLogActivity;
+                execControl.ControlCompleted -= HandleLogActivity;
+                execControl.ControlFailed -= HandleLogActivity;
+            }
         }
     }
 

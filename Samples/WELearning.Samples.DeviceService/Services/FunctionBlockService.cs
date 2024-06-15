@@ -66,17 +66,12 @@ public class FunctionBlockService : IFunctionBlockService
         using var execControl = new CompositeEC<DeviceFunctionFramework>(
             block: new(cfbDef.Id), definition: cfbDef,
             _blockRunner, _functionRunner, _blockFrameworkFactory, _functionFramework, _taskRunner);
-        execControl.Running += (o, e) => execControl.LogBlockActivity(logger: _controlLogger);
-        execControl.Completed += (o, e) => execControl.LogBlockActivity(logger: _controlLogger);
-        execControl.Failed += (o, e) => execControl.LogBlockActivity(logger: _controlLogger);
-        execControl.ControlRunning += (o, e) => (o as IExecutionControl)?.LogBlockActivity(logger: _controlLogger);
-        execControl.ControlCompleted += (o, e) => (o as IExecutionControl)?.LogBlockActivity(logger: _controlLogger);
-        execControl.ControlFailed += (o, e) => (o as IExecutionControl)?.LogBlockActivity(logger: _controlLogger);
 
-        var bindings = await PrepareBindings(@event, execControl);
-        var runRequest = new RunBlockRequest(bindings, runTokens);
+        RegisterLogActivityHandlers(execControl);
         try
         {
+            var bindings = await PrepareBindings(@event, execControl);
+            var runRequest = new RunBlockRequest(bindings, runTokens);
             await _blockRunner.Run(runRequest, execControl, optimizationScopeId: default);
             await RecordOutputs(execControl);
         }
@@ -86,7 +81,29 @@ public class FunctionBlockService : IFunctionBlockService
                 throw;
             // [NOTE] retry
         }
+        finally { UnregisterLogActivityHandlers(execControl); }
         _monitoring.Capture(MonitoringCategory, count: 1);
+    }
+
+    private void HandleLogActivity(object o, EventArgs e) => (o as IExecutionControl)?.LogBlockActivity(logger: _controlLogger);
+    private void HandleLogActivity(object o, Exception e) => (o as IExecutionControl)?.LogBlockActivity(logger: _controlLogger);
+    private void RegisterLogActivityHandlers(ICompositeEC execControl)
+    {
+        execControl.Running += HandleLogActivity;
+        execControl.Completed += HandleLogActivity;
+        execControl.Failed += HandleLogActivity;
+        execControl.ControlRunning += HandleLogActivity;
+        execControl.ControlCompleted += HandleLogActivity;
+        execControl.ControlFailed += HandleLogActivity;
+    }
+    private void UnregisterLogActivityHandlers(ICompositeEC execControl)
+    {
+        execControl.Running -= HandleLogActivity;
+        execControl.Completed -= HandleLogActivity;
+        execControl.Failed -= HandleLogActivity;
+        execControl.ControlRunning -= HandleLogActivity;
+        execControl.ControlCompleted -= HandleLogActivity;
+        execControl.ControlFailed -= HandleLogActivity;
     }
 
     private async Task<CompositeBlockDef> BuildBlock(string demoBlockId)

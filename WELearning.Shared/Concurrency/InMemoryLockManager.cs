@@ -15,7 +15,7 @@ public class InMemoryLockManager : IInMemoryLockManager, IDistributedLockManager
 
     public ILock Acquire(string key, TimeSpan? expiry = null, TimeSpan? timeout = null, int retries = 3)
     {
-        var timeoutCts = new CancellationTokenSource(timeout ?? DefaultTimeout);
+        using var timeoutCts = new CancellationTokenSource(timeout ?? DefaultTimeout);
         LockObject lockObj;
         lock (_lockMap)
         {

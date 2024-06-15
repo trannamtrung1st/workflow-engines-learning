@@ -406,6 +406,10 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
 
     public override void Dispose()
     {
+        Running -= HandleControlRunning;
+        Completed -= HandleControlCompleted;
+        Failed -= HandleControlFailed;
+
         _taskLoopCts?.Dispose();
         _taskLoopEvent?.Dispose();
         foreach (var control in _blockExecControlMap.Values)

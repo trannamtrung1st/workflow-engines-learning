@@ -14,7 +14,16 @@ public class SyncAsyncTaskRunner : ISyncAsyncTaskRunner
     public async Task TryRunTaskAsync(Func<IDisposable, Task> task, CancellationToken cancellationToken)
     {
         if (_taskLimiter.TryAcquire(out var scope, cancellationToken))
-            _ = Task.Factory.StartNew(function: () => task(scope), creationOptions: TaskCreationOptions.LongRunning);
+        {
+            Task asyncTask = null;
+            asyncTask = Task.Factory.StartNew(
+                function: () => task(new SimpleScope(onDispose: () =>
+                {
+                    scope.Dispose();
+                    asyncTask.Dispose();
+                })),
+                creationOptions: TaskCreationOptions.LongRunning);
+        }
         else
             await task(new SimpleScope());
     }
