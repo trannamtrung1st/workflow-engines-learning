@@ -134,12 +134,33 @@ app.MapPut("/api/configs/app-settings", (
     [FromQuery] int? latencyMs,
     [FromServices] IOptions<AppSettings> appSettings) =>
 {
-    if (workerCount.HasValue) appSettings.Value.WorkerCount = workerCount.Value;
-    if (initialConcurrencyLimit.HasValue) appSettings.Value.InitialConcurrencyLimit = initialConcurrencyLimit.Value;
-    if (devicesPerInterval.HasValue) appSettings.Value.DevicesPerInterval = devicesPerInterval.Value;
-    if (simulatorInterval.HasValue) appSettings.Value.SimulatorInterval = simulatorInterval.Value;
-    if (latencyMs.HasValue) appSettings.Value.LatencyMs = latencyMs.Value;
-    appSettings.Value.InvokeChanged();
+    var changes = new List<string>();
+    if (workerCount.HasValue)
+    {
+        appSettings.Value.WorkerCount = workerCount.Value;
+        changes.Add(nameof(appSettings.Value.WorkerCount));
+    }
+    if (initialConcurrencyLimit.HasValue)
+    {
+        appSettings.Value.InitialConcurrencyLimit = initialConcurrencyLimit.Value;
+        changes.Add(nameof(appSettings.Value.InitialConcurrencyLimit));
+    }
+    if (devicesPerInterval.HasValue)
+    {
+        appSettings.Value.DevicesPerInterval = devicesPerInterval.Value;
+        changes.Add(nameof(appSettings.Value.DevicesPerInterval));
+    }
+    if (simulatorInterval.HasValue)
+    {
+        appSettings.Value.SimulatorInterval = simulatorInterval.Value;
+        changes.Add(nameof(appSettings.Value.SimulatorInterval));
+    }
+    if (latencyMs.HasValue)
+    {
+        appSettings.Value.LatencyMs = latencyMs.Value;
+        changes.Add(nameof(appSettings.Value.LatencyMs));
+    }
+    appSettings.Value.InvokeChanged(changes);
     return Results.NoContent();
 })
 .WithDisplayName("Update app settings")
@@ -157,7 +178,13 @@ static void Setup(WebApplication app)
     var appSettingsOpt = provider.GetRequiredService<IOptions<AppSettings>>();
     var taskLimiter = provider.GetRequiredService<ISyncAsyncTaskLimiter>();
     var appSettings = appSettingsOpt.Value;
-    appSettings.Changed += (o, e) => taskLimiter.SetLimit(limit: appSettings.InitialConcurrencyLimit);
+
+    void HandleAppSettingsChanged(object o, IEnumerable<string> changes)
+    {
+        if (changes.Contains(nameof(appSettings.InitialConcurrencyLimit)))
+            taskLimiter.SetLimit(limit: appSettings.InitialConcurrencyLimit);
+    }
+    appSettings.Changed += HandleAppSettingsChanged;
 
     var taskLimiterOpt = provider.GetRequiredService<IOptions<TaskLimiterOptions>>();
     var resourceMonitor = provider.GetRequiredService<IResourceMonitor>();

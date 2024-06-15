@@ -74,7 +74,7 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
             _resourceMonitorSet = true;
             var scaleFactor = _configuration.GetValue<int>("AppSettings:ScaleFactor");
             var acceptedQueueCount = _configuration.GetValue<int>("AppSettings:AcceptedQueueCount");
-            var acceptedAvailableConcurrency = _configuration.GetValue<int>("AppSettings:AcceptedAvailableConcurrency");
+            var acceptedAvailableConcurrency = _configuration.GetValue<double>("AppSettings:AcceptedAvailableConcurrency");
             var idealUsage = _configuration.GetValue<double>("AppSettings:IdealUsage");
             _resourceMonitor.SetMonitor(async (cpu, mem) =>
             {
@@ -96,7 +96,7 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
 
     public void StopDynamicScalingWorker() => _resourceMonitor?.Stop();
 
-    private async Task ScaleConcurrency(double cpu, double mem, double ideal, int scaleFactor, int initialConcurrencyLimit, int acceptedQueueCount, int acceptedAvailableConcurrency)
+    private async Task ScaleConcurrency(double cpu, double mem, double ideal, int scaleFactor, int initialConcurrencyLimit, int acceptedQueueCount, double acceptedAvailableConcurrency)
     {
         var threadScale = _fuzzyThreadController.GetThreadScale(cpu, mem, ideal, factor: scaleFactor);
         if (threadScale == 0) return;
@@ -105,7 +105,7 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
         int newLimit;
         if (threadScale < 0)
             newLimit = concurrencyLimit + threadScale;
-        else if (queueCountAvg <= acceptedQueueCount && availableCountAvg > acceptedAvailableConcurrency)
+        else if (queueCountAvg <= acceptedQueueCount && availableCountAvg > acceptedAvailableConcurrency * concurrencyLimit)
             newLimit = concurrencyLimit - threadScale / 2;
         else
             newLimit = concurrencyLimit + threadScale;
@@ -191,7 +191,7 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
         return workerControl;
     }
 
-    private void HandleWokerChanged(object o, EventArgs e)
+    private void HandleWokerChanged(object o, IEnumerable<string> changes)
     {
         var currentCount = _workers.Count;
         var newWorkerCount = _appSettings.Value.WorkerCount;

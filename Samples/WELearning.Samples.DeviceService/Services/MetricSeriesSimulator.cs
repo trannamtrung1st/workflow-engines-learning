@@ -32,7 +32,7 @@ public class MetricSeriesSimulator : IMetricSeriesSimulator, IDisposable
         _appSettings.Value.Changed += HandleAppSettingsChanged;
     }
 
-    private void HandleAppSettingsChanged(object sender, EventArgs e)
+    private void HandleAppSettingsChanged(object sender, IEnumerable<string> changes)
     {
         if (_timer.Interval != _appSettings.Value.SimulatorInterval)
             _timer.Interval = _appSettings.Value.SimulatorInterval;

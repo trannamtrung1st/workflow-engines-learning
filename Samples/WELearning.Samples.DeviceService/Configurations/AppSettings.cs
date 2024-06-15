@@ -8,7 +8,7 @@ public class AppSettings
     public int SimulatorInterval { get; set; }
     public int LatencyMs { get; set; }
 
-    public event EventHandler Changed;
+    public event EventHandler<IEnumerable<string>> Changed;
 
-    public void InvokeChanged() => Changed?.Invoke(this, EventArgs.Empty);
+    public void InvokeChanged(IEnumerable<string> changes) => Changed?.Invoke(this, changes);
 }
