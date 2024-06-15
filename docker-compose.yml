@@ -22,7 +22,7 @@ services:
       AppSettings__DevicesPerInterval: 200
       AppSettings__SimulatorInterval: 1000
       AppSettings__LatencyMs: 500
-      AppSettings__InitialConcurrencyLimit: 1
+      AppSettings__InitialConcurrencyLimit: 0
       AppSettings__ScaleFactor: 50
       AppSettings__ScaleCheckInterval: 5000
       AppSettings__AcceptedAvailableConcurrency: 50
