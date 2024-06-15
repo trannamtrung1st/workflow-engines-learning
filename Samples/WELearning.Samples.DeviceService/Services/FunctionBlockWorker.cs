@@ -73,7 +73,6 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
         {
             _resourceMonitorSet = true;
             var scaleFactor = _configuration.GetValue<int>("AppSettings:ScaleFactor");
-            var initialConcurrencyLimit = _configuration.GetValue<int>("AppSettings:InitialConcurrencyLimit");
             var acceptedQueueCount = _configuration.GetValue<int>("AppSettings:AcceptedQueueCount");
             var acceptedAvailableConcurrency = _configuration.GetValue<int>("AppSettings:AcceptedAvailableConcurrency");
             var idealUsage = _configuration.GetValue<double>("AppSettings:IdealUsage");
@@ -81,7 +80,10 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
             {
                 try
                 {
-                    await ScaleConcurrency(cpu, mem, ideal: idealUsage, scaleFactor, initialConcurrencyLimit, acceptedQueueCount, acceptedAvailableConcurrency);
+                    await ScaleConcurrency(
+                        cpu, mem, ideal: idealUsage, scaleFactor,
+                        initialConcurrencyLimit: _appSettings.Value.InitialConcurrencyLimit,
+                        acceptedQueueCount, acceptedAvailableConcurrency);
                 }
                 catch (Exception ex)
                 {

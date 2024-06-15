@@ -22,7 +22,7 @@ threadSet = ThreadPool.SetMaxThreads(workerThreads: maxThreads, completionPortTh
 var builder = WebApplication.CreateBuilder(args);
 var appSettingsConfig = builder.Configuration.GetSection("AppSettings");
 var taskLimiterConfig = builder.Configuration.GetSection("TaskLimiter");
-var concurrencyLimit = appSettingsConfig.GetValue<int>("ConcurrencyLimit");
+var initialConcurrencyLimit = appSettingsConfig.GetValue<int>("InitialConcurrencyLimit");
 
 builder.Services
     .Configure<AppSettings>(appSettings => appSettingsConfig.Bind(appSettings))
@@ -128,14 +128,14 @@ app.MapPost("/api/fb/workers/scaling/stop", ([FromServices] IFunctionBlockWorker
 
 app.MapPut("/api/configs/app-settings", (
     [FromQuery] int? workerCount,
-    [FromQuery] int? concurrencyLimit,
+    [FromQuery] int? initialConcurrencyLimit,
     [FromQuery] int? devicesPerInterval,
     [FromQuery] int? simulatorInterval,
     [FromQuery] int? latencyMs,
     [FromServices] IOptions<AppSettings> appSettings) =>
 {
     if (workerCount.HasValue) appSettings.Value.WorkerCount = workerCount.Value;
-    if (concurrencyLimit.HasValue) appSettings.Value.ConcurrencyLimit = concurrencyLimit.Value;
+    if (initialConcurrencyLimit.HasValue) appSettings.Value.InitialConcurrencyLimit = initialConcurrencyLimit.Value;
     if (devicesPerInterval.HasValue) appSettings.Value.DevicesPerInterval = devicesPerInterval.Value;
     if (simulatorInterval.HasValue) appSettings.Value.SimulatorInterval = simulatorInterval.Value;
     if (latencyMs.HasValue) appSettings.Value.LatencyMs = latencyMs.Value;
@@ -157,7 +157,7 @@ static void Setup(WebApplication app)
     var appSettingsOpt = provider.GetRequiredService<IOptions<AppSettings>>();
     var taskLimiter = provider.GetRequiredService<ISyncAsyncTaskLimiter>();
     var appSettings = appSettingsOpt.Value;
-    appSettings.Changed += (o, e) => taskLimiter.SetLimit(limit: appSettings.ConcurrencyLimit);
+    appSettings.Changed += (o, e) => taskLimiter.SetLimit(limit: appSettings.InitialConcurrencyLimit);
 
     var taskLimiterOpt = provider.GetRequiredService<IOptions<TaskLimiterOptions>>();
     var resourceMonitor = provider.GetRequiredService<IResourceMonitor>();
