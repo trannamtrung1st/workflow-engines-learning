@@ -27,7 +27,7 @@ services:
       AppSettings__ScaleCheckInterval: 5000
       AppSettings__AcceptedAvailableConcurrency: 50
       AppSettings__IdealUsage: 0.75
-      TaskLimiter__InitialLimit: 1
+      TaskLimiter__InitialLimit: 0
       TaskLimiter__AvailableCores: 3
       TaskLimiter__TargetCpuUtil: 0.75
       TaskLimiter__WaitTime: 4000
