@@ -578,7 +578,7 @@ static class PredefinedBFBs
         return CreateBlockDelay(
             runtime: ERuntime.Javascript,
             delayScript: @$"
-            await FB.Delay(Ms);
+            await FB.DelayAsync(Ms);
             EVENTS.Publish('Completed');
             ",
             imports: null, assemblies: null
@@ -590,7 +590,7 @@ static class PredefinedBFBs
         return CreateBlockDelay(
             runtime: ERuntime.Javascript,
             delayScript: @$"
-            await FB.Delay(Ms);
+            await FB.DelayAsync(Ms);
             while (true) {{ var a = 1; }}
             ",
             imports: null, assemblies: null

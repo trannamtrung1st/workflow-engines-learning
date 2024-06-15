@@ -35,6 +35,13 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
     public void StartWorker(CancellationToken cancellationToken)
     {
         _cancellationToken = cancellationToken;
+        CancellationTokenRegistration reg = default;
+        reg = cancellationToken.Register(() =>
+        {
+            using var _ = reg;
+            foreach (var worker in _workers)
+                worker.Cts?.Cancel();
+        });
 
         ScaleUp(_appSettings.Value.WorkerCount);
 
@@ -47,22 +54,27 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
         WorkerControl workerControl = null;
         var workerThread = new Thread(async () =>
         {
+            using var _ = workerControl;
             while (!_cancellationToken.IsCancellationRequested && !workerControl.Stopped)
             {
                 var message = _messageQueue.Consume<AttributeChangedEvent>(TopicNames.AttributeChanged);
+                CancellationTokenSource cts = new();
+                workerControl.Cts = cts;
+
                 async Task Handle()
                 {
                     using var scope = _serviceProvider.CreateScope();
                     var fbService = scope.ServiceProvider.GetRequiredService<IFunctionBlockService>();
-                    await fbService.HandleAttributeChanged(message, _cancellationToken);
+                    await fbService.HandleAttributeChanged(message, cancellationToken: cts.Token);
                 }
 
                 await _taskRunner.TryRunTaskAsync(async (asyncScope) =>
                 {
-                    using var _2 = asyncScope;
+                    using var _ = asyncScope;
+                    using var _1 = cts;
                     try { await Handle(); }
                     catch (Exception ex) { _logger.LogError(ex, ex.Message); }
-                }, _cancellationToken);
+                }, cancellationToken: cts.Token);
             }
         });
         workerThread.IsBackground = true;
@@ -101,9 +113,11 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
     {
         GC.SuppressFinalize(this);
         _appSettings.Value.Changed -= HandleWokerChanged;
+        foreach (var worker in _workers)
+            worker.Dispose();
     }
 
-    class WorkerControl
+    class WorkerControl : IDisposable
     {
         public WorkerControl(Thread thread)
         {
@@ -111,9 +125,15 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
             Stopped = false;
         }
 
+        public CancellationTokenSource Cts { get; set; }
         public Thread Thread { get; }
         public bool Stopped { get; set; }
 
         public void Start() => Thread.Start();
+
+        public void Dispose()
+        {
+            Cts?.Dispose();
+        }
     }
 }

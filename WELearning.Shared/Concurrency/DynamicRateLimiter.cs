@@ -47,16 +47,18 @@ public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
         finally { _semaphore.Release(); }
     }
 
-    public void SetLimit(int limit, CancellationToken cancellationToken = default)
+    public int SetLimit(int limit, CancellationToken cancellationToken = default)
     {
+        var acceptedLimit = GetAcceptedLimit(limit);
         _semaphore.Wait(cancellationToken: cancellationToken);
         try
         {
             var prevLimit = _limit;
-            _limit = limit;
-            if (limit > prevLimit) _availableEvent.Set();
+            _limit = acceptedLimit;
+            if (acceptedLimit > prevLimit) _availableEvent.Set();
         }
         finally { _semaphore.Release(); }
+        return acceptedLimit;
     }
 
     public bool TryAcquire(out IDisposable scope, CancellationToken cancellationToken = default)
@@ -70,10 +72,10 @@ public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
         if (_limit == 0)
             return null;
         bool queued = false;
-        bool canAcquired = false;
+        bool acquired = false;
         try
         {
-            while (!canAcquired)
+            while (!acquired)
             {
                 _semaphore.Wait(cancellationToken: cancellationToken);
                 if (!queued)
@@ -84,9 +86,9 @@ public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
 
                 try
                 {
-                    if (_acquired < _limit)
+                    if (CanAcquired())
                     {
-                        canAcquired = true;
+                        acquired = true;
                         _acquired++;
                         Interlocked.Decrement(ref _queueCount);
                         queued = false;
@@ -95,7 +97,7 @@ public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
                 }
                 finally { _semaphore.Release(); }
 
-                if (!canAcquired)
+                if (!acquired)
                 {
                     if (wait)
                         _availableEvent.Wait(cancellationToken);
@@ -110,6 +112,10 @@ public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
             throw;
         }
     }
+
+    protected virtual int GetAcceptedLimit(int limit) => limit;
+
+    protected virtual bool CanAcquired() => _acquired < _limit;
 
     public void Dispose()
     {

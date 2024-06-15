@@ -34,7 +34,14 @@ var serviceCollection = new ServiceCollection()
     .AddLogging(cfg => cfg.AddSimpleConsole())
     .AddInMemoryLockManager()
     .AddDefaultDistributedLockManager()
-    .AddDefaultSyncAsyncTaskRunner(initialLimit: minThreads)
+    .AddDefaultSyncAsyncTaskRunner(configure: (options) =>
+    {
+        options.InitialLimit = minThreads;
+        options.AvailableCores = Environment.ProcessorCount;
+        options.TargetCpuUtil = 0.75;
+        options.WaitTime = 3500;
+        options.ServiceTime = 25;
+    })
     .AddDefaultBlockRunner()
     .AddDefaultFunctionRunner()
     .AddDefaultRuntimeEngineFactory()

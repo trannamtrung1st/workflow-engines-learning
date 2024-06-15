@@ -12,10 +12,13 @@ using Microsoft.Extensions.Options;
 using WELearning.Shared.Concurrency.Abstracts;
 
 const int minThreads = 512;
-ThreadPool.SetMinThreads(workerThreads: minThreads, completionPortThreads: minThreads);
+int maxThreads = minThreads * 2;
+var threadSet = ThreadPool.SetMinThreads(workerThreads: minThreads, completionPortThreads: minThreads);
+threadSet = ThreadPool.SetMaxThreads(workerThreads: maxThreads, completionPortThreads: maxThreads);
 
 var builder = WebApplication.CreateBuilder(args);
 var appSettingsConfig = builder.Configuration.GetSection("AppSettings");
+var taskLimiterConfig = builder.Configuration.GetSection("TaskLimiter");
 var concurrencyLimit = appSettingsConfig.GetValue<int>("ConcurrencyLimit");
 
 builder.Services
@@ -37,7 +40,7 @@ builder.Services
     // Function block services
     .AddInMemoryLockManager()
     .AddDefaultDistributedLockManager()
-    .AddDefaultSyncAsyncTaskRunner(initialLimit: concurrencyLimit)
+    .AddDefaultSyncAsyncTaskRunner(configure: (options) => taskLimiterConfig.Bind(options))
     .AddDefaultBlockRunner()
     .AddDefaultFunctionRunner()
     .AddDefaultRuntimeEngineFactory()
