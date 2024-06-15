@@ -56,7 +56,7 @@ public class FuzzyThreadController : IFuzzyThreadController
         }
     }
 
-    public int GetThreadScale(double cpu, double memory, double ideal, int factor = 10, double incFactor = 1, double decFactor = 2)
+    public int GetThreadScale(double cpu, double memory, double ideal, int factor = 10, double incFactor = 1, double decFactor = 3)
     {
         var fuzzyOutput = _fuzzyEngine.Defuzzify(new
         {
