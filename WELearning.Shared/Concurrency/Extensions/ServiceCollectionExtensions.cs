@@ -1,5 +1,4 @@
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using WELearning.Shared.Concurrency.Abstracts;
 using WELearning.Shared.Concurrency.Configurations;
 
@@ -22,6 +21,11 @@ public static class ServiceCollectionExtensions
         return services.AddSingleton<ISyncAsyncTaskRunner, SyncAsyncTaskRunner>()
             .AddSingleton<ISyncAsyncTaskLimiter, SyncAsyncTaskLimiter>()
             .Configure(configure);
+    }
+
+    public static IServiceCollection AddFuzzyThreadController(this IServiceCollection services)
+    {
+        return services.AddSingleton<IFuzzyThreadController, FuzzyThreadController>();
     }
 
     public static IServiceCollection AddDynamicRateLimiter(this IServiceCollection services, int initialLimit)

@@ -12,7 +12,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: 2.0
+          cpus: 3.0
           memory: 500M
     environment:
       Logging__LogLevel__Default: Debug
@@ -23,11 +23,16 @@ services:
       AppSettings__DevicesPerInterval: 200
       AppSettings__SimulatorInterval: 1000
       AppSettings__LatencyMs: 500
+      AppSettings__InitialConcurrencyLimit: 0
+      AppSettings__ScaleFactor: 50
+      AppSettings__ScaleCheckInterval: 5000
+      AppSettings__AcceptedAvailableConcurrency: 50
+      AppSettings__IdealUsage: 0.75
       TaskLimiter__InitialLimit: 1
-      TaskLimiter__AvailableCores: 2
+      TaskLimiter__AvailableCores: 3
       TaskLimiter__TargetCpuUtil: 0.75
       TaskLimiter__WaitTime: 4000
-      TaskLimiter__ServiceTime: 25
+      TaskLimiter__ServiceTime: 10
     networks:
       - we-bridge
 

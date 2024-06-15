@@ -10,6 +10,9 @@ using WELearning.ConsoleApp.Testing.Framework;
 using WELearning.Samples.DeviceService.Configurations;
 using Microsoft.Extensions.Options;
 using WELearning.Shared.Concurrency.Abstracts;
+using WELearning.Shared.Diagnostic.Extensions;
+using WELearning.Shared.Concurrency.Configurations;
+using WELearning.Shared.Diagnostic.Abstracts;
 
 const int minThreads = 512;
 int maxThreads = minThreads * 2;
@@ -37,7 +40,8 @@ builder.Services
     .AddSingleton<IMonitoring, Monitoring>()
     .AddScoped<IFunctionBlockService, FunctionBlockService>()
     .AddScoped<IAssetService, AssetService>()
-    // Function block services
+    .AddResourceMonitor()
+    .AddFuzzyThreadController()
     .AddInMemoryLockManager()
     .AddDefaultDistributedLockManager()
     .AddDefaultSyncAsyncTaskRunner(configure: (options) => taskLimiterConfig.Bind(options))
@@ -104,6 +108,24 @@ app.MapPost("/api/series/simulation/stop", ([FromServices] IMetricSeriesSimulato
 .WithName("Stop series simulation");
 
 
+app.MapPost("/api/fb/workers/scaling/start", ([FromServices] IFunctionBlockWorker fbWorker) =>
+{
+    fbWorker.StartDynamicScalingWorker();
+    return Results.NoContent();
+})
+.WithDisplayName("Start FB dynamic scaling worker")
+.WithName("Start FB dynamic scaling worker");
+
+
+app.MapPost("/api/fb/workers/scaling/stop", ([FromServices] IFunctionBlockWorker fbWorker) =>
+{
+    fbWorker.StopDynamicScalingWorker();
+    return Results.NoContent();
+})
+.WithDisplayName("Stop FB dynamic scaling worker")
+.WithName("Stop FB dynamic scaling worker");
+
+
 app.MapPut("/api/configs/app-settings", (
     [FromQuery] int? workerCount,
     [FromQuery] int? concurrencyLimit,
@@ -130,14 +152,26 @@ app.Run();
 
 static void Setup(WebApplication app)
 {
-    var fbWorker = app.Services.GetRequiredService<IFunctionBlockWorker>();
-    fbWorker.StartWorker(cancellationToken: app.Lifetime.ApplicationStopping);
+    var provider = app.Services;
 
-    var monitoring = app.Services.GetRequiredService<IMonitoring>();
-    monitoring.StartReport();
-
-    var appSettingsOpt = app.Services.GetRequiredService<IOptions<AppSettings>>();
-    var taskLimiter = app.Services.GetRequiredService<ISyncAsyncTaskLimiter>();
+    var appSettingsOpt = provider.GetRequiredService<IOptions<AppSettings>>();
+    var taskLimiter = provider.GetRequiredService<ISyncAsyncTaskLimiter>();
     var appSettings = appSettingsOpt.Value;
     appSettings.Changed += (o, e) => taskLimiter.SetLimit(limit: appSettings.ConcurrencyLimit);
+
+    var taskLimiterOpt = provider.GetRequiredService<IOptions<TaskLimiterOptions>>();
+    var resourceMonitor = provider.GetRequiredService<IResourceMonitor>();
+    var programLogger = provider.GetRequiredService<ILogger<Program>>();
+    var idealUsage = app.Configuration.GetValue<double>("AppSettings:IdealUsage");
+
+    appSettings.WorkerCount = (int)(resourceMonitor.TotalCores * idealUsage); // [NOTE] default worker count
+    taskLimiterOpt.Value.AvailableCores = resourceMonitor.TotalCores;
+    if (appSettings.WorkerCount < 1) appSettings.WorkerCount = 1;
+    programLogger.LogInformation("Default worker count: {WorkerCount}", appSettings.WorkerCount);
+
+    var fbWorker = provider.GetRequiredService<IFunctionBlockWorker>();
+    fbWorker.StartWorker(cancellationToken: app.Lifetime.ApplicationStopping);
+
+    var monitoring = provider.GetRequiredService<IMonitoring>();
+    monitoring.StartReport();
 }

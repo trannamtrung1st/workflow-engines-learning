@@ -90,8 +90,6 @@ public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
                     {
                         acquired = true;
                         _acquired++;
-                        Interlocked.Decrement(ref _queueCount);
-                        queued = false;
                     }
                     else _availableEvent.Reset();
                 }
@@ -106,11 +104,7 @@ public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
             }
             return new SimpleScope(() => Release(cancellationToken));
         }
-        catch
-        {
-            if (queued) Interlocked.Decrement(ref _queueCount);
-            throw;
-        }
+        finally { if (queued) Interlocked.Decrement(ref _queueCount); }
     }
 
     protected virtual int GetAcceptedLimit(int limit) => limit;
