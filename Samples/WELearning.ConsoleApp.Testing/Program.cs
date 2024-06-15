@@ -39,7 +39,7 @@ var serviceCollection = new ServiceCollection()
         options.InitialLimit = minThreads;
         options.AvailableCores = Environment.ProcessorCount;
         options.TargetCpuUtil = 0.75;
-        options.WaitTime = 3500;
+        options.WaitTime = 4000;
         options.ServiceTime = 25;
     })
     .AddDefaultBlockRunner()

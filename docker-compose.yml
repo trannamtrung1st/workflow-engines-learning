@@ -1,0 +1,36 @@
+# version: "3.8"
+# References: https://www.emqx.io/docs/en/latest/deploy/install-docker.html
+services:
+  # Sample device service
+  sample-device-service-1:
+    image: we-learning/sample-device-service:latest
+    build:
+      context: .
+      dockerfile: Samples/WELearning.Samples.DeviceService/Dockerfile
+    ports:
+      - 8080:80
+    deploy:
+      resources:
+        limits:
+          cpus: 2.0
+          memory: 500M
+    environment:
+      Logging__LogLevel__Default: Debug
+      FunctionBlock__Timeout: 00:30:00
+      FunctionBlock__JavascriptEngine__LibraryFolderPath: /app/libs
+      AppSettings__WorkerCount: 1
+      AppSettings__ConcurrencyLimit: 0
+      AppSettings__DevicesPerInterval: 200
+      AppSettings__SimulatorInterval: 1000
+      AppSettings__LatencyMs: 500
+      TaskLimiter__InitialLimit: 1
+      TaskLimiter__AvailableCores: 2
+      TaskLimiter__TargetCpuUtil: 0.75
+      TaskLimiter__WaitTime: 4000
+      TaskLimiter__ServiceTime: 25
+    networks:
+      - we-bridge
+
+networks:
+  we-bridge:
+    driver: bridge
