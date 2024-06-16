@@ -8,7 +8,10 @@ using WELearning.Shared.Diagnostic.Abstracts;
 using WELearning.Shared.Extensions;
 using WELearning.Samples.Shared.Models;
 using WELearning.Samples.Shared.Constants;
+using WELearning.Samples.Shared.Extensions;
 using Microsoft.AspNetCore.Http.Extensions;
+using WELearning.Samples.Shared.RabbitMq.Abstracts;
+using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 var appSettingsConfig = builder.Configuration.GetSection("AppSettings");
@@ -28,6 +31,8 @@ builder.Services
     .AddSingleton<IHttpClients, HttpClients>()
     .AddScoped<IFunctionBlockService, FunctionBlockService>()
     .AddScoped<IAssetService, AssetService>();
+
+SetupRabbitMq(services: builder.Services, configuration: builder.Configuration);
 
 builder.Services
     .AddHttpClient(ClientNames.DeviceService);
@@ -198,8 +203,10 @@ app.MapPut("/api/fb/workers/{host}/configs/app-settings", async (
     builder.Host = host;
     builder.Path = "/api/configs/app-settings";
     var queryBuilder = new QueryBuilder();
-    queryBuilder.Add(nameof(workerCount), workerCount?.ToString());
-    queryBuilder.Add(nameof(initialConcurrencyLimit), initialConcurrencyLimit?.ToString());
+    if (workerCount.HasValue)
+        queryBuilder.Add(nameof(workerCount), workerCount.ToString());
+    if (initialConcurrencyLimit.HasValue)
+        queryBuilder.Add(nameof(initialConcurrencyLimit), initialConcurrencyLimit.ToString());
     builder.Query = queryBuilder.ToString();
 
     var resp = await clients.FBWorker.PutAsJsonAsync(builder.Uri, value: default(object));
@@ -219,4 +226,59 @@ static void Setup(WebApplication app)
     var provider = app.Services;
     var rateMonitor = provider.GetRequiredService<IRateMonitor>();
     rateMonitor.StartReport();
+
+    var programLogger = provider.GetService<ILogger<Program>>();
+    var configuration = provider.GetService<IConfiguration>();
+    var rabbitMqManager = provider.GetRequiredService<IRabbitMqConnectionManager>();
+    var channelId = TopicNames.AttributeChanged;
+    rabbitMqManager.ConfigureChannel(channelId, SetupRabbitMqChannel(configuration, channelId, logger: programLogger));
+    rabbitMqManager.Connect();
+}
+
+static void SetupRabbitMq(IServiceCollection services, IConfiguration configuration)
+{
+    var rabbitMqClientOptions = configuration.GetSection("RabbitMqClient");
+    var factory = rabbitMqClientOptions.Get<ConnectionFactory>();
+
+    services.AddRabbitMqConnectionManager(
+        connectionFactory: factory,
+        configureConnectionFactory: SetupRabbitMqConnection
+    );
+}
+
+static Action<IModel> SetupRabbitMqChannel(IConfiguration configuration, string channelId, ILogger logger)
+{
+    void ConfigureChannel(IModel channel)
+    {
+        channel.ContinuationTimeout = configuration.GetValue<TimeSpan?>("RabbitMqChannel:ContinuationTimeout") ?? channel.ContinuationTimeout;
+        channel.ModelShutdown += (sender, e) => OnModelShutdown(sender, e, channelId, logger);
+        channel.ConfirmSelect();
+    }
+    return ConfigureChannel;
+}
+
+static void OnModelShutdown(object sender, ShutdownEventArgs e, string channelId, ILogger logger)
+{
+    if (e.Exception != null)
+        logger.LogError(e.Exception, "RabbitMQ channel {ChannelId} shutdown reason: {Reason} | Message: {Message}", channelId, e.Cause, e.Exception?.Message);
+    else
+        logger.LogInformation("RabbitMQ channel {ChannelId} shutdown reason: {Reason}", channelId, e.Cause);
+}
+
+static Action<IConnection> SetupRabbitMqConnection(IServiceProvider provider)
+{
+    var logger = provider.GetRequiredService<ILogger<Program>>();
+    void ConfigureConnection(IConnection connection)
+    {
+        connection.ConnectionShutdown += (sender, e) => OnConnectionShutdown(sender, e, logger);
+    }
+    return ConfigureConnection;
+}
+
+static void OnConnectionShutdown(object sender, ShutdownEventArgs e, ILogger logger)
+{
+    if (e.Exception != null)
+        logger.LogError(e.Exception, "RabbitMQ connection shutdown reason: {Reason} | Message: {Message}", e.Cause, e.Exception?.Message);
+    else
+        logger.LogInformation("RabbitMQ connection shutdown reason: {Reason}", e.Cause);
 }

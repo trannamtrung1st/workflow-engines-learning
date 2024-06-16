@@ -1,8 +1,10 @@
+using System.Text.Json;
 using WELearning.Samples.DeviceService.Entities;
 using WELearning.Samples.DeviceService.Persistent;
 using WELearning.Samples.DeviceService.Services.Abstracts;
 using WELearning.Samples.Shared.Constants;
 using WELearning.Samples.Shared.Models;
+using WELearning.Samples.Shared.RabbitMq.Abstracts;
 using WELearning.Shared.Diagnostic.Abstracts;
 
 namespace WELearning.Samples.DeviceService.Services;
@@ -11,13 +13,16 @@ public class AssetService : IAssetService
 {
     private readonly DataStore _dataStore;
     private readonly IRateMonitor _monitoring;
+    private readonly IRabbitMqConnectionManager _rabbitMqManager;
 
     public AssetService(
         DataStore dataStore,
-        IRateMonitor monitoring)
+        IRateMonitor monitoring,
+        IRabbitMqConnectionManager rabbitMqManager)
     {
         _dataStore = dataStore;
         _monitoring = monitoring;
+        _rabbitMqManager = rabbitMqManager;
     }
 
     public async Task AddMetricSeries(IEnumerable<MetricSeries> series, string demoBlockId)
@@ -30,6 +35,9 @@ public class AssetService : IAssetService
 
         foreach (var s in series)
         {
+            // [NOTE] demo only
+            if (s.AttributeName != "dynamic1")
+                continue;
             Publish(
                 topic: TopicNames.AttributeChanged,
                 message: new AttributeChangedEvent(s.AssetId, s.AttributeName, s.Value, s.Timestamp, demoBlockId));
@@ -88,6 +96,16 @@ public class AssetService : IAssetService
 
     private void Publish(string topic, AttributeChangedEvent message)
     {
-
+        var channel = _rabbitMqManager.GetChannel(channelId: TopicNames.AttributeChanged);
+        ReadOnlyMemory<byte> bytes = JsonSerializer.SerializeToUtf8Bytes(message);
+        var properties = channel.CreateBasicProperties();
+        properties.Persistent = true;
+        properties.ContentType = "application/json";
+        channel.BasicPublish(
+            exchange: topic,
+            routingKey: "all",
+            mandatory: true,
+            basicProperties: properties,
+            body: bytes);
     }
 }

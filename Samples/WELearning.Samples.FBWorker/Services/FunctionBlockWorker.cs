@@ -1,8 +1,14 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using Microsoft.Extensions.Options;
+using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
 using WELearning.Samples.FBWorker.Configurations;
 using WELearning.Samples.FBWorker.Services.Abstracts;
+using WELearning.Samples.Shared.Constants;
 using WELearning.Samples.Shared.Models;
+using WELearning.Samples.Shared.RabbitMq.Abstracts;
+using WELearning.Shared.Concurrency;
 using WELearning.Shared.Concurrency.Abstracts;
 using WELearning.Shared.Diagnostic.Abstracts;
 
@@ -22,9 +28,9 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
     private readonly Queue<int> _availableCounts = new Queue<int>();
     private readonly SemaphoreSlim _concurrencyCollectorLock = new SemaphoreSlim(1);
     private readonly IFuzzyThreadController _fuzzyThreadController;
+    private readonly IRabbitMqConnectionManager _rabbitMqConnectionManager;
     private bool _resourceMonitorSet = false;
     private System.Timers.Timer _concurrencyCollector;
-    private CancellationToken _cancellationToken;
 
     public FunctionBlockWorker(
         IServiceProvider serviceProvider,
@@ -34,7 +40,8 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
         IConfiguration configuration,
         IFuzzyThreadController fuzzyThreadController,
         ISyncAsyncTaskLimiter taskLimiter,
-        IResourceMonitor resourceMonitor)
+        IResourceMonitor resourceMonitor,
+        IRabbitMqConnectionManager rabbitMqConnectionManager)
     {
         _serviceProvider = serviceProvider;
         _taskRunner = taskRunner;
@@ -44,20 +51,21 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
         _configuration = configuration;
         _fuzzyThreadController = fuzzyThreadController;
         _resourceMonitor = resourceMonitor;
+        _rabbitMqConnectionManager = rabbitMqConnectionManager;
         _workers = new();
     }
 
     public void StartWorker(CancellationToken cancellationToken)
     {
-        _cancellationToken = cancellationToken;
         CancellationTokenRegistration reg = default;
         reg = cancellationToken.Register(() =>
         {
             using var _ = reg;
-            foreach (var worker in _workers)
-                worker.Cts?.Cancel();
+            while (_workers.TryDequeue(out var workerControl))
+                Cancel(workerControl);
         });
 
+        _rabbitMqConnectionManager.Connect();
         StartConcurrencyCollector();
         ScaleUp(_appSettings.Value.WorkerCount);
 
@@ -154,42 +162,12 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
         finally { _concurrencyCollectorLock.Release(); }
     }
 
-    // [TODO] mem leak
-    private WorkerControl NewWorker()
+    private WorkerControl CreateControl(string channelId)
     {
         WorkerControl workerControl = null;
-        var workerThread = new Thread(async () =>
-        {
-            using var _ = workerControl;
+        workerControl = new WorkerControl(
+            scope: new SimpleScope(onDispose: () => _rabbitMqConnectionManager.Close(channelId)));
 
-            try
-            {
-                while (!_cancellationToken.IsCancellationRequested && !workerControl.Stopped)
-                {
-                    CancellationTokenSource cts = new();
-                    workerControl.Cts = cts;
-                    AttributeChangedEvent message = default; // [TODO]
-
-                    async Task Handle()
-                    {
-                        using var scope = _serviceProvider.CreateScope();
-                        var fbService = scope.ServiceProvider.GetRequiredService<IFunctionBlockService>();
-                        await fbService.HandleAttributeChanged(message, cancellationToken: cts.Token);
-                    }
-
-                    await _taskRunner.TryRunTaskAsync(async (asyncScope) =>
-                    {
-                        using var _ = asyncScope;
-                        using var _1 = cts;
-                        try { await Handle(); }
-                        catch (Exception ex) { _logger.LogError(ex, ex.Message); }
-                    }, cancellationToken: cts.Token);
-                }
-            }
-            catch (Exception ex) { _logger.LogError(ex, ex.Message); }
-        });
-        workerThread.IsBackground = true;
-        workerControl = new WorkerControl(workerThread);
         return workerControl;
     }
 
@@ -208,19 +186,79 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
     {
         while (_workers.Count < to)
         {
-            var workerControl = NewWorker();
+            var channelId = _workers.Count.ToString();
+            var workerControl = CreateControl(channelId);
             _workers.Enqueue(workerControl);
-            workerControl.Start();
+
+            _rabbitMqConnectionManager.ConfigureChannel(channelId, SetupRabbitMqChannel(channelId));
+            _rabbitMqConnectionManager.Connect(channelId);
+            var channel = _rabbitMqConnectionManager.GetChannel(channelId);
+            var consumer = new AsyncEventingBasicConsumer(channel);
+            consumer.Received += (s, e) => OnMessageReceived(s, e, workerControl, channel);
+            channel.BasicConsume(queue: TopicNames.AttributeChanged, autoAck: false, consumer);
         }
     }
 
     private void ScaleDown(int to)
     {
         while (_workers.Count > to && _workers.TryDequeue(out var workerControl))
+            Cancel(workerControl);
+    }
+
+    private static void Cancel(WorkerControl workerControl)
+    {
+        try
         {
-            workerControl.Stopped = true;
+            using var _1 = workerControl;
             workerControl.Cts?.Cancel();
         }
+        catch { }
+    }
+
+    private Action<IModel> SetupRabbitMqChannel(string channelId)
+    {
+        void ConfigureChannel(IModel channel)
+        {
+            var rabbitMqChannelOptions = _configuration.GetSection("RabbitMqChannel");
+            channel.BasicQos(
+                prefetchSize: 0, // RabbitMQ not implemented
+                prefetchCount: rabbitMqChannelOptions.GetValue<ushort>("PrefetchCount"),
+                global: false);
+            channel.ContinuationTimeout = _configuration.GetValue<TimeSpan?>("RabbitMqChannel:ContinuationTimeout") ?? channel.ContinuationTimeout;
+            channel.ModelShutdown += (sender, e) => OnModelShutdown(sender, e, channelId);
+        }
+        return ConfigureChannel;
+    }
+
+    private void OnModelShutdown(object sender, ShutdownEventArgs e, string channelId)
+    {
+        if (e.Exception != null)
+            _logger.LogError(e.Exception, "RabbitMQ channel {ChannelId} shutdown reason: {Reason} | Message: {Message}", channelId, e.Cause, e.Exception?.Message);
+        else
+            _logger.LogInformation("RabbitMQ channel {ChannelId} shutdown reason: {Reason}", channelId, e.Cause);
+    }
+
+    private async Task OnMessageReceived(object sender, BasicDeliverEventArgs e, WorkerControl workerControl, IModel channel)
+    {
+        CancellationTokenSource cts = new();
+        workerControl.Cts = cts;
+        AttributeChangedEvent message = JsonSerializer.Deserialize<AttributeChangedEvent>(e.Body.ToArray());
+
+        async Task Handle()
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var fbService = scope.ServiceProvider.GetRequiredService<IFunctionBlockService>();
+            await fbService.HandleAttributeChanged(message, cancellationToken: cts.Token);
+            channel.BasicAck(e.DeliveryTag, multiple: false);
+        }
+
+        await _taskRunner.TryRunTaskAsync(async (asyncScope) =>
+        {
+            using var _ = asyncScope;
+            using var _1 = cts;
+            try { await Handle(); }
+            catch (Exception ex) { _logger.LogError(ex, ex.Message); }
+        }, cancellationToken: cts.Token);
     }
 
     public void Dispose()
@@ -238,20 +276,17 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
 
     class WorkerControl : IDisposable
     {
-        public WorkerControl(Thread thread)
+        private readonly IDisposable _scope;
+        public WorkerControl(IDisposable scope)
         {
-            Thread = thread;
-            Stopped = false;
+            _scope = scope;
         }
 
         public CancellationTokenSource Cts { get; set; }
-        public Thread Thread { get; }
-        public bool Stopped { get; set; }
-
-        public void Start() => Thread.Start();
 
         public void Dispose()
         {
+            using var _ = _scope;
             Cts?.Dispose();
         }
     }

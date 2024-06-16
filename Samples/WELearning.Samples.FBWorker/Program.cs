@@ -6,10 +6,12 @@ using WELearning.Samples.FBWorker.Services.Abstracts;
 using WELearning.DynamicCodeExecution.Extensions;
 using WELearning.Samples.FBWorker.FunctionBlock;
 using WELearning.Samples.Shared.Constants;
+using WELearning.Samples.Shared.Extensions;
 using WELearning.Shared.Extensions;
 using WELearning.Core.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Mvc;
+using RabbitMQ.Client;
 
 const int minThreads = 512;
 int maxThreads = minThreads * 2;
@@ -52,6 +54,8 @@ builder.Services
         var libraryFolderPath = builder.Configuration["FunctionBlock:JavascriptEngine:LibraryFolderPath"];
         options.LibraryFolderPath = libraryFolderPath;
     });
+
+SetupRabbitMq(services: builder.Services, configuration: builder.Configuration);
 
 builder.Services
     .AddHttpClient(ClientNames.DeviceService, httpClient =>
@@ -114,4 +118,33 @@ app.Run();
 static void Setup(WebApplication app)
 {
     var provider = app.Services;
+}
+
+static void SetupRabbitMq(IServiceCollection services, IConfiguration configuration)
+{
+    var rabbitMqClientOptions = configuration.GetSection("RabbitMqClient");
+    var factory = rabbitMqClientOptions.Get<ConnectionFactory>();
+
+    services.AddRabbitMqConnectionManager(
+        connectionFactory: factory,
+        configureConnectionFactory: SetupRabbitMqConnection
+    );
+}
+
+static Action<IConnection> SetupRabbitMqConnection(IServiceProvider provider)
+{
+    var logger = provider.GetRequiredService<ILogger<Program>>();
+    void ConfigureConnection(IConnection connection)
+    {
+        connection.ConnectionShutdown += (sender, e) => OnConnectionShutdown(sender, e, logger);
+    }
+    return ConfigureConnection;
+}
+
+static void OnConnectionShutdown(object sender, ShutdownEventArgs e, ILogger logger)
+{
+    if (e.Exception != null)
+        logger.LogError(e.Exception, "RabbitMQ connection shutdown reason: {Reason} | Message: {Message}", e.Cause, e.Exception?.Message);
+    else
+        logger.LogInformation("RabbitMQ connection shutdown reason: {Reason}", e.Cause);
 }
