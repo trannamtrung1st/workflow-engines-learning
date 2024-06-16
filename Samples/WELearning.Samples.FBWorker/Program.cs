@@ -12,6 +12,7 @@ using WELearning.Shared.Extensions;
 using WELearning.Core.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Mvc;
+using WELearning.Samples.Shared.Kafka.Abstracts;
 
 const int minThreads = 512;
 int maxThreads = minThreads * 2;
@@ -110,4 +111,16 @@ app.MapPut("/api/configs/app-settings", (
 .WithName("Update app settings");
 
 
+Setup(app);
+
 app.Run();
+
+
+static void Setup(WebApplication app)
+{
+    var provider = app.Services;
+    var kafkaClientManager = provider.GetRequiredService<IKafkaClientManager>();
+    var kafkaPath = app.Configuration["AppSettings:KafkaPath"];
+    if (!string.IsNullOrEmpty(kafkaPath))
+        kafkaClientManager.LoadLibrary(kafkaPath);
+}

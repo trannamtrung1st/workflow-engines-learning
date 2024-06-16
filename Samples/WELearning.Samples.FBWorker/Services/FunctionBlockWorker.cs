@@ -164,6 +164,7 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
         finally { _concurrencyCollectorLock.Release(); }
     }
 
+    // [TODO] mem leak
     private WorkerControl NewWorker()
     {
         WorkerControl workerControl = null;

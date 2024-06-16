@@ -40,7 +40,7 @@ public class AssetService : IAssetService
 
         foreach (var s in series)
         {
-            await Publish(
+            Publish(
                 topic: TopicNames.AttributeChanged,
                 message: new AttributeChangedEvent(s.AssetId, s.AttributeName, s.Value, s.Timestamp, demoBlockId));
         }
@@ -96,9 +96,9 @@ public class AssetService : IAssetService
         await _dataStore.UpdateRuntime(entities);
     }
 
-    private async Task Publish(string topic, AttributeChangedEvent message)
+    private void Publish(string topic, AttributeChangedEvent message)
     {
-        await _producer.ProduceAsync(topic, new Message<Null, byte[]>()
+        _producer.Produce(topic, new Message<Null, byte[]>()
         {
             Value = JsonSerializer.SerializeToUtf8Bytes(message),
             Timestamp = new Timestamp(DateTime.UtcNow)

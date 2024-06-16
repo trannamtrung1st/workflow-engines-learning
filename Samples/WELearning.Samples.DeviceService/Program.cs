@@ -12,6 +12,7 @@ using WELearning.Samples.Shared.Extensions;
 using WELearning.Samples.Shared.Kafka.Abstracts;
 using WELearning.Samples.Shared.Models;
 using WELearning.Samples.Shared.Constants;
+using Microsoft.AspNetCore.Http.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 var appSettingsConfig = builder.Configuration.GetSection("AppSettings");
@@ -36,6 +37,9 @@ builder.Services
     .AddScoped<IFunctionBlockService, FunctionBlockService>()
     .AddScoped<IAssetService, AssetService>();
 
+builder.Services
+    .AddHttpClient(ClientNames.DeviceService);
+
 var app = builder.Build();
 
 app.UseSwagger();
@@ -58,7 +62,8 @@ app.MapPost("/api/assets/attributes/snapshots", async (
     return snapshots;
 })
 .WithDisplayName("Get asset attributes snapshots")
-.WithName("Get asset attributes snapshots");
+.WithName("Get asset attributes snapshots")
+.ExcludeFromDescription();
 
 
 app.MapPut("/api/assets/attributes/snapshots", async (
@@ -69,7 +74,8 @@ app.MapPut("/api/assets/attributes/snapshots", async (
     return Results.NoContent();
 })
 .WithDisplayName("Update asset attributes snapshots")
-.WithName("Update asset attributes snapshots");
+.WithName("Update asset attributes snapshots")
+.ExcludeFromDescription();
 
 
 app.MapGet("/api/assets/{assetId}/attributes/{attributeName}/series", async (
@@ -82,7 +88,8 @@ app.MapGet("/api/assets/{assetId}/attributes/{attributeName}/series", async (
     return series;
 })
 .WithDisplayName("Get asset attribute series")
-.WithName("Get asset attribute series");
+.WithName("Get asset attribute series")
+.ExcludeFromDescription();
 
 
 app.MapGet("/api/fb/{id}", async (string id, [FromServices] IFunctionBlockService fbService) =>
@@ -91,7 +98,8 @@ app.MapGet("/api/fb/{id}", async (string id, [FromServices] IFunctionBlockServic
     return cfb;
 })
 .WithDisplayName("Get composite block definition")
-.WithName("Get composite block definition");
+.WithName("Get composite block definition")
+.ExcludeFromDescription();
 
 
 app.MapPost("/api/series/simulation/{demoBlockId}", async (
@@ -157,6 +165,66 @@ app.MapPut("/api/configs/app-settings", (
 .WithName("Update app settings");
 
 
+#region FBWorker API
+
+app.MapPost("/api/fb/workers/{host}/scaling/start", async (string host, [FromServices] IHttpClientFactory httpClientFactory) =>
+{
+    using var httpClient = httpClientFactory.CreateClient(ClientNames.FBWorker);
+
+    var builder = new UriBuilder();
+    builder.Scheme = "http";
+    builder.Host = host;
+    builder.Path = "/api/fb/workers/scaling/start";
+
+    var resp = await httpClient.PostAsJsonAsync(builder.Uri, value: default(object));
+    return Results.StatusCode((int)resp.StatusCode);
+})
+.WithDisplayName("Start FB dynamic scaling worker")
+.WithName("Start FB dynamic scaling worker");
+
+
+app.MapPost("/api/fb/workers/{host}/scaling/stop", async (string host, [FromServices] IHttpClientFactory httpClientFactory) =>
+{
+    using var httpClient = httpClientFactory.CreateClient(ClientNames.FBWorker);
+
+    var builder = new UriBuilder();
+    builder.Scheme = "http";
+    builder.Host = host;
+    builder.Path = "/api/fb/workers/scaling/stop";
+
+    var resp = await httpClient.PostAsJsonAsync(builder.Uri, value: default(object));
+    return Results.StatusCode((int)resp.StatusCode);
+})
+.WithDisplayName("Stop FB dynamic scaling worker")
+.WithName("Stop FB dynamic scaling worker");
+
+
+app.MapPut("/api/fb/workers/{host}/configs/app-settings", async (
+    string host,
+    [FromQuery] int? workerCount,
+    [FromQuery] int? initialConcurrencyLimit,
+    [FromServices] IOptions<AppSettings> appSettings,
+    [FromServices] IHttpClientFactory httpClientFactory) =>
+{
+    using var httpClient = httpClientFactory.CreateClient(ClientNames.FBWorker);
+
+    var builder = new UriBuilder();
+    builder.Scheme = "http";
+    builder.Host = host;
+    builder.Path = "/api/configs/app-settings";
+    var queryBuilder = new QueryBuilder();
+    queryBuilder.Add(nameof(workerCount), workerCount?.ToString());
+    queryBuilder.Add(nameof(initialConcurrencyLimit), initialConcurrencyLimit?.ToString());
+    builder.Query = queryBuilder.ToString();
+
+    var resp = await httpClient.PutAsJsonAsync(builder.Uri, value: default(object));
+    return Results.StatusCode((int)resp.StatusCode);
+})
+.WithDisplayName("Update worker app settings")
+.WithName("Update worker app settings");
+
+#endregion
+
 await Setup(app);
 
 app.Run();
@@ -168,6 +236,10 @@ static async Task Setup(WebApplication app)
     rateMonitor.StartReport();
 
     var kafkaClientManager = provider.GetRequiredService<IKafkaClientManager>();
+    var kafkaPath = app.Configuration["AppSettings:KafkaPath"];
+    if (!string.IsNullOrEmpty(kafkaPath))
+        kafkaClientManager.LoadLibrary(kafkaPath);
+
     var adminClientOptions = provider.GetRequiredService<IOptions<AdminClientConfig>>();
     using var adminClient = kafkaClientManager.GetAdminClient(adminClientOptions.Value);
     var existingTopics = adminClient

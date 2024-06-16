@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Confluent.Kafka;
+using Microsoft.Extensions.Logging;
 using WELearning.Samples.Shared.Kafka.Abstracts;
 
 namespace WELearning.Samples.Shared.Kafka;
@@ -9,9 +10,11 @@ public class KafkaClientManager : IKafkaClientManager, IDisposable
     private readonly ConcurrentDictionary<string, object> _producerMap;
     private readonly ConcurrentDictionary<string, object> _consumerMap;
     private readonly ConcurrentDictionary<string, IAdminClient> _adminClientMap;
+    private readonly ILogger<KafkaClientManager> _logger;
 
-    public KafkaClientManager()
+    public KafkaClientManager(ILogger<KafkaClientManager> logger)
     {
+        _logger = logger;
         _producerMap = new();
         _consumerMap = new();
         _adminClientMap = new();
@@ -42,6 +45,16 @@ public class KafkaClientManager : IKafkaClientManager, IDisposable
         return cacheKey != null
             ? _producerMap.GetOrAdd(cacheKey, (_) => CreateClient()) as IProducer<TKey, TValue>
             : CreateClient();
+    }
+
+    public void LoadLibrary(string path)
+    {
+        try { Library.Load(path); }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, ex.Message);
+            throw;
+        }
     }
 
     public void Dispose()
