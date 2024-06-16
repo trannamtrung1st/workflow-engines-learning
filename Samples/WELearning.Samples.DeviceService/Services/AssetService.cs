@@ -1,23 +1,21 @@
 using WELearning.Samples.DeviceService.Entities;
-using WELearning.Samples.DeviceService.Models;
 using WELearning.Samples.DeviceService.Persistent;
 using WELearning.Samples.DeviceService.Services.Abstracts;
+using WELearning.Samples.Shared.Models;
+using WELearning.Shared.Diagnostic.Abstracts;
 
 namespace WELearning.Samples.DeviceService.Services;
 
 public class AssetService : IAssetService
 {
     private readonly DataStore _dataStore;
-    private readonly IMessageQueue _messageQueue;
-    private readonly IMonitoring _monitoring;
+    private readonly IRateMonitor _monitoring;
 
     public AssetService(
         DataStore dataStore,
-        IMessageQueue messageQueue,
-        IMonitoring monitoring)
+        IRateMonitor monitoring)
     {
         _dataStore = dataStore;
-        _messageQueue = messageQueue;
         _monitoring = monitoring;
     }
 
@@ -31,7 +29,7 @@ public class AssetService : IAssetService
 
         foreach (var s in series)
         {
-            await _messageQueue.Publish(
+            await Publish(
                 topic: TopicNames.AttributeChanged,
                 message: new AttributeChangedEvent(s.AssetId, s.AttributeName, s.Value, s.Timestamp, demoBlockId));
         }
@@ -85,5 +83,11 @@ public class AssetService : IAssetService
         }).ToArray();
 
         await _dataStore.UpdateRuntime(entities);
+    }
+
+    private Task Publish(string topic, AttributeChangedEvent message)
+    {
+        // [TODO]
+        throw new NotImplementedException();
     }
 }

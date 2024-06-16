@@ -1,6 +1,6 @@
 using WELearning.Core.FunctionBlocks.Framework;
 
-namespace WELearning.ConsoleApp.Testing.Framework;
+namespace WELearning.Samples.FBWorker.FunctionBlock;
 
 public class DeviceFunctionFramework : FunctionFramework
 {

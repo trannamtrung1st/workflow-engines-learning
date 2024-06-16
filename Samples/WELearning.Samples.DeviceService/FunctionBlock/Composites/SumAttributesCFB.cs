@@ -1,9 +1,9 @@
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.Constants;
-using WELearning.ConsoleApp.Testing.Framework.Bindings;
 using WELearning.Core.FunctionBlocks;
 using WELearning.DynamicCodeExecution.Constants;
+using WELearning.Samples.DeviceService.FunctionBlock.Constants;
 
 namespace WELearning.Samples.DeviceService.FunctionBlock.Composites;
 
@@ -18,7 +18,7 @@ public static class SumAttributesCFB
             id: IOBoundId,
             name: "Produce attributes sum and previous sum (IO bound)");
 
-        var attrType = nameof(AttributeBinding);
+        var attrType = BindingNames.AttributeBinding;
         var iAttr1 = new Variable("Attr1", dataType: EDataType.Reference, variableType: EVariableType.Input, objectType: attrType);
         var iAttr2 = new Variable("Attr2", dataType: EDataType.Reference, variableType: EVariableType.Input, objectType: attrType);
         var oSum = new Variable("AttrSum", dataType: EDataType.Reference, variableType: EVariableType.Output, objectType: attrType);
@@ -220,7 +220,7 @@ public static class SumAttributesCFB
             id: CpuBoundId,
             name: "Produce attributes sum and previous sum (CPU bound)");
 
-        var attrType = nameof(AttributeBinding);
+        var attrType = BindingNames.AttributeBinding;
         var iAttr1 = new Variable("Attr1", dataType: EDataType.Reference, variableType: EVariableType.Input, objectType: attrType);
         var iAttr2 = new Variable("Attr2", dataType: EDataType.Reference, variableType: EVariableType.Input, objectType: attrType);
         var oSum = new Variable("AttrSum", dataType: EDataType.Reference, variableType: EVariableType.Output, objectType: attrType);

@@ -1,4 +1,4 @@
-namespace WELearning.Samples.DeviceService.Services.Abstracts;
+namespace WELearning.Samples.FBWorker.Services.Abstracts;
 
 public interface IFunctionBlockWorker
 {

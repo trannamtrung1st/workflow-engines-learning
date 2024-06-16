@@ -1,16 +1,15 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Options;
-using WELearning.Samples.DeviceService.Configurations;
-using WELearning.Samples.DeviceService.Models;
-using WELearning.Samples.DeviceService.Services.Abstracts;
+using WELearning.Samples.FBWorker.Configurations;
+using WELearning.Samples.FBWorker.Services.Abstracts;
+using WELearning.Samples.Shared.Models;
 using WELearning.Shared.Concurrency.Abstracts;
 using WELearning.Shared.Diagnostic.Abstracts;
 
-namespace WELearning.Samples.DeviceService.Services;
+namespace WELearning.Samples.FBWorker.Services;
 
 public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
 {
-    private readonly IMessageQueue _messageQueue;
     private readonly IServiceProvider _serviceProvider;
     private readonly ISyncAsyncTaskRunner _taskRunner;
     private readonly ISyncAsyncTaskLimiter _taskLimiter;
@@ -28,7 +27,6 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
     private CancellationToken _cancellationToken;
 
     public FunctionBlockWorker(
-        IMessageQueue messageQueue,
         IServiceProvider serviceProvider,
         ISyncAsyncTaskRunner taskRunner,
         ILogger<FunctionBlockWorker> logger,
@@ -38,7 +36,6 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
         ISyncAsyncTaskLimiter taskLimiter,
         IResourceMonitor resourceMonitor)
     {
-        _messageQueue = messageQueue;
         _serviceProvider = serviceProvider;
         _taskRunner = taskRunner;
         _taskLimiter = taskLimiter;
@@ -159,14 +156,14 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
 
     private WorkerControl NewWorker()
     {
-        // [TODO] apply fuzzy thread controller
         WorkerControl workerControl = null;
         var workerThread = new Thread(async () =>
         {
             using var _ = workerControl;
             while (!_cancellationToken.IsCancellationRequested && !workerControl.Stopped)
             {
-                var message = _messageQueue.Consume<AttributeChangedEvent>(TopicNames.AttributeChanged);
+                // [TODO] consume
+                AttributeChangedEvent message = default;
                 CancellationTokenSource cts = new();
                 workerControl.Cts = cts;
 

@@ -1,8 +1,8 @@
-using WELearning.ConsoleApp.Testing.Framework.Bindings;
 using WELearning.Core.Constants;
 using WELearning.Core.FunctionBlocks;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.FunctionBlocks.Models.Design;
+using WELearning.Samples.DeviceService.FunctionBlock.Constants;
 
 namespace WELearning.Samples.DeviceService.FunctionBlock.Basics;
 
@@ -18,7 +18,7 @@ public static class LastSeriesBeforeBFB
             Result = series;
             ", imports: null, importBlockIds: null,
             signature: "LastSeriesBefore", exported: true,
-            new Variable("Attribute", EDataType.Reference, EVariableType.Input, objectType: nameof(AttributeBinding)),
+            new Variable("Attribute", EDataType.Reference, EVariableType.Input, objectType: BindingNames.AttributeBinding),
             new Variable("BeforeTime", EDataType.DateTime, EVariableType.Input),
             new Variable("Result", EDataType.Object, EVariableType.Output));
     }

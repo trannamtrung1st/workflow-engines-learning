@@ -1,16 +1,17 @@
 using System.Collections.Concurrent;
 using System.Text;
-using WELearning.Samples.DeviceService.Services.Abstracts;
+using Microsoft.Extensions.Logging;
+using WELearning.Shared.Diagnostic.Abstracts;
 
-namespace WELearning.Samples.DeviceService.Services;
+namespace WELearning.Shared.Diagnostic;
 
-public class Monitoring : IMonitoring, IDisposable
+public class RateMonitor : IRateMonitor, IDisposable
 {
     private readonly ConcurrentDictionary<string, CategoryCount> _categoryMap;
-    private readonly ILogger<Monitoring> _logger;
+    private readonly ILogger<RateMonitor> _logger;
     private readonly System.Timers.Timer _reportTimer;
 
-    public Monitoring(ILogger<Monitoring> logger)
+    public RateMonitor(ILogger<RateMonitor> logger)
     {
         _categoryMap = new();
         _logger = logger;

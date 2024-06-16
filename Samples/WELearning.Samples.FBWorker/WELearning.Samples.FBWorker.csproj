@@ -1,16 +1,18 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Worker">
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-WELearning.Samples.FBWorker-bf19ebab-1e90-4fbf-ae95-6c67e0da7819</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\WELearning.Core\WELearning.Core.csproj" />
+    <ProjectReference Include="..\..\WELearning.DynamicCodeExecution.Engines.JintJavascript\WELearning.DynamicCodeExecution.Engines.JintJavascript.csproj" />
     <ProjectReference Include="..\WELearning.Samples.Shared\WELearning.Samples.Shared.csproj" />
   </ItemGroup>
 

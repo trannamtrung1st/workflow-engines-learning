@@ -1,9 +1,9 @@
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Framework;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
-using WELearning.Samples.DeviceService.Services.Abstracts;
+using WELearning.Samples.FBWorker.Services.Abstracts;
 
-namespace WELearning.ConsoleApp.Testing.Framework;
+namespace WELearning.Samples.FBWorker.FunctionBlock;
 
 public class DeviceBlockFrameworkFactory : BlockFrameworkFactory
 {

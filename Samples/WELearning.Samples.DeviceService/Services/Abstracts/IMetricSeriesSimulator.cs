@@ -1,4 +1,4 @@
-using WELearning.Samples.DeviceService.Models;
+using WELearning.Samples.Shared.Models;
 
 namespace WELearning.Samples.DeviceService.Services.Abstracts;
 

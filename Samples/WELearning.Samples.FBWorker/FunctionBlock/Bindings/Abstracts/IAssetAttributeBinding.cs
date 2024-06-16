@@ -1,6 +1,6 @@
-using WELearning.Samples.DeviceService.Models;
+using WELearning.Samples.Shared.Models;
 
-namespace WELearning.Samples.DeviceService.FunctionBlock.Bindings.Abstracts;
+namespace WELearning.Samples.FBWorker.FunctionBlock.Bindings.Abstracts;
 
 public interface IAssetAttributeBinding
 {

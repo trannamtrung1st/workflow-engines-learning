@@ -1,9 +1,9 @@
 using WELearning.Core.FunctionBlocks;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Design;
-using WELearning.Samples.DeviceService.Models;
+using WELearning.Samples.Shared.Models;
 
-namespace WELearning.Samples.DeviceService.FunctionBlock.ValueObjects;
+namespace WELearning.Samples.FBWorker.FunctionBlock.ValueObjects;
 
 public class AttributeValueObject : RawValueObject
 {

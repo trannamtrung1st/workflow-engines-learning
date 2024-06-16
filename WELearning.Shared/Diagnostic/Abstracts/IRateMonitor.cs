@@ -1,6 +1,6 @@
-namespace WELearning.Samples.DeviceService.Services.Abstracts;
+namespace WELearning.Shared.Diagnostic.Abstracts;
 
-public interface IMonitoring
+public interface IRateMonitor
 {
     void Capture(string category, int count);
     int GetRate(string category);

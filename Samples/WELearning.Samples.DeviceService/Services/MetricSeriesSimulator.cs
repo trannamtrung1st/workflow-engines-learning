@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Options;
 using WELearning.Samples.DeviceService.Configurations;
-using WELearning.Samples.DeviceService.Models;
 using WELearning.Samples.DeviceService.Persistent;
 using WELearning.Samples.DeviceService.Services.Abstracts;
+using WELearning.Samples.Shared.Models;
 
 namespace WELearning.Samples.DeviceService.Services;
 

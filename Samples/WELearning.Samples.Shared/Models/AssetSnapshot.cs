@@ -1,4 +1,4 @@
-namespace WELearning.Samples.DeviceService.Models;
+namespace WELearning.Samples.Shared.Models;
 
 public class AssetSnapshot
 {

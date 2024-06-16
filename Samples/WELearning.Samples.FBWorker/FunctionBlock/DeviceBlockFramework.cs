@@ -1,11 +1,11 @@
-using WELearning.ConsoleApp.Testing.Framework.Bindings;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.FunctionBlocks.Framework;
-using WELearning.Samples.DeviceService.FunctionBlock.ValueObjects;
-using WELearning.Samples.DeviceService.Services.Abstracts;
+using WELearning.Samples.FBWorker.FunctionBlock.Bindings;
+using WELearning.Samples.FBWorker.FunctionBlock.ValueObjects;
+using WELearning.Samples.FBWorker.Services.Abstracts;
 
-namespace WELearning.ConsoleApp.Testing.Framework;
+namespace WELearning.Samples.FBWorker.FunctionBlock;
 
 public class DeviceBlockFramework : BlockFramework
 {

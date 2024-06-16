@@ -1,11 +1,11 @@
 using WELearning.Core.FunctionBlocks.Framework;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
-using WELearning.Samples.DeviceService.FunctionBlock.Bindings.Abstracts;
-using WELearning.Samples.DeviceService.FunctionBlock.ValueObjects;
-using WELearning.Samples.DeviceService.Models;
-using WELearning.Samples.DeviceService.Services.Abstracts;
+using WELearning.Samples.FBWorker.FunctionBlock.Bindings.Abstracts;
+using WELearning.Samples.FBWorker.FunctionBlock.ValueObjects;
+using WELearning.Samples.FBWorker.Services.Abstracts;
+using WELearning.Samples.Shared.Models;
 
-namespace WELearning.ConsoleApp.Testing.Framework.Bindings;
+namespace WELearning.Samples.FBWorker.FunctionBlock.Bindings;
 
 public class AttributeBinding : ReadWriteBinding, IAssetAttributeBinding
 {
