@@ -1,4 +1,4 @@
-namespace WELearning.Samples.DeviceService;
+namespace WELearning.Samples.Shared.Constants;
 
 public static class TopicNames
 {

@@ -1,7 +1,11 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
+using Confluent.Kafka;
 using Microsoft.Extensions.Options;
 using WELearning.Samples.FBWorker.Configurations;
 using WELearning.Samples.FBWorker.Services.Abstracts;
+using WELearning.Samples.Shared.Constants;
+using WELearning.Samples.Shared.Kafka.Abstracts;
 using WELearning.Samples.Shared.Models;
 using WELearning.Shared.Concurrency.Abstracts;
 using WELearning.Shared.Diagnostic.Abstracts;
@@ -22,6 +26,8 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
     private readonly Queue<int> _availableCounts = new Queue<int>();
     private readonly SemaphoreSlim _concurrencyCollectorLock = new SemaphoreSlim(1);
     private readonly IFuzzyThreadController _fuzzyThreadController;
+    private readonly IOptions<ConsumerConfig> _consumerConfig;
+    private readonly IKafkaClientManager _kafkaClientManager;
     private bool _resourceMonitorSet = false;
     private System.Timers.Timer _concurrencyCollector;
     private CancellationToken _cancellationToken;
@@ -34,7 +40,9 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
         IConfiguration configuration,
         IFuzzyThreadController fuzzyThreadController,
         ISyncAsyncTaskLimiter taskLimiter,
-        IResourceMonitor resourceMonitor)
+        IResourceMonitor resourceMonitor,
+        IOptions<ConsumerConfig> consumerConfig,
+        IKafkaClientManager kafkaClientManager)
     {
         _serviceProvider = serviceProvider;
         _taskRunner = taskRunner;
@@ -44,6 +52,8 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
         _configuration = configuration;
         _fuzzyThreadController = fuzzyThreadController;
         _resourceMonitor = resourceMonitor;
+        _consumerConfig = consumerConfig;
+        _kafkaClientManager = kafkaClientManager;
         _workers = new();
     }
 
@@ -160,12 +170,15 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
         var workerThread = new Thread(async () =>
         {
             using var _ = workerControl;
+            using var consumer = _kafkaClientManager.GetConsumer<Null, byte[]>(_consumerConfig.Value);
+            consumer.Subscribe(TopicNames.AttributeChanged);
+
             while (!_cancellationToken.IsCancellationRequested && !workerControl.Stopped)
             {
-                // [TODO] consume
-                AttributeChangedEvent message = default;
                 CancellationTokenSource cts = new();
                 workerControl.Cts = cts;
+                var consumeResult = consumer.Consume(cancellationToken: cts.Token);
+                AttributeChangedEvent message = JsonSerializer.Deserialize<AttributeChangedEvent>(utf8Json: consumeResult.Message.Value);
 
                 async Task Handle()
                 {

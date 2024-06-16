@@ -4,27 +4,30 @@ using Microsoft.Extensions.Options;
 using WELearning.Samples.DeviceService.Entities;
 using WELearning.Samples.DeviceService.Persistent;
 using WELearning.Samples.DeviceService.Services.Abstracts;
+using WELearning.Samples.Shared.Constants;
+using WELearning.Samples.Shared.Kafka.Abstracts;
 using WELearning.Samples.Shared.Models;
 using WELearning.Shared.Diagnostic.Abstracts;
 
 namespace WELearning.Samples.DeviceService.Services;
 
-public class AssetService : IAssetService, IDisposable
+public class AssetService : IAssetService
 {
     private readonly DataStore _dataStore;
     private readonly IRateMonitor _monitoring;
-    private readonly IOptionsSnapshot<ProducerConfig> _producerConfig;
+    private readonly IKafkaClientManager _kafkaClientManager;
     private readonly IProducer<Null, byte[]> _producer;
 
     public AssetService(
         DataStore dataStore,
         IRateMonitor monitoring,
-        IOptionsSnapshot<ProducerConfig> producerConfig)
+        IOptions<ProducerConfig> producerConfig,
+        IKafkaClientManager kafkaClientManager)
     {
         _dataStore = dataStore;
         _monitoring = monitoring;
-        _producerConfig = producerConfig;
-        _producer = GetProducer();
+        _kafkaClientManager = kafkaClientManager;
+        _producer = _kafkaClientManager.GetProducer<Null, byte[]>(producerConfig.Value, cacheKey: nameof(AssetService));
     }
 
     public async Task AddMetricSeries(IEnumerable<MetricSeries> series, string demoBlockId)
@@ -62,7 +65,7 @@ public class AssetService : IAssetService, IDisposable
         return assetSnapshot;
     }
 
-    public async Task<IEnumerable<AttributeSnapshot>> GetSnapshots(IEnumerable<(string AssetId, string AttributeName)> assetAttributes)
+    public async Task<IEnumerable<AttributeSnapshot>> GetSnapshots(IEnumerable<string[]> assetAttributes)
     {
         var attributes = await _dataStore.GetAttributes(assetAttributes);
         var snapshots = attributes.Select(a => new AttributeSnapshot
@@ -100,17 +103,5 @@ public class AssetService : IAssetService, IDisposable
             Value = JsonSerializer.SerializeToUtf8Bytes(message),
             Timestamp = new Timestamp(DateTime.UtcNow)
         });
-    }
-
-    private IProducer<Null, byte[]> GetProducer()
-    {
-        var builder = new ProducerBuilder<Null, byte[]>(_producerConfig.Value);
-        return builder.Build();
-    }
-
-    public void Dispose()
-    {
-        GC.SuppressFinalize(this);
-        _producer?.Dispose();
     }
 }

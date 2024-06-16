@@ -91,11 +91,11 @@ public class DataStore
         return entities;
     }
 
-    public async Task<IEnumerable<AssetAttributeEntity>> GetAttributes(IEnumerable<(string AssetId, string AttributeName)> assetAttributes)
+    public async Task<IEnumerable<AssetAttributeEntity>> GetAttributes(IEnumerable<string[]> assetAttributes)
     {
         await Latency();
         var entities = _assetAttributes
-            .Where(att => assetAttributes.Contains(att.Key))
+            .Where(att => assetAttributes.Any(pair => (pair[0], pair[1]) == att.Key))
             .Select(att => att.Value)
             .ToList();
         return entities;

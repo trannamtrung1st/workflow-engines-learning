@@ -1,6 +1,6 @@
-using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Samples.DeviceService.Persistent;
 using WELearning.Samples.DeviceService.Services.Abstracts;
+using WELearning.Samples.Shared.Models;
 
 namespace WELearning.Samples.DeviceService.Services;
 
@@ -13,8 +13,7 @@ public class FunctionBlockService : IFunctionBlockService
         _dataStore = dataStore;
     }
 
-
-    public async Task<CompositeBlockDef> BuildBlock(string demoBlockId)
+    public async Task<BlockDefinitions> GetBlockDefinitions(string demoBlockId)
     {
         var cfbDef = await _dataStore.GetCfbDefinition(demoBlockId);
 
@@ -26,7 +25,10 @@ public class FunctionBlockService : IFunctionBlockService
             .SelectMany(b => b.ImportBlockIds);
         var importBfbDefs = await _dataStore.GetBfbDefinitions(importBfbDefIds);
 
-        cfbDef.MapDefinitions(usingBfbDefs.Concat(importBfbDefs));
-        return cfbDef;
+        return new BlockDefinitions
+        {
+            Cfb = cfbDef,
+            Bfbs = usingBfbDefs.Concat(importBfbDefs)
+        };
     }
 }

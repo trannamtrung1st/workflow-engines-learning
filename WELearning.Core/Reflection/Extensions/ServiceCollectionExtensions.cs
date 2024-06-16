@@ -1,9 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
+using WELearning.Core.Reflection;
 using WELearning.Core.Reflection.Abstracts;
 
-namespace WELearning.Core.Reflection.Extensions;
+namespace WELearning.Core.Extensions;
 
-public static class ServiceCollectionExtensions
+public static partial class ServiceCollectionExtensions
 {
     public static IServiceCollection AddDefaultTypeProvider(this IServiceCollection services)
     {

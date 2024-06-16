@@ -5,16 +5,23 @@ using WELearning.Samples.DeviceService.Services.Abstracts;
 using WELearning.Samples.DeviceService.Configurations;
 using Microsoft.Extensions.Options;
 using WELearning.Shared.Diagnostic.Abstracts;
-using WELearning.Shared.Diagnostic.Extensions;
+using WELearning.Shared.Extensions;
 using Confluent.Kafka;
+using Confluent.Kafka.Admin;
+using WELearning.Samples.Shared.Extensions;
+using WELearning.Samples.Shared.Kafka.Abstracts;
+using WELearning.Samples.Shared.Models;
+using WELearning.Samples.Shared.Constants;
 
 var builder = WebApplication.CreateBuilder(args);
 var appSettingsConfig = builder.Configuration.GetSection("AppSettings");
 var producerConfig = builder.Configuration.GetSection("ProducerConfig");
+var adminClientConfig = builder.Configuration.GetSection("AdminClientConfig");
 
 builder.Services
     .Configure<AppSettings>(appSettings => appSettingsConfig.Bind(appSettings))
     .Configure<ProducerConfig>(config: producerConfig)
+    .Configure<AdminClientConfig>(config: adminClientConfig)
     .AddEndpointsApiExplorer()
     .AddSwaggerGen()
     .AddLogging(cfg =>
@@ -23,6 +30,7 @@ builder.Services
         cfg.AddSimpleConsole();
     })
     .AddRateMonitor()
+    .AddKafkaClientManager()
     .AddSingleton<DataStore>()
     .AddSingleton<IMetricSeriesSimulator, MetricSeriesSimulator>()
     .AddScoped<IFunctionBlockService, FunctionBlockService>()
@@ -40,6 +48,50 @@ app.MapGet("/api/assets/{id}/snapshot", async (string id, [FromServices] IAssetS
 })
 .WithDisplayName("Get asset snapshot")
 .WithName("Get asset snapshot");
+
+
+app.MapPost("/api/assets/attributes/snapshots", async (
+    [FromBody] IEnumerable<string[]> assetAttributes,
+    [FromServices] IAssetService assetService) =>
+{
+    var snapshots = await assetService.GetSnapshots(assetAttributes);
+    return snapshots;
+})
+.WithDisplayName("Get asset attributes snapshots")
+.WithName("Get asset attributes snapshots");
+
+
+app.MapPut("/api/assets/attributes/snapshots", async (
+    [FromBody] IEnumerable<AttributeSnapshot> attributes,
+    [FromServices] IAssetService assetService) =>
+{
+    await assetService.UpdateRuntime(attributes);
+    return Results.NoContent();
+})
+.WithDisplayName("Update asset attributes snapshots")
+.WithName("Update asset attributes snapshots");
+
+
+app.MapGet("/api/assets/{assetId}/attributes/{attributeName}/series", async (
+    string assetId,
+    string attributeName,
+    [FromQuery] DateTime beforeTime,
+    [FromServices] IAssetService assetService) =>
+{
+    var series = await assetService.LastSeriesBefore(assetId, attributeName, beforeTime);
+    return series;
+})
+.WithDisplayName("Get asset attribute series")
+.WithName("Get asset attribute series");
+
+
+app.MapGet("/api/fb/{id}", async (string id, [FromServices] IFunctionBlockService fbService) =>
+{
+    var cfb = await fbService.GetBlockDefinitions(id);
+    return cfb;
+})
+.WithDisplayName("Get composite block definition")
+.WithName("Get composite block definition");
 
 
 app.MapPost("/api/series/simulation/{demoBlockId}", async (
@@ -105,13 +157,26 @@ app.MapPut("/api/configs/app-settings", (
 .WithName("Update app settings");
 
 
-Setup(app);
+await Setup(app);
 
 app.Run();
 
-static void Setup(WebApplication app)
+static async Task Setup(WebApplication app)
 {
     var provider = app.Services;
     var rateMonitor = provider.GetRequiredService<IRateMonitor>();
     rateMonitor.StartReport();
+
+    var kafkaClientManager = provider.GetRequiredService<IKafkaClientManager>();
+    var adminClientOptions = provider.GetRequiredService<IOptions<AdminClientConfig>>();
+    using var adminClient = kafkaClientManager.GetAdminClient(adminClientOptions.Value);
+    var existingTopics = adminClient
+        .GetMetadata(timeout: TimeSpan.FromSeconds(5)).Topics
+        .Select(t => t.Topic).ToHashSet();
+    var topicSpecs = new List<TopicSpecification>();
+    topicSpecs.Add(new() { Name = TopicNames.AttributeChanged, ReplicationFactor = 1, NumPartitions = 20 });
+    topicSpecs = topicSpecs.Where(t => !existingTopics.Contains(t.Name)).ToList();
+
+    if (topicSpecs.Count > 0)
+        await adminClient.CreateTopicsAsync(topicSpecs);
 }

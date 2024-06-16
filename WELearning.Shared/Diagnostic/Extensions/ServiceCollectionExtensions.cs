@@ -1,9 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
+using WELearning.Shared.Diagnostic;
 using WELearning.Shared.Diagnostic.Abstracts;
 
-namespace WELearning.Shared.Diagnostic.Extensions;
+namespace WELearning.Shared.Extensions;
 
-public static class ServiceCollectionExtensions
+public static partial class ServiceCollectionExtensions
 {
     public static IServiceCollection AddResourceMonitor(this IServiceCollection services)
     {

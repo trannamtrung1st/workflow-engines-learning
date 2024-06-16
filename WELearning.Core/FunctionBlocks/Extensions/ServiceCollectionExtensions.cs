@@ -1,10 +1,11 @@
 using Microsoft.Extensions.DependencyInjection;
+using WELearning.Core.FunctionBlocks;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 
-namespace WELearning.Core.FunctionBlocks.Extensions;
+namespace WELearning.Core.Extensions;
 
-public static class ServiceCollectionExtensions
+public static partial class ServiceCollectionExtensions
 {
     public static IServiceCollection AddDefaultBlockRunner(this IServiceCollection services)
     {

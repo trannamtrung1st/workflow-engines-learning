@@ -1,9 +1,8 @@
-
-using WELearning.Core.FunctionBlocks.Models.Design;
+using WELearning.Samples.Shared.Models;
 
 namespace WELearning.Samples.DeviceService.Services.Abstracts;
 
 public interface IFunctionBlockService
 {
-    Task<CompositeBlockDef> BuildBlock(string demoBlockId);
+    Task<BlockDefinitions> GetBlockDefinitions(string demoBlockId);
 }

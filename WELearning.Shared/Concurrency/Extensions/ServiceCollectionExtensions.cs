@@ -1,10 +1,11 @@
 using Microsoft.Extensions.DependencyInjection;
+using WELearning.Shared.Concurrency;
 using WELearning.Shared.Concurrency.Abstracts;
 using WELearning.Shared.Concurrency.Configurations;
 
-namespace WELearning.Shared.Concurrency.Extensions;
+namespace WELearning.Shared.Extensions;
 
-public static class ServiceCollectionExtensions
+public static partial class ServiceCollectionExtensions
 {
     public static IServiceCollection AddInMemoryLockManager(this IServiceCollection services)
     {

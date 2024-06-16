@@ -9,13 +9,14 @@ using WELearning.DynamicCodeExecution.Models;
 using WELearning.Samples.FBWorker.FunctionBlock;
 using WELearning.Samples.FBWorker.FunctionBlock.ValueObjects;
 using WELearning.Samples.FBWorker.Services.Abstracts;
+using WELearning.Samples.Shared.Constants;
 using WELearning.Samples.Shared.Models;
 using WELearning.Shared.Concurrency.Abstracts;
 using WELearning.Shared.Diagnostic.Abstracts;
 
 namespace WELearning.Samples.FBWorker.Services;
 
-public class FunctionBlockService : IFunctionBlockService
+public class FunctionBlockService : IFunctionBlockService, IDisposable
 {
     private readonly IConfiguration _configuration;
     private readonly IBlockRunner _blockRunner;
@@ -26,6 +27,7 @@ public class FunctionBlockService : IFunctionBlockService
     private readonly IAssetService _assetService;
     private readonly IRateMonitor _rateMonitor;
     private readonly ILogger<IExecutionControl> _controlLogger;
+    private readonly HttpClient _deviceClient;
 
     public FunctionBlockService(
         IConfiguration configuration,
@@ -36,7 +38,8 @@ public class FunctionBlockService : IFunctionBlockService
         IAssetService assetService,
         IRateMonitor rateMonitor,
         ILogger<IExecutionControl> controlLogger,
-        ISyncAsyncTaskRunner taskRunner)
+        ISyncAsyncTaskRunner taskRunner,
+        IHttpClientFactory httpClientFactory)
     {
         _configuration = configuration;
         _blockRunner = blockRunner;
@@ -47,6 +50,7 @@ public class FunctionBlockService : IFunctionBlockService
         _controlLogger = controlLogger;
         _rateMonitor = rateMonitor;
         _taskRunner = taskRunner;
+        _deviceClient = httpClientFactory.CreateClient(ClientNames.DeviceService);
     }
 
     public async Task HandleAttributeChanged(AttributeChangedEvent @event, CancellationToken cancellationToken)
@@ -59,7 +63,7 @@ public class FunctionBlockService : IFunctionBlockService
         var fbTimeout = _configuration.GetValue<TimeSpan>("FunctionBlock:Timeout");
         using var runTokens = new RunTokens(timeout: fbTimeout, termination: cancellationToken);
 
-        var cfbDef = await BuildBlock(@event.DemoBlockId);
+        var cfbDef = await BuildBlock(@event.DemoBlockId, cancellationToken: runTokens.Combined);
         using var execControl = new CompositeEC<DeviceFunctionFramework>(
             block: new(cfbDef.Id), definition: cfbDef,
             _blockRunner, _functionRunner, _blockFrameworkFactory, _functionFramework, _taskRunner);
@@ -67,10 +71,10 @@ public class FunctionBlockService : IFunctionBlockService
         RegisterLogActivityHandlers(execControl);
         try
         {
-            var bindings = await PrepareBindings(@event, execControl);
+            var bindings = await PrepareBindings(@event, execControl, cancellationToken: runTokens.Combined);
             var runRequest = new RunBlockRequest(bindings, runTokens);
             await _blockRunner.Run(runRequest, execControl, optimizationScopeId: default);
-            await RecordOutputs(execControl);
+            await RecordOutputs(execControl, cancellationToken: runTokens.Combined);
         }
         catch (Exception ex)
         {
@@ -103,29 +107,33 @@ public class FunctionBlockService : IFunctionBlockService
         execControl.ControlFailed -= HandleLogActivity;
     }
 
-    private Task<CompositeBlockDef> BuildBlock(string demoBlockId)
+    private async Task<CompositeBlockDef> BuildBlock(string demoBlockId, CancellationToken cancellationToken)
     {
-        // [TODO]
-        return default;
+        var blockDefinitions = await _deviceClient.GetFromJsonAsync<BlockDefinitions>(
+            requestUri: $"/api/fb/{demoBlockId}", cancellationToken);
+
+        var cfbDef = blockDefinitions.Cfb;
+        cfbDef.MapDefinitions(blockDefinitions.Bfbs);
+        return cfbDef;
     }
 
-    private async Task RecordOutputs(IExecutionControl execControl)
+    private async Task RecordOutputs(IExecutionControl execControl, CancellationToken cancellationToken)
     {
         var sum = execControl.GetOutput("AttrSum") as AttributeValueObject;
         var prevSum = execControl.GetOutput("AttrPrevSum") as AttributeValueObject;
-        await _assetService.UpdateRuntime(new[] { sum.Snapshot, prevSum.Snapshot });
+        await _assetService.UpdateRuntime(new[] { sum.Snapshot, prevSum.Snapshot }, cancellationToken);
     }
 
-    private async Task<IEnumerable<VariableBinding>> PrepareBindings(AttributeChangedEvent trigger, IExecutionControl execControl)
+    private async Task<IEnumerable<VariableBinding>> PrepareBindings(AttributeChangedEvent trigger, IExecutionControl execControl, CancellationToken cancellationToken)
     {
         var assetId = trigger.AssetId;
         var snapshots = (await _assetService.GetSnapshots(new[]
         {
-            (assetId, "dynamic1"),
-            (assetId, "dynamic2"),
-            (assetId, "sum"),
-            (assetId, "prevSum")
-        })).ToDictionary(a => a.AttributeName);
+            new[] { assetId, "dynamic1" },
+            new[] { assetId, "dynamic2" },
+            new[] { assetId, "sum" },
+            new[] { assetId, "prevSum" }
+        }, cancellationToken)).ToDictionary(a => a.AttributeName);
 
         var iAttr1 = execControl.GetVariable("Attr1", EVariableType.Input);
         var iAttr2 = execControl.GetVariable("Attr2", EVariableType.Input);
@@ -143,5 +151,11 @@ public class FunctionBlockService : IFunctionBlockService
         bindings.Add(new(variableName: oAttr2.Name, reference: oAttr2Ref, type: EBindingType.Output));
 
         return bindings;
+    }
+
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
+        _deviceClient?.Dispose();
     }
 }

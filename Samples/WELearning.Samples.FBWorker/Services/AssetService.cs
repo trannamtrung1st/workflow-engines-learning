@@ -1,33 +1,57 @@
+using System.Globalization;
+using Microsoft.AspNetCore.Http.Extensions;
 using WELearning.Samples.FBWorker.Services.Abstracts;
+using WELearning.Samples.Shared.Constants;
 using WELearning.Samples.Shared.Models;
 
 namespace WELearning.Samples.FBWorker.Services;
 
-// [TODO]
-public class AssetService : IAssetService
+public class AssetService : IAssetService, IDisposable
 {
-    public Task AddMetricSeries(IEnumerable<MetricSeries> series, string demoBlockId)
+    private readonly HttpClient _deviceClient;
+    public AssetService(IHttpClientFactory httpClientFactory)
     {
-        throw new NotImplementedException();
+        _deviceClient = httpClientFactory.CreateClient(ClientNames.DeviceService);
     }
 
-    public Task<AssetSnapshot> GetAssetSnapshot(string assetId)
+    public async Task<IEnumerable<AttributeSnapshot>> GetSnapshots(IEnumerable<string[]> assetAttributes, CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        var response = await _deviceClient.PostAsJsonAsync(
+            requestUri: $"/api/assets/attributes/snapshots",
+            value: assetAttributes,
+            cancellationToken: cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var snapshots = await response.Content.ReadFromJsonAsync<IEnumerable<AttributeSnapshot>>(cancellationToken: cancellationToken);
+        return snapshots;
     }
 
-    public Task<IEnumerable<AttributeSnapshot>> GetSnapshots(IEnumerable<(string AssetId, string AttributeName)> assetAttributes)
+    public async Task<MetricSeries> LastSeriesBefore(string assetId, string attributeName, DateTime beforeTime, CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        var queryBuilder = new QueryBuilder
+        {
+            { "beforeTime", beforeTime.ToString("s", CultureInfo.InvariantCulture) }
+        };
+
+        var series = await _deviceClient.GetFromJsonAsync<MetricSeries>(
+            requestUri: $"/api/assets/{assetId}/attributes/{attributeName}/series{queryBuilder}",
+            cancellationToken: cancellationToken);
+
+        return series;
     }
 
-    public Task<MetricSeries> LastSeriesBefore(string assetId, string attributeName, DateTime beforeTime)
+    public async Task UpdateRuntime(IEnumerable<AttributeSnapshot> attributes, CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        var response = await _deviceClient.PutAsJsonAsync(
+            requestUri: $"/api/assets/attributes/snapshots",
+            value: attributes,
+            cancellationToken: cancellationToken);
+        response.EnsureSuccessStatusCode();
     }
 
-    public Task UpdateRuntime(IEnumerable<AttributeSnapshot> attributes)
+    public void Dispose()
     {
-        throw new NotImplementedException();
+        GC.SuppressFinalize(this);
+        _deviceClient?.Dispose();
     }
 }

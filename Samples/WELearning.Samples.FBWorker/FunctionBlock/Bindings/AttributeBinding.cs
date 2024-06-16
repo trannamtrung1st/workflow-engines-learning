@@ -26,7 +26,7 @@ public class AttributeBinding : ReadWriteBinding, IAssetAttributeBinding
         var series = await _assetService.LastSeriesBefore(
             assetId: Snapshot.AssetId,
             attributeName: Snapshot.AttributeName,
-            beforeTime);
+            beforeTime, cancellationToken: default);
         return series;
     }
 }

@@ -4,9 +4,7 @@ namespace WELearning.Samples.FBWorker.Services.Abstracts;
 
 public interface IAssetService
 {
-    Task<AssetSnapshot> GetAssetSnapshot(string assetId);
-    Task AddMetricSeries(IEnumerable<MetricSeries> series, string demoBlockId);
-    Task UpdateRuntime(IEnumerable<AttributeSnapshot> attributes);
-    Task<MetricSeries> LastSeriesBefore(string assetId, string attributeName, DateTime beforeTime);
-    Task<IEnumerable<AttributeSnapshot>> GetSnapshots(IEnumerable<(string AssetId, string AttributeName)> assetAttributes);
+    Task UpdateRuntime(IEnumerable<AttributeSnapshot> attributes, CancellationToken cancellationToken);
+    Task<MetricSeries> LastSeriesBefore(string assetId, string attributeName, DateTime beforeTime, CancellationToken cancellationToken);
+    Task<IEnumerable<AttributeSnapshot>> GetSnapshots(IEnumerable<string[]> assetAttributes, CancellationToken cancellationToken);
 }
