@@ -9,4 +9,9 @@ public static class ServiceCollectionExtensions
     {
         return services.AddSingleton<IResourceMonitor, ResourceMonitor>();
     }
+
+    public static IServiceCollection AddRateMonitor(this IServiceCollection services)
+    {
+        return services.AddSingleton<IRateMonitor, RateMonitor>();
+    }
 }

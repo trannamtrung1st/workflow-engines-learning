@@ -1,14 +1,13 @@
-using WELearning.Core.FunctionBlocks.Extensions;
-using WELearning.Shared.Concurrency.Extensions;
-using WELearning.DynamicCodeExecution.Extensions;
-using WELearning.Core.Reflection.Extensions;
-using WELearning.Shared.Diagnostic.Extensions;
-using WELearning.Shared.Diagnostic.Abstracts;
+
 using WELearning.Samples.FBWorker;
 using WELearning.Samples.FBWorker.Configurations;
-using WELearning.Samples.FBWorker.Services.Abstracts;
-using WELearning.Shared.Diagnostic;
 using WELearning.Samples.FBWorker.Services;
+using WELearning.Samples.FBWorker.Services.Abstracts;
+using WELearning.Core.FunctionBlocks.Extensions;
+using WELearning.Core.Reflection.Extensions;
+using WELearning.DynamicCodeExecution.Extensions;
+using WELearning.Shared.Diagnostic.Extensions;
+using WELearning.Shared.Concurrency.Extensions;
 using WELearning.Samples.FBWorker.FunctionBlock;
 
 const int minThreads = 512;
@@ -16,22 +15,24 @@ int maxThreads = minThreads * 2;
 var threadSet = ThreadPool.SetMinThreads(workerThreads: minThreads, completionPortThreads: minThreads);
 threadSet = ThreadPool.SetMaxThreads(workerThreads: maxThreads, completionPortThreads: maxThreads);
 
-var builder = Host.CreateApplicationBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 var appSettingsConfig = builder.Configuration.GetSection("AppSettings");
 var taskLimiterConfig = builder.Configuration.GetSection("TaskLimiter");
 
 builder.Services
-    .AddHostedService<Worker>()
     .Configure<AppSettings>(appSettings => appSettingsConfig.Bind(appSettings))
+    .AddHostedService<Worker>()
+    .AddEndpointsApiExplorer()
+    .AddSwaggerGen()
     .AddLogging(cfg =>
     {
         cfg.ClearProviders();
         cfg.AddSimpleConsole();
     })
     .AddSingleton<IFunctionBlockWorker, FunctionBlockWorker>()
-    .AddSingleton<IRateMonitor, RateMonitor>()
     .AddScoped<IFunctionBlockService, FunctionBlockService>()
     .AddScoped<IAssetService, AssetService>()
+    .AddRateMonitor()
     .AddResourceMonitor()
     .AddFuzzyThreadController()
     .AddInMemoryLockManager()
@@ -50,6 +51,9 @@ builder.Services
         options.LibraryFolderPath = libraryFolderPath;
     });
 
-var host = builder.Build();
+var app = builder.Build();
 
-host.Run();
+app.UseSwagger();
+app.UseSwaggerUI();
+
+app.Run();

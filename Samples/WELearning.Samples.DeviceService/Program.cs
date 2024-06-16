@@ -7,7 +7,7 @@ using Microsoft.Extensions.Options;
 using WELearning.Shared.Concurrency.Abstracts;
 using WELearning.Shared.Concurrency.Configurations;
 using WELearning.Shared.Diagnostic.Abstracts;
-using WELearning.Shared.Diagnostic;
+using WELearning.Shared.Diagnostic.Extensions;
 
 const int minThreads = 512;
 int maxThreads = minThreads * 2;
@@ -28,9 +28,9 @@ builder.Services
         cfg.ClearProviders();
         cfg.AddSimpleConsole();
     })
+    .AddRateMonitor()
     .AddSingleton<DataStore>()
     .AddSingleton<IMetricSeriesSimulator, MetricSeriesSimulator>()
-    .AddSingleton<IRateMonitor, RateMonitor>()
     .AddScoped<IFunctionBlockService, FunctionBlockService>()
     .AddScoped<IAssetService, AssetService>();
 
@@ -38,8 +38,6 @@ var app = builder.Build();
 
 app.UseSwagger();
 app.UseSwaggerUI();
-
-app.UseHttpsRedirection();
 
 app.MapGet("/api/assets/{id}/snapshot", async (string id, [FromServices] IAssetService assetService) =>
 {

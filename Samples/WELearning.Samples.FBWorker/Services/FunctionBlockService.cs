@@ -103,7 +103,7 @@ public class FunctionBlockService : IFunctionBlockService
         execControl.ControlFailed -= HandleLogActivity;
     }
 
-    private async Task<CompositeBlockDef> BuildBlock(string demoBlockId)
+    private Task<CompositeBlockDef> BuildBlock(string demoBlockId)
     {
         // [TODO]
         return default;
