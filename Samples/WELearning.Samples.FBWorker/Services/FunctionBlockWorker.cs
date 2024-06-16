@@ -173,29 +173,32 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
             using var _ = workerControl;
             using var consumer = _kafkaClientManager.GetConsumer<Null, byte[]>(_consumerConfig.Value);
             consumer.Subscribe(TopicNames.AttributeChanged);
-
-            while (!_cancellationToken.IsCancellationRequested && !workerControl.Stopped)
+            try
             {
-                CancellationTokenSource cts = new();
-                workerControl.Cts = cts;
-                var consumeResult = consumer.Consume(cancellationToken: cts.Token);
-                AttributeChangedEvent message = JsonSerializer.Deserialize<AttributeChangedEvent>(utf8Json: consumeResult.Message.Value);
-
-                async Task Handle()
+                while (!_cancellationToken.IsCancellationRequested && !workerControl.Stopped)
                 {
-                    using var scope = _serviceProvider.CreateScope();
-                    var fbService = scope.ServiceProvider.GetRequiredService<IFunctionBlockService>();
-                    await fbService.HandleAttributeChanged(message, cancellationToken: cts.Token);
+                    CancellationTokenSource cts = new();
+                    workerControl.Cts = cts;
+                    var consumeResult = consumer.Consume(cancellationToken: cts.Token);
+                    AttributeChangedEvent message = JsonSerializer.Deserialize<AttributeChangedEvent>(utf8Json: consumeResult.Message.Value);
+
+                    async Task Handle()
+                    {
+                        using var scope = _serviceProvider.CreateScope();
+                        var fbService = scope.ServiceProvider.GetRequiredService<IFunctionBlockService>();
+                        await fbService.HandleAttributeChanged(message, cancellationToken: cts.Token);
+                    }
+
+                    await _taskRunner.TryRunTaskAsync(async (asyncScope) =>
+                    {
+                        using var _ = asyncScope;
+                        using var _1 = cts;
+                        try { await Handle(); }
+                        catch (Exception ex) { _logger.LogError(ex, ex.Message); }
+                    }, cancellationToken: cts.Token);
                 }
-
-                await _taskRunner.TryRunTaskAsync(async (asyncScope) =>
-                {
-                    using var _ = asyncScope;
-                    using var _1 = cts;
-                    try { await Handle(); }
-                    catch (Exception ex) { _logger.LogError(ex, ex.Message); }
-                }, cancellationToken: cts.Token);
             }
+            catch (Exception ex) { _logger.LogError(ex, ex.Message); }
         });
         workerThread.IsBackground = true;
         workerControl = new WorkerControl(workerThread);
@@ -226,7 +229,10 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
     private void ScaleDown(int to)
     {
         while (_workers.Count > to && _workers.TryDequeue(out var workerControl))
+        {
             workerControl.Stopped = true;
+            workerControl.Cts?.Cancel();
+        }
     }
 
     public void Dispose()
