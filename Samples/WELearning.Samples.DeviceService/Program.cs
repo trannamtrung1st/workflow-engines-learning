@@ -4,23 +4,17 @@ using WELearning.Samples.DeviceService.Services;
 using WELearning.Samples.DeviceService.Services.Abstracts;
 using WELearning.Samples.DeviceService.Configurations;
 using Microsoft.Extensions.Options;
-using WELearning.Shared.Concurrency.Abstracts;
-using WELearning.Shared.Concurrency.Configurations;
 using WELearning.Shared.Diagnostic.Abstracts;
 using WELearning.Shared.Diagnostic.Extensions;
-
-const int minThreads = 512;
-int maxThreads = minThreads * 2;
-var threadSet = ThreadPool.SetMinThreads(workerThreads: minThreads, completionPortThreads: minThreads);
-threadSet = ThreadPool.SetMaxThreads(workerThreads: maxThreads, completionPortThreads: maxThreads);
+using Confluent.Kafka;
 
 var builder = WebApplication.CreateBuilder(args);
 var appSettingsConfig = builder.Configuration.GetSection("AppSettings");
-var taskLimiterConfig = builder.Configuration.GetSection("TaskLimiter");
-var initialConcurrencyLimit = appSettingsConfig.GetValue<int>("InitialConcurrencyLimit");
+var producerConfig = builder.Configuration.GetSection("ProducerConfig");
 
 builder.Services
     .Configure<AppSettings>(appSettings => appSettingsConfig.Bind(appSettings))
+    .Configure<ProducerConfig>(config: producerConfig)
     .AddEndpointsApiExplorer()
     .AddSwaggerGen()
     .AddLogging(cfg =>
@@ -83,8 +77,6 @@ app.MapPost("/api/series/simulation/stop", ([FromServices] IMetricSeriesSimulato
 
 
 app.MapPut("/api/configs/app-settings", (
-    [FromQuery] int? workerCount,
-    [FromQuery] int? initialConcurrencyLimit,
     [FromQuery] int? devicesPerInterval,
     [FromQuery] int? simulatorInterval,
     [FromQuery] int? latencyMs,
@@ -120,16 +112,6 @@ app.Run();
 static void Setup(WebApplication app)
 {
     var provider = app.Services;
-
-    var appSettingsOpt = provider.GetRequiredService<IOptions<AppSettings>>();
-    var taskLimiter = provider.GetRequiredService<ISyncAsyncTaskLimiter>();
-    var appSettings = appSettingsOpt.Value;
-
-    var taskLimiterOpt = provider.GetRequiredService<IOptions<TaskLimiterOptions>>();
-    var resourceMonitor = provider.GetRequiredService<IResourceMonitor>();
-    var programLogger = provider.GetRequiredService<ILogger<Program>>();
-    var idealUsage = app.Configuration.GetValue<double>("AppSettings:IdealUsage");
-
     var rateMonitor = provider.GetRequiredService<IRateMonitor>();
     rateMonitor.StartReport();
 }

@@ -22,7 +22,6 @@ var taskLimiterConfig = builder.Configuration.GetSection("TaskLimiter");
 builder.Services
     .Configure<AppSettings>(appSettings => appSettingsConfig.Bind(appSettings))
     .AddHostedService<Worker>()
-    .AddEndpointsApiExplorer()
     .AddSwaggerGen()
     .AddLogging(cfg =>
     {

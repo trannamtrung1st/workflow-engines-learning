@@ -1,3 +1,6 @@
+using System.Text.Json;
+using Confluent.Kafka;
+using Microsoft.Extensions.Options;
 using WELearning.Samples.DeviceService.Entities;
 using WELearning.Samples.DeviceService.Persistent;
 using WELearning.Samples.DeviceService.Services.Abstracts;
@@ -6,17 +9,22 @@ using WELearning.Shared.Diagnostic.Abstracts;
 
 namespace WELearning.Samples.DeviceService.Services;
 
-public class AssetService : IAssetService
+public class AssetService : IAssetService, IDisposable
 {
     private readonly DataStore _dataStore;
     private readonly IRateMonitor _monitoring;
+    private readonly IOptionsSnapshot<ProducerConfig> _producerConfig;
+    private readonly IProducer<Null, byte[]> _producer;
 
     public AssetService(
         DataStore dataStore,
-        IRateMonitor monitoring)
+        IRateMonitor monitoring,
+        IOptionsSnapshot<ProducerConfig> producerConfig)
     {
         _dataStore = dataStore;
         _monitoring = monitoring;
+        _producerConfig = producerConfig;
+        _producer = GetProducer();
     }
 
     public async Task AddMetricSeries(IEnumerable<MetricSeries> series, string demoBlockId)
@@ -85,9 +93,24 @@ public class AssetService : IAssetService
         await _dataStore.UpdateRuntime(entities);
     }
 
-    private Task Publish(string topic, AttributeChangedEvent message)
+    private async Task Publish(string topic, AttributeChangedEvent message)
     {
-        // [TODO]
-        throw new NotImplementedException();
+        await _producer.ProduceAsync(topic, new Message<Null, byte[]>()
+        {
+            Value = JsonSerializer.SerializeToUtf8Bytes(message),
+            Timestamp = new Timestamp(DateTime.UtcNow)
+        });
+    }
+
+    private IProducer<Null, byte[]> GetProducer()
+    {
+        var builder = new ProducerBuilder<Null, byte[]>(_producerConfig.Value);
+        return builder.Build();
+    }
+
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
+        _producer?.Dispose();
     }
 }
