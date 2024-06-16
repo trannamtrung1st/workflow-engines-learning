@@ -34,6 +34,7 @@ builder.Services
     .AddKafkaClientManager()
     .AddSingleton<DataStore>()
     .AddSingleton<IMetricSeriesSimulator, MetricSeriesSimulator>()
+    .AddSingleton<IHttpClients, HttpClients>()
     .AddScoped<IFunctionBlockService, FunctionBlockService>()
     .AddScoped<IAssetService, AssetService>();
 
@@ -167,32 +168,28 @@ app.MapPut("/api/configs/app-settings", (
 
 #region FBWorker API
 
-app.MapPost("/api/fb/workers/{host}/scaling/start", async (string host, [FromServices] IHttpClientFactory httpClientFactory) =>
+app.MapPost("/api/fb/workers/{host}/scaling/start", async (string host, [FromServices] IHttpClients clients) =>
 {
-    using var httpClient = httpClientFactory.CreateClient(ClientNames.FBWorker);
-
     var builder = new UriBuilder();
     builder.Scheme = "http";
     builder.Host = host;
     builder.Path = "/api/fb/workers/scaling/start";
 
-    var resp = await httpClient.PostAsJsonAsync(builder.Uri, value: default(object));
+    var resp = await clients.FBWorker.PostAsJsonAsync(builder.Uri, value: default(object));
     return Results.StatusCode((int)resp.StatusCode);
 })
 .WithDisplayName("Start FB dynamic scaling worker")
 .WithName("Start FB dynamic scaling worker");
 
 
-app.MapPost("/api/fb/workers/{host}/scaling/stop", async (string host, [FromServices] IHttpClientFactory httpClientFactory) =>
+app.MapPost("/api/fb/workers/{host}/scaling/stop", async (string host, [FromServices] IHttpClients clients) =>
 {
-    using var httpClient = httpClientFactory.CreateClient(ClientNames.FBWorker);
-
     var builder = new UriBuilder();
     builder.Scheme = "http";
     builder.Host = host;
     builder.Path = "/api/fb/workers/scaling/stop";
 
-    var resp = await httpClient.PostAsJsonAsync(builder.Uri, value: default(object));
+    var resp = await clients.FBWorker.PostAsJsonAsync(builder.Uri, value: default(object));
     return Results.StatusCode((int)resp.StatusCode);
 })
 .WithDisplayName("Stop FB dynamic scaling worker")
@@ -203,11 +200,8 @@ app.MapPut("/api/fb/workers/{host}/configs/app-settings", async (
     string host,
     [FromQuery] int? workerCount,
     [FromQuery] int? initialConcurrencyLimit,
-    [FromServices] IOptions<AppSettings> appSettings,
-    [FromServices] IHttpClientFactory httpClientFactory) =>
+    [FromServices] IHttpClients clients) =>
 {
-    using var httpClient = httpClientFactory.CreateClient(ClientNames.FBWorker);
-
     var builder = new UriBuilder();
     builder.Scheme = "http";
     builder.Host = host;
@@ -217,7 +211,7 @@ app.MapPut("/api/fb/workers/{host}/configs/app-settings", async (
     queryBuilder.Add(nameof(initialConcurrencyLimit), initialConcurrencyLimit?.ToString());
     builder.Query = queryBuilder.ToString();
 
-    var resp = await httpClient.PutAsJsonAsync(builder.Uri, value: default(object));
+    var resp = await clients.FBWorker.PutAsJsonAsync(builder.Uri, value: default(object));
     return Results.StatusCode((int)resp.StatusCode);
 })
 .WithDisplayName("Update worker app settings")

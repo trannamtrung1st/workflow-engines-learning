@@ -36,6 +36,7 @@ builder.Services
         cfg.AddSimpleConsole();
     })
     .AddSingleton<IFunctionBlockWorker, FunctionBlockWorker>()
+    .AddSingleton<IHttpClients, HttpClients>()
     .AddScoped<IFunctionBlockService, FunctionBlockService>()
     .AddScoped<IAssetService, AssetService>()
     .AddKafkaClientManager()

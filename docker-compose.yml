@@ -6,6 +6,7 @@ services:
     build:
       context: .
       dockerfile: Samples/WELearning.Samples.DeviceService/Dockerfile
+    restart: unless-stopped
     ports:
       - 8080:80
     environment:
@@ -25,6 +26,7 @@ services:
     build:
       context: .
       dockerfile: Samples/WELearning.Samples.FBWorker/Dockerfile
+    restart: unless-stopped
     deploy:
       resources:
         limits:

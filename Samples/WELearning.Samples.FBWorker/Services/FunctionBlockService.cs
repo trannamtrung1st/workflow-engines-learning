@@ -9,14 +9,13 @@ using WELearning.DynamicCodeExecution.Models;
 using WELearning.Samples.FBWorker.FunctionBlock;
 using WELearning.Samples.FBWorker.FunctionBlock.ValueObjects;
 using WELearning.Samples.FBWorker.Services.Abstracts;
-using WELearning.Samples.Shared.Constants;
 using WELearning.Samples.Shared.Models;
 using WELearning.Shared.Concurrency.Abstracts;
 using WELearning.Shared.Diagnostic.Abstracts;
 
 namespace WELearning.Samples.FBWorker.Services;
 
-public class FunctionBlockService : IFunctionBlockService, IDisposable
+public class FunctionBlockService : IFunctionBlockService
 {
     private readonly IConfiguration _configuration;
     private readonly IBlockRunner _blockRunner;
@@ -27,7 +26,7 @@ public class FunctionBlockService : IFunctionBlockService, IDisposable
     private readonly IAssetService _assetService;
     private readonly IRateMonitor _rateMonitor;
     private readonly ILogger<IExecutionControl> _controlLogger;
-    private readonly HttpClient _deviceClient;
+    private readonly IHttpClients _clients;
 
     public FunctionBlockService(
         IConfiguration configuration,
@@ -39,7 +38,7 @@ public class FunctionBlockService : IFunctionBlockService, IDisposable
         IRateMonitor rateMonitor,
         ILogger<IExecutionControl> controlLogger,
         ISyncAsyncTaskRunner taskRunner,
-        IHttpClientFactory httpClientFactory)
+        IHttpClients clients)
     {
         _configuration = configuration;
         _blockRunner = blockRunner;
@@ -50,7 +49,7 @@ public class FunctionBlockService : IFunctionBlockService, IDisposable
         _controlLogger = controlLogger;
         _rateMonitor = rateMonitor;
         _taskRunner = taskRunner;
-        _deviceClient = httpClientFactory.CreateClient(ClientNames.DeviceService);
+        _clients = clients;
     }
 
     public async Task HandleAttributeChanged(AttributeChangedEvent @event, CancellationToken cancellationToken)
@@ -109,7 +108,7 @@ public class FunctionBlockService : IFunctionBlockService, IDisposable
 
     private async Task<CompositeBlockDef> BuildBlock(string demoBlockId, CancellationToken cancellationToken)
     {
-        var blockDefinitions = await _deviceClient.GetFromJsonAsync<BlockDefinitions>(
+        var blockDefinitions = await _clients.Device.GetFromJsonAsync<BlockDefinitions>(
             requestUri: $"/api/fb/{demoBlockId}", cancellationToken);
 
         var cfbDef = blockDefinitions.Cfb;
@@ -151,11 +150,5 @@ public class FunctionBlockService : IFunctionBlockService, IDisposable
         bindings.Add(new(variableName: oAttr2.Name, reference: oAttr2Ref, type: EBindingType.Output));
 
         return bindings;
-    }
-
-    public void Dispose()
-    {
-        GC.SuppressFinalize(this);
-        _deviceClient?.Dispose();
     }
 }
