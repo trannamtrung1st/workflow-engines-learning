@@ -173,6 +173,7 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
             using var _ = workerControl;
             using var consumer = _kafkaClientManager.GetConsumer<Null, byte[]>(_consumerConfig.Value);
             consumer.Subscribe(TopicNames.AttributeChanged);
+
             try
             {
                 while (!_cancellationToken.IsCancellationRequested && !workerControl.Stopped)
@@ -199,6 +200,8 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
                 }
             }
             catch (Exception ex) { _logger.LogError(ex, ex.Message); }
+
+            consumer.Close();
         });
         workerThread.IsBackground = true;
         workerControl = new WorkerControl(workerThread);
