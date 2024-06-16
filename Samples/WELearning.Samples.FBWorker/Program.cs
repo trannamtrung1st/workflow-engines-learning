@@ -5,14 +5,11 @@ using WELearning.Samples.FBWorker.Services;
 using WELearning.Samples.FBWorker.Services.Abstracts;
 using WELearning.DynamicCodeExecution.Extensions;
 using WELearning.Samples.FBWorker.FunctionBlock;
-using Confluent.Kafka;
 using WELearning.Samples.Shared.Constants;
-using WELearning.Samples.Shared.Extensions;
 using WELearning.Shared.Extensions;
 using WELearning.Core.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Mvc;
-using WELearning.Samples.Shared.Kafka.Abstracts;
 
 const int minThreads = 512;
 int maxThreads = minThreads * 2;
@@ -22,11 +19,9 @@ threadSet = ThreadPool.SetMaxThreads(workerThreads: maxThreads, completionPortTh
 var builder = WebApplication.CreateBuilder(args);
 var appSettingsConfig = builder.Configuration.GetSection("AppSettings");
 var taskLimiterConfig = builder.Configuration.GetSection("TaskLimiter");
-var consumerConfig = builder.Configuration.GetSection("ConsumerConfig");
 
 builder.Services
     .Configure<AppSettings>(appSettings => appSettingsConfig.Bind(appSettings))
-    .Configure<ConsumerConfig>(config: consumerConfig)
     .AddHostedService<Worker>()
     .AddEndpointsApiExplorer()
     .AddSwaggerGen()
@@ -39,7 +34,6 @@ builder.Services
     .AddSingleton<IHttpClients, HttpClients>()
     .AddScoped<IFunctionBlockService, FunctionBlockService>()
     .AddScoped<IAssetService, AssetService>()
-    .AddKafkaClientManager()
     .AddRateMonitor()
     .AddResourceMonitor()
     .AddFuzzyThreadController()
@@ -120,8 +114,4 @@ app.Run();
 static void Setup(WebApplication app)
 {
     var provider = app.Services;
-    var kafkaClientManager = provider.GetRequiredService<IKafkaClientManager>();
-    var kafkaPath = app.Configuration["AppSettings:KafkaPath"];
-    if (!string.IsNullOrEmpty(kafkaPath))
-        kafkaClientManager.LoadLibrary(kafkaPath);
 }

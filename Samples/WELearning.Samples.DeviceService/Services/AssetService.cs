@@ -1,11 +1,7 @@
-using System.Text.Json;
-using Confluent.Kafka;
-using Microsoft.Extensions.Options;
 using WELearning.Samples.DeviceService.Entities;
 using WELearning.Samples.DeviceService.Persistent;
 using WELearning.Samples.DeviceService.Services.Abstracts;
 using WELearning.Samples.Shared.Constants;
-using WELearning.Samples.Shared.Kafka.Abstracts;
 using WELearning.Samples.Shared.Models;
 using WELearning.Shared.Diagnostic.Abstracts;
 
@@ -15,19 +11,13 @@ public class AssetService : IAssetService
 {
     private readonly DataStore _dataStore;
     private readonly IRateMonitor _monitoring;
-    private readonly IKafkaClientManager _kafkaClientManager;
-    private readonly IProducer<Null, byte[]> _producer;
 
     public AssetService(
         DataStore dataStore,
-        IRateMonitor monitoring,
-        IOptions<ProducerConfig> producerConfig,
-        IKafkaClientManager kafkaClientManager)
+        IRateMonitor monitoring)
     {
         _dataStore = dataStore;
         _monitoring = monitoring;
-        _kafkaClientManager = kafkaClientManager;
-        _producer = _kafkaClientManager.GetProducer<Null, byte[]>(producerConfig.Value, cacheKey: nameof(AssetService));
     }
 
     public async Task AddMetricSeries(IEnumerable<MetricSeries> series, string demoBlockId)
@@ -98,10 +88,6 @@ public class AssetService : IAssetService
 
     private void Publish(string topic, AttributeChangedEvent message)
     {
-        _producer.Produce(topic, new Message<Null, byte[]>()
-        {
-            Value = JsonSerializer.SerializeToUtf8Bytes(message),
-            Timestamp = new Timestamp(DateTime.UtcNow)
-        });
+
     }
 }

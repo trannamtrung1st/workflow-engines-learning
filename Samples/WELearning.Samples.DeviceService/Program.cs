@@ -6,23 +6,15 @@ using WELearning.Samples.DeviceService.Configurations;
 using Microsoft.Extensions.Options;
 using WELearning.Shared.Diagnostic.Abstracts;
 using WELearning.Shared.Extensions;
-using Confluent.Kafka;
-using Confluent.Kafka.Admin;
-using WELearning.Samples.Shared.Extensions;
-using WELearning.Samples.Shared.Kafka.Abstracts;
 using WELearning.Samples.Shared.Models;
 using WELearning.Samples.Shared.Constants;
 using Microsoft.AspNetCore.Http.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 var appSettingsConfig = builder.Configuration.GetSection("AppSettings");
-var producerConfig = builder.Configuration.GetSection("ProducerConfig");
-var adminClientConfig = builder.Configuration.GetSection("AdminClientConfig");
 
 builder.Services
     .Configure<AppSettings>(appSettings => appSettingsConfig.Bind(appSettings))
-    .Configure<ProducerConfig>(config: producerConfig)
-    .Configure<AdminClientConfig>(config: adminClientConfig)
     .AddEndpointsApiExplorer()
     .AddSwaggerGen()
     .AddLogging(cfg =>
@@ -31,7 +23,6 @@ builder.Services
         cfg.AddSimpleConsole();
     })
     .AddRateMonitor()
-    .AddKafkaClientManager()
     .AddSingleton<DataStore>()
     .AddSingleton<IMetricSeriesSimulator, MetricSeriesSimulator>()
     .AddSingleton<IHttpClients, HttpClients>()
@@ -219,30 +210,13 @@ app.MapPut("/api/fb/workers/{host}/configs/app-settings", async (
 
 #endregion
 
-await Setup(app);
+Setup(app);
 
 app.Run();
 
-static async Task Setup(WebApplication app)
+static void Setup(WebApplication app)
 {
     var provider = app.Services;
     var rateMonitor = provider.GetRequiredService<IRateMonitor>();
     rateMonitor.StartReport();
-
-    var kafkaClientManager = provider.GetRequiredService<IKafkaClientManager>();
-    var kafkaPath = app.Configuration["AppSettings:KafkaPath"];
-    if (!string.IsNullOrEmpty(kafkaPath))
-        kafkaClientManager.LoadLibrary(kafkaPath);
-
-    var adminClientOptions = provider.GetRequiredService<IOptions<AdminClientConfig>>();
-    using var adminClient = kafkaClientManager.GetAdminClient(adminClientOptions.Value);
-    var existingTopics = adminClient
-        .GetMetadata(timeout: TimeSpan.FromSeconds(5)).Topics
-        .Select(t => t.Topic).ToHashSet();
-    var topicSpecs = new List<TopicSpecification>();
-    topicSpecs.Add(new() { Name = TopicNames.AttributeChanged, ReplicationFactor = 1, NumPartitions = 20 });
-    topicSpecs = topicSpecs.Where(t => !existingTopics.Contains(t.Name)).ToList();
-
-    if (topicSpecs.Count > 0)
-        await adminClient.CreateTopicsAsync(topicSpecs);
 }
