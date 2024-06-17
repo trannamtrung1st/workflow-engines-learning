@@ -35,11 +35,11 @@ public class FuzzyThreadController : IFuzzyThreadController
         var oVeryHigh = overall.MembershipFunctions.AddTrapezoid("VeryHigh", 0.6, 0.8, 1, 1);
 
         FLS.MembershipFunctions.IMembershipFunction[][] ruleMatrix = new[] {
-            new[] { oVeryLow, oLow, oMedium, oHigh, oVeryHigh },
-            new[] { oLow, oLow, oMedium, oHigh, oVeryHigh },
-            new[] { oMedium, oMedium, oMedium, oHigh, oVeryHigh },
-            new[] { oHigh, oHigh, oHigh, oHigh, oVeryHigh },
-            new[] { oVeryHigh, oVeryHigh, oVeryHigh, oVeryHigh, oVeryHigh },
+            new[] { oVeryLow,   oLow,       oLow,       oMedium,    oVeryHigh },
+            new[] { oLow,       oLow,       oLow,       oMedium,    oVeryHigh },
+            new[] { oMedium,    oMedium,    oMedium,    oMedium,    oVeryHigh },
+            new[] { oHigh,      oHigh,      oHigh,      oHigh,      oVeryHigh },
+            new[] { oVeryHigh,  oVeryHigh,  oVeryHigh,  oVeryHigh,  oVeryHigh },
         };
 
         _fuzzyEngine = new FuzzyEngineFactory().Default();
