@@ -12,6 +12,7 @@ services:
           cpus: 3.0
           memory: 500M
     environment:
+      ASPNETCORE_HTTP_PORTS: 80
       Logging__LogLevel__Default: Debug
       AppSettings__DevicesPerInterval: 200
       AppSettings__SimulatorInterval: 1000
@@ -35,6 +36,7 @@ services:
           memory: 500M
       replicas: 1
     environment:
+      ASPNETCORE_HTTP_PORTS: 80
       Logging__LogLevel__Default: Debug
       FunctionBlock__Timeout: 00:30:00
       FunctionBlock__JavascriptEngine__LibraryFolderPath: /app/libs
