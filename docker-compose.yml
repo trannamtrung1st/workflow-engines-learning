@@ -4,14 +4,13 @@ services:
     build:
       context: .
       dockerfile: Samples/WELearning.Samples.DeviceService/Dockerfile
-    restart: unless-stopped
     ports:
       - 5294:80
     deploy:
       resources:
         limits:
           cpus: 3.0
-          memory: 750M
+          memory: 500M
     environment:
       Logging__LogLevel__Default: Debug
       AppSettings__DevicesPerInterval: 200
@@ -29,12 +28,11 @@ services:
     build:
       context: .
       dockerfile: Samples/WELearning.Samples.FBWorker/Dockerfile
-    restart: unless-stopped
     deploy:
       resources:
         limits:
-          cpus: 3.0
-          memory: 750M
+          cpus: 1.5
+          memory: 500M
       replicas: 1
     environment:
       Logging__LogLevel__Default: Debug
@@ -42,7 +40,7 @@ services:
       FunctionBlock__JavascriptEngine__LibraryFolderPath: /app/libs
       AppSettings__WorkerCount: 1
       AppSettings__InitialConcurrencyLimit: 0
-      AppSettings__ScaleFactor: 50
+      AppSettings__ScaleFactor: 30
       AppSettings__ScaleCheckInterval: 5000
       AppSettings__AcceptedAvailableConcurrency: 0.3
       AppSettings__IdealUsage: 0.75
