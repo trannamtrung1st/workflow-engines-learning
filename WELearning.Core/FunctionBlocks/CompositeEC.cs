@@ -176,6 +176,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
 
     protected virtual async Task<IEnumerable<VariableBinding>> PrepareBindings(string triggerEvent, BlockInstance block, Func<Task> onDelayed, RunTokens tokens)
     {
+        // [OPT] force set snapshot value before each BFB run to prevent concurrent modification of underlying reference object while BFB running
         var bindings = new List<VariableBinding>();
         var inputEvent = Definition.GetDefinition(block.DefinitionId).Events.FirstOrDefault(ev => ev.Name == triggerEvent && ev.IsInput)
             ?? throw new KeyNotFoundException($"Trigger event {triggerEvent} not found!");

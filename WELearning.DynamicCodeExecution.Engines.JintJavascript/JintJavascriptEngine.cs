@@ -46,7 +46,6 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         _preprocessedContentCache = new(cacheOption);
         _engineCache = new();
         _jintOptions = JintOptions;
-        // [OPT] add lib loading cache
     }
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.Javascript;
@@ -412,7 +411,6 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     private static TReturn Cast<TReturn>(JsValue jsValue)
     {
         object value;
-        // [OPT] cast
         switch (jsValue.Type)
         {
             case Jint.Runtime.Types.Boolean: value = jsValue.AsBoolean(); break;
