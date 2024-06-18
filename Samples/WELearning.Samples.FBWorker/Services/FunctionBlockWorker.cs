@@ -65,7 +65,7 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
         workerControl = new WorkerControl(
             channelScope: new SimpleScope(onDispose: () => _rabbitMqConnectionManager.Close(channelId)),
             channel: channel,
-            OnReceived: (s, e) => OnMessageReceived(s, e, workerControl, channel));
+            OnReceived: (s, e) => OnMessageReceived(e, channel, cancellationToken: workerControl.CancellationToken));
         return workerControl;
     }
 
@@ -123,10 +123,17 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
             _logger.LogInformation("RabbitMQ channel {ChannelId} shutdown reason: {Reason}", channelId, e.Cause);
     }
 
-    private async Task OnMessageReceived(object sender, BasicDeliverEventArgs e, WorkerControl workerControl, IModel channel)
+    private async Task OnMessageReceived(BasicDeliverEventArgs e, IModel channel, CancellationToken cancellationToken)
     {
-        CancellationTokenSource cts = new();
-        workerControl.Cts = cts;
+        var cts = new CancellationTokenSource();
+        CancellationTokenRegistration reg = default;
+        reg = cancellationToken.Register(() =>
+        {
+            using var _ = reg;
+            using var _1 = cts;
+            cts.Cancel();
+        });
+
         AttributeChangedEvent message = JsonSerializer.Deserialize<AttributeChangedEvent>(e.Body.ToArray());
 
         async Task Handle()
@@ -156,11 +163,11 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
 
     class WorkerControl(IDisposable channelScope, IModel channel, AsyncEventHandler<BasicDeliverEventArgs> OnReceived) : IDisposable
     {
-        private readonly IDisposable _channelScope = channelScope;
+        private readonly CancellationTokenSource _cts = new();
         private AsyncEventingBasicConsumer _consumer;
         private string _consumerTag;
 
-        public CancellationTokenSource Cts { get; set; }
+        public CancellationToken CancellationToken => _cts.Token;
 
         public void Start()
         {
@@ -176,12 +183,12 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
 
         public void Dispose()
         {
-            using var _ = _channelScope;
+            using var _ = channelScope;
+            using var _1 = _cts;
             try { channel.BasicCancel(consumerTag: _consumerTag); } catch { }
+            try { _cts.Cancel(); } catch { }
             if (_consumer != null)
                 _consumer.Received -= OnReceived;
-            try { Cts?.Cancel(); } catch { }
-            Cts?.Dispose();
         }
     }
 }

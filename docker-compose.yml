@@ -16,7 +16,7 @@ services:
       Logging__LogLevel__Default: Debug
       AppSettings__DevicesPerInterval: 200
       AppSettings__SimulatorInterval: 1000
-      AppSettings__LatencyMs: 500
+      AppSettings__LatencyMs: 75
       RabbitMqClient__HostName: rabbitmq-1
     networks:
       - we-bridge
