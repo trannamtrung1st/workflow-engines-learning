@@ -148,6 +148,7 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
         {
             using var _ = asyncScope;
             using var _1 = cts;
+            using var _2 = reg;
             try { await Handle(); }
             catch (Exception ex) { _logger.LogError(ex, ex.Message); }
         });
