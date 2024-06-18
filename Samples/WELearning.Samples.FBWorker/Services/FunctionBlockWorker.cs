@@ -42,26 +42,30 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
 
     public void StartWorker(CancellationToken cancellationToken)
     {
+        Setup(cancellationToken);
+        _rabbitMqConnectionManager.Connect();
+        ScaleUp(_appSettings.Value.WorkerCount);
+        _appSettings.Value.Changed += HandleWokerChanged;
+    }
+
+    private void Setup(CancellationToken cancellationToken)
+    {
         CancellationTokenRegistration reg = default;
         reg = cancellationToken.Register(() =>
         {
             using var _ = reg;
             while (_workers.TryDequeue(out var workerControl))
-                Cancel(workerControl);
+                workerControl.Dispose();
         });
-
-        _rabbitMqConnectionManager.Connect();
-        ScaleUp(_appSettings.Value.WorkerCount);
-
-        _appSettings.Value.Changed += HandleWokerChanged;
     }
 
-    private WorkerControl CreateControl(string channelId)
+    private WorkerControl CreateControl(string channelId, IModel channel)
     {
         WorkerControl workerControl = null;
         workerControl = new WorkerControl(
-            scope: new SimpleScope(onDispose: () => _rabbitMqConnectionManager.Close(channelId)));
-
+            channelScope: new SimpleScope(onDispose: () => _rabbitMqConnectionManager.Close(channelId)),
+            channel: channel,
+            OnReceived: (s, e) => OnMessageReceived(s, e, workerControl, channel));
         return workerControl;
     }
 
@@ -81,32 +85,19 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
         while (_workers.Count < to)
         {
             var channelId = _workers.Count.ToString();
-            var workerControl = CreateControl(channelId);
-            _workers.Enqueue(workerControl);
-
             _rabbitMqConnectionManager.ConfigureChannel(channelId, SetupRabbitMqChannel(channelId));
             _rabbitMqConnectionManager.Connect(channelId);
             var channel = _rabbitMqConnectionManager.GetChannel(channelId);
-            var consumer = new AsyncEventingBasicConsumer(channel);
-            consumer.Received += (s, e) => OnMessageReceived(s, e, workerControl, channel);
-            channel.BasicConsume(queue: TopicNames.AttributeChanged, autoAck: false, consumer);
+            var workerControl = CreateControl(channelId, channel);
+            _workers.Enqueue(workerControl);
+            workerControl.Start();
         }
     }
 
     private void ScaleDown(int to)
     {
         while (_workers.Count > to && _workers.TryDequeue(out var workerControl))
-            Cancel(workerControl);
-    }
-
-    private static void Cancel(WorkerControl workerControl)
-    {
-        try
-        {
-            using var _1 = workerControl;
-            workerControl.Cts?.Cancel();
-        }
-        catch { }
+            workerControl.Dispose();
     }
 
     private Action<IModel> SetupRabbitMqChannel(string channelId)
@@ -163,19 +154,33 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
             worker.Dispose();
     }
 
-    class WorkerControl : IDisposable
+    class WorkerControl(IDisposable channelScope, IModel channel, AsyncEventHandler<BasicDeliverEventArgs> OnReceived) : IDisposable
     {
-        private readonly IDisposable _scope;
-        public WorkerControl(IDisposable scope)
-        {
-            _scope = scope;
-        }
+        private readonly IDisposable _channelScope = channelScope;
+        private AsyncEventingBasicConsumer _consumer;
+        private string _consumerTag;
 
         public CancellationTokenSource Cts { get; set; }
 
+        public void Start()
+        {
+            if (_consumer == null)
+            {
+                _consumerTag = Guid.NewGuid().ToString();
+                _consumer = new AsyncEventingBasicConsumer(channel);
+                _consumer.Received += OnReceived;
+            }
+
+            channel.BasicConsume(queue: TopicNames.AttributeChanged, autoAck: false, consumerTag: _consumerTag, consumer: _consumer);
+        }
+
         public void Dispose()
         {
-            using var _ = _scope;
+            using var _ = _channelScope;
+            try { channel.BasicCancel(consumerTag: _consumerTag); } catch { }
+            if (_consumer != null)
+                _consumer.Received -= OnReceived;
+            try { Cts?.Cancel(); } catch { }
             Cts?.Dispose();
         }
     }

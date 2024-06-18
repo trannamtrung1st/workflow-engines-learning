@@ -47,10 +47,11 @@ services:
       TaskLimiter__TargetCpuUtil: 0.75
       TaskLimiter__WaitTime: 4000
       TaskLimiter__ServiceTime: 5
-      ConcurrencyScaling__InitialConcurrencyLimit: 0
+      ConcurrencyScaling__InitialLimit: 0
       ConcurrencyScaling__ScaleFactor: 30
       ConcurrencyScaling__ScaleCheckInterval: 5000
       ConcurrencyScaling__AcceptedAvailableConcurrency: 0.3
+      ConcurrencyScaling__AcceptedQueueCount: 5
       ConcurrencyScaling__IdealUsage: 0.75
       RabbitMqClient__HostName: rabbitmq-1
       RabbitMqChannel__PrefetchCount: 5000

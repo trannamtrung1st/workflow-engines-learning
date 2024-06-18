@@ -12,7 +12,6 @@ using WELearning.Core.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Mvc;
 using RabbitMQ.Client;
-using WELearning.Shared.Concurrency.Configurations;
 using WELearning.Shared.Concurrency.Abstracts;
 
 const int minThreads = 512;
@@ -24,11 +23,9 @@ var builder = WebApplication.CreateBuilder(args);
 var appSettingsConfig = builder.Configuration.GetSection("AppSettings");
 var taskLimiterConfig = builder.Configuration.GetSection("TaskLimiter");
 var concurrencyScalingConfig = builder.Configuration.GetSection("ConcurrencyScaling");
-var concurrencyCollectorConfig = builder.Configuration.GetSection("ConcurrencyCollector");
 
 builder.Services
     .Configure<AppSettings>(appSettingsConfig.Bind)
-    .Configure<ConcurrencyCollectorOptions>(concurrencyCollectorConfig.Bind)
     .AddHostedService<Worker>()
     .AddEndpointsApiExplorer()
     .AddSwaggerGen()
@@ -101,24 +98,21 @@ app.MapPost("/api/fb/workers/scaling/stop", (
 
 app.MapPut("/api/configs/app-settings", (
     [FromQuery] int? workerCount,
-    [FromQuery] int? initialConcurrencyLimit,
+    [FromQuery] int? concurrencyLimit,
     [FromServices] IOptions<AppSettings> appSettings,
-    [FromServices] IOptions<ResourceBasedConcurrencyScalingOptions> scalingOptions) =>
+    [FromServices] ISyncAsyncTaskLimiter taskLimiter) =>
 {
     var appsettingsChanges = new List<string>();
-    var scalingChanges = new List<string>();
     if (workerCount.HasValue)
     {
         appSettings.Value.WorkerCount = workerCount.Value;
         appsettingsChanges.Add(nameof(appSettings.Value.WorkerCount));
     }
-    if (initialConcurrencyLimit.HasValue)
-    {
-        scalingOptions.Value.InitialConcurrencyLimit = initialConcurrencyLimit.Value;
-        scalingChanges.Add(nameof(scalingOptions.Value.InitialConcurrencyLimit));
-    }
     appSettings.Value.InvokeChanged(appsettingsChanges);
-    scalingOptions.Value.InvokeChanged(scalingChanges);
+
+    if (concurrencyLimit.HasValue)
+        taskLimiter.SetLimit(limit: concurrencyLimit.Value);
+
     return Results.NoContent();
 })
 .WithDisplayName("Update app settings")

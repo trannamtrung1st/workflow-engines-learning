@@ -195,7 +195,7 @@ app.MapPost("/api/fb/workers/{host}/scaling/stop", async (string host, [FromServ
 app.MapPut("/api/fb/workers/{host}/configs/app-settings", async (
     string host,
     [FromQuery] int? workerCount,
-    [FromQuery] int? initialConcurrencyLimit,
+    [FromQuery] int? concurrencyLimit,
     [FromServices] IHttpClients clients) =>
 {
     var builder = new UriBuilder();
@@ -205,8 +205,8 @@ app.MapPut("/api/fb/workers/{host}/configs/app-settings", async (
     var queryBuilder = new QueryBuilder();
     if (workerCount.HasValue)
         queryBuilder.Add(nameof(workerCount), workerCount.ToString());
-    if (initialConcurrencyLimit.HasValue)
-        queryBuilder.Add(nameof(initialConcurrencyLimit), initialConcurrencyLimit.ToString());
+    if (concurrencyLimit.HasValue)
+        queryBuilder.Add(nameof(concurrencyLimit), concurrencyLimit.ToString());
     builder.Query = queryBuilder.ToString();
 
     var resp = await clients.FBWorker.PutAsJsonAsync(builder.Uri, value: default(object));

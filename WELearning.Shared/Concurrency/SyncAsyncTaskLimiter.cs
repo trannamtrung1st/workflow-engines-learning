@@ -7,12 +7,12 @@ namespace WELearning.Shared.Concurrency;
 public class SyncAsyncTaskLimiter : DynamicRateLimiter, ISyncAsyncTaskLimiter
 {
     private readonly int _maxLimit;
-    public SyncAsyncTaskLimiter(IOptions<TaskLimiterOptions> options) : base(collectorOptions: options.Value.CollectorOptions)
+
+    public SyncAsyncTaskLimiter(IOptions<TaskLimiterOptions> limiterOptions) : base(limiterOptions: limiterOptions.Value)
     {
         // Reference: https://engineering.zalando.com/posts/2019/04/how-to-set-an-ideal-thread-pool-size.html
-        var limiterOptions = options.Value;
-        _maxLimit = (int)(limiterOptions.AvailableCores * limiterOptions.TargetCpuUtil * (1 + limiterOptions.WaitTime / limiterOptions.ServiceTime));
-        SetLimit(limit: limiterOptions.InitialLimit);
+        var optionsValue = limiterOptions.Value;
+        _maxLimit = (int)(optionsValue.AvailableCores * optionsValue.TargetCpuUtil * (1 + optionsValue.WaitTime / optionsValue.ServiceTime));
     }
 
     protected override int GetAcceptedLimit(int limit) => limit < _maxLimit ? limit : _maxLimit;

@@ -10,17 +10,18 @@ public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
     private readonly Queue<int> _queueCounts = new();
     private readonly Queue<int> _availableCounts = new();
     private readonly SemaphoreSlim _concurrencyCollectorLock = new(1);
-    private readonly ConcurrencyCollectorOptions _collectorOptions;
+    private readonly RateLimiterOptions _limiterOptions;
     private System.Timers.Timer _concurrencyCollector;
     private int _limit = 0;
     private int _queueCount = 0;
     private int _acquired = 0;
 
-    public DynamicRateLimiter(ConcurrencyCollectorOptions collectorOptions)
+    public DynamicRateLimiter(RateLimiterOptions limiterOptions)
     {
         _semaphore = new SemaphoreSlim(1);
         _availableEvent = new ManualResetEventSlim();
-        _collectorOptions = collectorOptions;
+        _limiterOptions = limiterOptions;
+        SetLimit(limit: _limiterOptions.InitialLimit);
     }
 
     public (int Limit, int Acquired, int Available, int QueueCount) State
@@ -121,15 +122,16 @@ public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
     {
         if (_concurrencyCollector == null)
         {
-            _concurrencyCollector = new(interval: _collectorOptions.ConcurrencyCollectorInterval);
+            var collectorOptions = _limiterOptions.CollectorOptions;
+            _concurrencyCollector = new(interval: collectorOptions.ConcurrencyCollectorInterval);
             _concurrencyCollector.AutoReset = true;
             _concurrencyCollector.Elapsed += async (s, e) =>
             {
                 await _concurrencyCollectorLock.WaitAsync();
                 try
                 {
-                    if (_queueCounts.Count == _collectorOptions.MovingAverageRange) _queueCounts.TryDequeue(out var _);
-                    if (_availableCounts.Count == _collectorOptions.MovingAverageRange) _availableCounts.TryDequeue(out var _);
+                    if (_queueCounts.Count == collectorOptions.MovingAverageRange) _queueCounts.TryDequeue(out var _);
+                    if (_availableCounts.Count == collectorOptions.MovingAverageRange) _availableCounts.TryDequeue(out var _);
                     var (_, _, concurrencyAvailable, concurrencyQueueCount) = State;
                     _queueCounts.Enqueue(concurrencyQueueCount);
                     _availableCounts.Enqueue(concurrencyAvailable);
@@ -153,8 +155,9 @@ public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
         finally { _concurrencyCollectorLock.Release(); }
     }
 
-    public void Dispose()
+    public virtual void Dispose()
     {
+        GC.SuppressFinalize(this);
         _queueCounts?.Clear();
         _availableCounts?.Clear();
         _concurrencyCollectorLock?.Dispose();

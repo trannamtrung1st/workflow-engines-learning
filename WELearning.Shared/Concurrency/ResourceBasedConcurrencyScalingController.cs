@@ -40,7 +40,7 @@ public class ResourceBasedConcurrencyScalingController : IConcurrencyScalingCont
                 {
                     ScaleConcurrency(concurrencyLimiter, cpu, mem,
                         ideal: scalingOptions.IdealUsage, scaleFactor: scalingOptions.ScaleFactor,
-                        initialConcurrencyLimit: scalingOptions.InitialConcurrencyLimit,
+                        initialLimit: scalingOptions.InitialLimit,
                         acceptedQueueCount: scalingOptions.AcceptedQueueCount,
                         acceptedAvailableConcurrency: scalingOptions.AcceptedAvailableConcurrency);
                 }
@@ -58,7 +58,7 @@ public class ResourceBasedConcurrencyScalingController : IConcurrencyScalingCont
     public void Stop() => _resourceMonitor?.Stop();
 
     private void ScaleConcurrency(IDynamicRateLimiter concurrencyLimiter, double cpu, double mem, double ideal,
-        int scaleFactor, int initialConcurrencyLimit, int acceptedQueueCount, double acceptedAvailableConcurrency)
+        int scaleFactor, int initialLimit, int acceptedQueueCount, double acceptedAvailableConcurrency)
     {
         if (_lastCpu > 0 && _lastMem > 0)
         {
@@ -78,7 +78,7 @@ public class ResourceBasedConcurrencyScalingController : IConcurrencyScalingCont
             newLimit = concurrencyLimit - threadScale / 2;
         else
             newLimit = concurrencyLimit + threadScale;
-        if (newLimit < initialConcurrencyLimit) newLimit = initialConcurrencyLimit;
+        if (newLimit < initialLimit) newLimit = initialLimit;
         concurrencyLimiter.SetLimit(newLimit);
         _logger.LogWarning(
             "CPU: {Cpu} - Memory: {Memory}\n" +
