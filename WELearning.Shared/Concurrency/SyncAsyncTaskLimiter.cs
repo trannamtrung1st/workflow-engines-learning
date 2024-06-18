@@ -7,7 +7,7 @@ namespace WELearning.Shared.Concurrency;
 public class SyncAsyncTaskLimiter : DynamicRateLimiter, ISyncAsyncTaskLimiter
 {
     private readonly int _maxLimit;
-    public SyncAsyncTaskLimiter(IOptions<TaskLimiterOptions> options)
+    public SyncAsyncTaskLimiter(IOptions<TaskLimiterOptions> options) : base(collectorOptions: options.Value.CollectorOptions)
     {
         // Reference: https://engineering.zalando.com/posts/2019/04/how-to-set-an-ideal-thread-pool-size.html
         var limiterOptions = options.Value;

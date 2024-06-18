@@ -3,7 +3,6 @@ namespace WELearning.Samples.FBWorker.Configurations;
 public class AppSettings
 {
     public int WorkerCount { get; set; }
-    public int InitialConcurrencyLimit { get; set; }
 
     public event EventHandler<IEnumerable<string>> Changed;
 

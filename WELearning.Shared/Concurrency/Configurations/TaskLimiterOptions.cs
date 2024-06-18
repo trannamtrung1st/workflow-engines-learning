@@ -8,4 +8,5 @@ public class TaskLimiterOptions
     public double TargetCpuUtil { get; set; }
     public double WaitTime { get; set; }
     public double ServiceTime { get; set; }
+    public ConcurrencyCollectorOptions CollectorOptions { get; set; }
 }

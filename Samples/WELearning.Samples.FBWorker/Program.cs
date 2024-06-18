@@ -12,6 +12,8 @@ using WELearning.Core.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Mvc;
 using RabbitMQ.Client;
+using WELearning.Shared.Concurrency.Configurations;
+using WELearning.Shared.Concurrency.Abstracts;
 
 const int minThreads = 512;
 int maxThreads = minThreads * 2;
@@ -21,9 +23,12 @@ threadSet = ThreadPool.SetMaxThreads(workerThreads: maxThreads, completionPortTh
 var builder = WebApplication.CreateBuilder(args);
 var appSettingsConfig = builder.Configuration.GetSection("AppSettings");
 var taskLimiterConfig = builder.Configuration.GetSection("TaskLimiter");
+var concurrencyScalingConfig = builder.Configuration.GetSection("ConcurrencyScaling");
+var concurrencyCollectorConfig = builder.Configuration.GetSection("ConcurrencyCollector");
 
 builder.Services
-    .Configure<AppSettings>(appSettings => appSettingsConfig.Bind(appSettings))
+    .Configure<AppSettings>(appSettingsConfig.Bind)
+    .Configure<ConcurrencyCollectorOptions>(concurrencyCollectorConfig.Bind)
     .AddHostedService<Worker>()
     .AddEndpointsApiExplorer()
     .AddSwaggerGen()
@@ -41,7 +46,8 @@ builder.Services
     .AddFuzzyThreadController()
     .AddInMemoryLockManager()
     .AddDefaultDistributedLockManager()
-    .AddDefaultSyncAsyncTaskRunner(configure: (options) => taskLimiterConfig.Bind(options))
+    .AddResourceBasedConcurrencyScaling(configure: concurrencyScalingConfig.Bind)
+    .AddDefaultSyncAsyncTaskRunner(configure: taskLimiterConfig.Bind)
     .AddDefaultBlockRunner()
     .AddDefaultFunctionRunner()
     .AddDefaultRuntimeEngineFactory()
@@ -69,18 +75,24 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 
-app.MapPost("/api/fb/workers/scaling/start", ([FromServices] IFunctionBlockWorker fbWorker) =>
+app.MapPost("/api/fb/workers/scaling/start", (
+    [FromServices] ISyncAsyncTaskLimiter taskLimiter,
+    [FromServices] IConcurrencyScalingController controller) =>
 {
-    fbWorker.StartDynamicScalingWorker();
+    taskLimiter.StartConcurrencyCollector();
+    controller.Start(concurrencyLimiter: taskLimiter);
     return Results.NoContent();
 })
 .WithDisplayName("Start FB dynamic scaling worker")
 .WithName("Start FB dynamic scaling worker");
 
 
-app.MapPost("/api/fb/workers/scaling/stop", ([FromServices] IFunctionBlockWorker fbWorker) =>
+app.MapPost("/api/fb/workers/scaling/stop", (
+    [FromServices] ISyncAsyncTaskLimiter taskLimiter,
+    [FromServices] IConcurrencyScalingController controller) =>
 {
-    fbWorker.StopDynamicScalingWorker();
+    controller.Stop();
+    taskLimiter.StopConcurrencyCollector();
     return Results.NoContent();
 })
 .WithDisplayName("Stop FB dynamic scaling worker")
@@ -90,20 +102,23 @@ app.MapPost("/api/fb/workers/scaling/stop", ([FromServices] IFunctionBlockWorker
 app.MapPut("/api/configs/app-settings", (
     [FromQuery] int? workerCount,
     [FromQuery] int? initialConcurrencyLimit,
-    [FromServices] IOptions<AppSettings> appSettings) =>
+    [FromServices] IOptions<AppSettings> appSettings,
+    [FromServices] IOptions<ResourceBasedConcurrencyScalingOptions> scalingOptions) =>
 {
-    var changes = new List<string>();
+    var appsettingsChanges = new List<string>();
+    var scalingChanges = new List<string>();
     if (workerCount.HasValue)
     {
         appSettings.Value.WorkerCount = workerCount.Value;
-        changes.Add(nameof(appSettings.Value.WorkerCount));
+        appsettingsChanges.Add(nameof(appSettings.Value.WorkerCount));
     }
     if (initialConcurrencyLimit.HasValue)
     {
-        appSettings.Value.InitialConcurrencyLimit = initialConcurrencyLimit.Value;
-        changes.Add(nameof(appSettings.Value.InitialConcurrencyLimit));
+        scalingOptions.Value.InitialConcurrencyLimit = initialConcurrencyLimit.Value;
+        scalingChanges.Add(nameof(scalingOptions.Value.InitialConcurrencyLimit));
     }
-    appSettings.Value.InvokeChanged(changes);
+    appSettings.Value.InvokeChanged(appsettingsChanges);
+    scalingOptions.Value.InvokeChanged(scalingChanges);
     return Results.NoContent();
 })
 .WithDisplayName("Update app settings")

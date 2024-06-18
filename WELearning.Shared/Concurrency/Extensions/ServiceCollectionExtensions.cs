@@ -29,13 +29,9 @@ public static partial class ServiceCollectionExtensions
         return services.AddSingleton<IFuzzyThreadController, FuzzyThreadController>();
     }
 
-    public static IServiceCollection AddDynamicRateLimiter(this IServiceCollection services, int initialLimit)
+    public static IServiceCollection AddResourceBasedConcurrencyScaling(this IServiceCollection services, Action<ResourceBasedConcurrencyScalingOptions> configure)
     {
-        return services.AddTransient<IDynamicRateLimiter>(_ =>
-        {
-            var limiter = new DynamicRateLimiter();
-            limiter.SetLimit(initialLimit);
-            return limiter;
-        });
+        return services.AddSingleton<IConcurrencyScalingController, ResourceBasedConcurrencyScalingController>()
+            .Configure(configure);
     }
 }
