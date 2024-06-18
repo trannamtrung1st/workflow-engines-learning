@@ -150,7 +150,7 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
             using var _1 = cts;
             try { await Handle(); }
             catch (Exception ex) { _logger.LogError(ex, ex.Message); }
-        }, cancellationToken: cts.Token);
+        });
     }
 
     public void Dispose()
@@ -185,7 +185,12 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
         {
             using var _ = channelScope;
             using var _1 = _cts;
-            try { channel.BasicCancel(consumerTag: _consumerTag); } catch { }
+            try
+            {
+                if (_consumerTag != null)
+                    channel.BasicCancel(consumerTag: _consumerTag);
+            }
+            catch { }
             try { _cts.Cancel(); } catch { }
             if (_consumer != null)
                 _consumer.Received -= OnReceived;

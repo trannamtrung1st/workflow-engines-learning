@@ -11,16 +11,16 @@ public class SyncAsyncTaskRunner : ISyncAsyncTaskRunner
         _taskLimiter = taskLimiter;
     }
 
-    public async Task TryRunTaskAsync(Func<IDisposable, Task> task, CancellationToken cancellationToken)
+    public async Task TryRunTaskAsync(Func<IDisposable, Task> task)
     {
-        if (_taskLimiter.TryAcquire(out var scope, cancellationToken))
+        if (_taskLimiter.TryAcquire(out var scope))
         {
             Task asyncTask = null;
             asyncTask = Task.Factory.StartNew(
                 function: () => task(new SimpleScope(onDispose: () =>
                 {
-                    scope.Dispose();
-                    asyncTask.Dispose();
+                    using var _ = scope;
+                    using var _1 = asyncTask;
                 })),
                 creationOptions: TaskCreationOptions.LongRunning);
         }

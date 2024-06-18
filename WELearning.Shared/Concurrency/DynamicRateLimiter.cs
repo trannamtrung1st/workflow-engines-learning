@@ -6,7 +6,7 @@ namespace WELearning.Shared.Concurrency;
 public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
 {
     private readonly ManualResetEventSlim _availableEvent;
-    private readonly SemaphoreSlim _semaphore;
+    private readonly object _lock = new();
     private readonly Queue<int> _queueCounts = new();
     private readonly Queue<int> _availableCounts = new();
     private readonly SemaphoreSlim _concurrencyCollectorLock = new(1);
@@ -18,7 +18,6 @@ public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
 
     public DynamicRateLimiter(RateLimiterOptions limiterOptions)
     {
-        _semaphore = new SemaphoreSlim(1);
         _availableEvent = new ManualResetEventSlim();
         _limiterOptions = limiterOptions;
         SetLimit(limit: _limiterOptions.InitialLimit);
@@ -28,22 +27,19 @@ public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
     {
         get
         {
-            try
+            lock (_lock)
             {
-                _semaphore.Wait();
                 return (_limit, _acquired, _limit - _acquired, _queueCount);
             }
-            finally { _semaphore.Release(); }
         }
     }
 
-    public IDisposable Acquire(CancellationToken cancellationToken = default)
-        => AcquireCore(wait: true, cancellationToken);
+    public IDisposable Acquire()
+        => AcquireCore(wait: true);
 
-    private void Release(CancellationToken cancellationToken = default)
+    private void Release()
     {
-        _semaphore.Wait(cancellationToken: cancellationToken);
-        try
+        lock (_lock)
         {
             if (_acquired > 0)
             {
@@ -51,30 +47,27 @@ public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
                 _availableEvent.Set();
             }
         }
-        finally { _semaphore.Release(); }
     }
 
-    public int SetLimit(int limit, CancellationToken cancellationToken = default)
+    public int SetLimit(int limit)
     {
         var acceptedLimit = GetAcceptedLimit(limit);
-        _semaphore.Wait(cancellationToken: cancellationToken);
-        try
+        lock (_lock)
         {
             var prevLimit = _limit;
             _limit = acceptedLimit;
-            if (acceptedLimit > prevLimit) _availableEvent.Set();
+            if (_limit > prevLimit) _availableEvent.Set();
         }
-        finally { _semaphore.Release(); }
         return acceptedLimit;
     }
 
-    public bool TryAcquire(out IDisposable scope, CancellationToken cancellationToken = default)
+    public bool TryAcquire(out IDisposable scope)
     {
-        scope = AcquireCore(wait: false, cancellationToken);
+        scope = AcquireCore(wait: false);
         return scope != null;
     }
 
-    public IDisposable AcquireCore(bool wait, CancellationToken cancellationToken = default)
+    public IDisposable AcquireCore(bool wait)
     {
         if (_limit == 0)
             return null;
@@ -84,15 +77,14 @@ public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
         {
             while (!acquired)
             {
-                _semaphore.Wait(cancellationToken: cancellationToken);
-                if (!queued)
+                lock (_lock)
                 {
-                    Interlocked.Increment(ref _queueCount);
-                    queued = true;
-                }
+                    if (!queued)
+                    {
+                        Interlocked.Increment(ref _queueCount);
+                        queued = true;
+                    }
 
-                try
-                {
                     if (CanAcquired())
                     {
                         acquired = true;
@@ -100,16 +92,14 @@ public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
                     }
                     else _availableEvent.Reset();
                 }
-                finally { _semaphore.Release(); }
 
                 if (!acquired)
                 {
-                    if (wait)
-                        _availableEvent.Wait(cancellationToken);
+                    if (wait) _availableEvent.Wait();
                     else return null;
                 }
             }
-            return new SimpleScope(() => Release(cancellationToken));
+            return new SimpleScope(Release);
         }
         finally { if (queued) Interlocked.Decrement(ref _queueCount); }
     }
@@ -162,7 +152,6 @@ public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
         _availableCounts?.Clear();
         _concurrencyCollectorLock?.Dispose();
         _concurrencyCollector?.Dispose();
-        _semaphore.Dispose();
         _availableEvent.Dispose();
     }
 }
