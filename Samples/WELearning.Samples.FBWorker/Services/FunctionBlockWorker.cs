@@ -29,8 +29,10 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
     private readonly SemaphoreSlim _concurrencyCollectorLock = new SemaphoreSlim(1);
     private readonly IFuzzyThreadController _fuzzyThreadController;
     private readonly IRabbitMqConnectionManager _rabbitMqConnectionManager;
-    private bool _resourceMonitorSet = false;
     private System.Timers.Timer _concurrencyCollector;
+    private bool _resourceMonitorSet = false;
+    private double _lastCpu;
+    private double _lastMem;
 
     public FunctionBlockWorker(
         IServiceProvider serviceProvider,
@@ -103,6 +105,14 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
 
     private async Task ScaleConcurrency(double cpu, double mem, double ideal, int scaleFactor, int initialConcurrencyLimit, int acceptedQueueCount, double acceptedAvailableConcurrency)
     {
+        if (_lastCpu > 0 && _lastMem > 0)
+        {
+            var cpuDiff = Math.Abs(cpu - _lastCpu);
+            var memDiff = Math.Abs(mem - _lastMem);
+            var biggerDiff = Math.Max(cpuDiff, memDiff);
+            scaleFactor -= (int)(scaleFactor * biggerDiff);
+        }
+        _lastCpu = cpu; _lastMem = mem;
         var threadScale = _fuzzyThreadController.GetThreadScale(cpu, mem, ideal, factor: scaleFactor);
         if (threadScale == 0) return;
         var (queueCountAvg, availableCountAvg) = await GetConcurrencyStatistics();
