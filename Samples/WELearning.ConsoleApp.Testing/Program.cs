@@ -481,7 +481,9 @@ static class TestFunctionBlocks
             bAddDef: PredefinedBFBs.AddJs, bMultiplyDef: PredefinedBFBs.MultiplyCsCompiled
         );
         await RunRectanglePerimeter(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: rectanglePerimeterJs), runTokens: tokensProvider());
-        Console.WriteLine("\n{0}\n", JsonSerializer.Serialize(rectanglePerimeterJs, Program.DefaultJsonOpts));
+        Console.WriteLine("\nCFB: Rectangle perimeter:\n{0}\n", JsonSerializer.Serialize(rectanglePerimeterJs, Program.DefaultJsonOpts));
+        Console.WriteLine("\nBFB: Add:\n{0}\n", JsonSerializer.Serialize(PredefinedBFBs.AddJs, Program.DefaultJsonOpts));
+        Console.WriteLine("\nBFB: Multiply:\n{0}\n", JsonSerializer.Serialize(PredefinedBFBs.MultiplyCsCompiled, Program.DefaultJsonOpts));
 
         await RunLoopCFB(blockRunner, CreateControl: () => CreateCompositeControl(blockDef: LoopCFB.Build()), runTokens: tokensProvider());
 
