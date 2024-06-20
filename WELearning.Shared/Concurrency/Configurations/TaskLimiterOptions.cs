@@ -8,5 +8,5 @@ public class TaskLimiterOptions : RateLimiterOptions
     public double WaitTime { get; set; }
     public double ServiceTime { get; set; }
     public new int InitialLimit { get; set; }
-    public new ConcurrencyCollectorOptions CollectorOptions { get; set; }
+    public new RateCollectorOptions CollectorOptions { get; set; }
 }

@@ -9,9 +9,9 @@ public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
     private readonly object _lock = new();
     private readonly Queue<int> _queueCounts = new();
     private readonly Queue<int> _availableCounts = new();
-    private readonly SemaphoreSlim _concurrencyCollectorLock = new(1);
+    private readonly SemaphoreSlim _rateCollectorLock = new(1);
     private readonly RateLimiterOptions _limiterOptions;
-    private System.Timers.Timer _concurrencyCollector;
+    private System.Timers.Timer _rateCollector;
     private int _limit = 0;
     private int _queueCount = 0;
     private int _acquired = 0;
@@ -108,16 +108,16 @@ public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
 
     protected virtual bool CanAcquired() => _acquired < _limit;
 
-    public void StartConcurrencyCollector()
+    public void StartRateCollector()
     {
-        if (_concurrencyCollector == null)
+        if (_rateCollector == null)
         {
             var collectorOptions = _limiterOptions.CollectorOptions;
-            _concurrencyCollector = new(interval: collectorOptions.ConcurrencyCollectorInterval);
-            _concurrencyCollector.AutoReset = true;
-            _concurrencyCollector.Elapsed += async (s, e) =>
+            _rateCollector = new(interval: collectorOptions.Interval);
+            _rateCollector.AutoReset = true;
+            _rateCollector.Elapsed += async (s, e) =>
             {
-                await _concurrencyCollectorLock.WaitAsync();
+                await _rateCollectorLock.WaitAsync();
                 try
                 {
                     if (_queueCounts.Count == collectorOptions.MovingAverageRange) _queueCounts.TryDequeue(out var _);
@@ -126,23 +126,23 @@ public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
                     _queueCounts.Enqueue(concurrencyQueueCount);
                     _availableCounts.Enqueue(concurrencyAvailable);
                 }
-                finally { _concurrencyCollectorLock.Release(); }
+                finally { _rateCollectorLock.Release(); }
             };
         }
-        _concurrencyCollector.Start();
+        _rateCollector.Start();
     }
 
-    public void StopConcurrencyCollector() => _concurrencyCollector?.Stop();
+    public void StopRateCollector() => _rateCollector?.Stop();
 
-    public void GetConcurrencyStatistics(out int queueCountAvg, out int availableCountAvg)
+    public void GetRateStatistics(out int queueCountAvg, out int availableCountAvg)
     {
-        _concurrencyCollectorLock.Wait();
+        _rateCollectorLock.Wait();
         try
         {
             queueCountAvg = _queueCounts.Count > 0 ? (int)_queueCounts.Average() : 0;
             availableCountAvg = _availableCounts.Count > 0 ? (int)_availableCounts.Average() : 0;
         }
-        finally { _concurrencyCollectorLock.Release(); }
+        finally { _rateCollectorLock.Release(); }
     }
 
     public virtual void Dispose()
@@ -150,8 +150,8 @@ public class DynamicRateLimiter : IDynamicRateLimiter, IDisposable
         GC.SuppressFinalize(this);
         _queueCounts?.Clear();
         _availableCounts?.Clear();
-        _concurrencyCollectorLock?.Dispose();
-        _concurrencyCollector?.Dispose();
+        _rateCollectorLock?.Dispose();
+        _rateCollector?.Dispose();
         _availableEvent.Dispose();
     }
 }

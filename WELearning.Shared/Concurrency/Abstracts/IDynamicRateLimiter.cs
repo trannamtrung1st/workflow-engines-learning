@@ -7,7 +7,7 @@ public interface IDynamicRateLimiter : IDisposable
     int SetLimit(int limit);
     IDisposable Acquire();
     bool TryAcquire(out IDisposable scope);
-    void StartConcurrencyCollector();
-    void StopConcurrencyCollector();
-    void GetConcurrencyStatistics(out int queueCountAvg, out int availableCountAvg);
+    void StartRateCollector();
+    void StopRateCollector();
+    void GetRateStatistics(out int queueCountAvg, out int availableCountAvg);
 }

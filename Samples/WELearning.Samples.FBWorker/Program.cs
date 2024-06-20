@@ -76,7 +76,7 @@ app.MapPost("/api/fb/workers/scaling/start", (
     [FromServices] ISyncAsyncTaskLimiter taskLimiter,
     [FromServices] IConcurrencyScalingController controller) =>
 {
-    taskLimiter.StartConcurrencyCollector();
+    taskLimiter.StartRateCollector();
     controller.Start(concurrencyLimiter: taskLimiter);
     return Results.NoContent();
 })
@@ -89,7 +89,7 @@ app.MapPost("/api/fb/workers/scaling/stop", (
     [FromServices] IConcurrencyScalingController controller) =>
 {
     controller.Stop();
-    taskLimiter.StopConcurrencyCollector();
+    taskLimiter.StopRateCollector();
     return Results.NoContent();
 })
 .WithDisplayName("Stop FB dynamic scaling worker")

@@ -1,7 +1,7 @@
 namespace WELearning.Shared.Concurrency.Configurations;
 
-public class ConcurrencyCollectorOptions
+public class RateCollectorOptions
 {
     public int MovingAverageRange { get; set; }
-    public double ConcurrencyCollectorInterval { get; set; }
+    public double Interval { get; set; }
 }
