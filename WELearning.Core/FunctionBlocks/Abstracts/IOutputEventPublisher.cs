@@ -1,4 +1,4 @@
-namespace WELearning.Core.FunctionBlocks.Framework.Abstracts;
+namespace WELearning.Core.FunctionBlocks.Abstracts;
 
 public interface IOutputEventPublisher
 {
