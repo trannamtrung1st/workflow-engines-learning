@@ -6,6 +6,6 @@ public class ResourceBasedRateScalingOptions
     public double IdealUsage { get; set; }
     public int ScaleFactor { get; set; }
     public int AcceptedQueueCount { get; set; }
-    public double AcceptedAvailableCount { get; set; }
+    public double AcceptedAvailablePercentage { get; set; }
     public double ScaleCheckInterval { get; set; }
 }

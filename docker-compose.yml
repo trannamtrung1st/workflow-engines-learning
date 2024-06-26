@@ -50,7 +50,7 @@ services:
       RateScaling__InitialLimit: 0
       RateScaling__ScaleFactor: 30
       RateScaling__ScaleCheckInterval: 5000
-      RateScaling__AcceptedAvailableCount: 0.3
+      RateScaling__AcceptedAvailablePercentage: 0.3
       RateScaling__AcceptedQueueCount: 5
       RateScaling__IdealUsage: 0.75
       RabbitMqClient__HostName: rabbitmq-1

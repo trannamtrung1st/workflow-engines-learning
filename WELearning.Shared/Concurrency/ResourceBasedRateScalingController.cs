@@ -42,7 +42,7 @@ public class ResourceBasedRateScalingController : IRateScalingController, IDispo
                         ideal: scalingOptions.IdealUsage, scaleFactor: scalingOptions.ScaleFactor,
                         initialLimit: scalingOptions.InitialLimit,
                         acceptedQueueCount: scalingOptions.AcceptedQueueCount,
-                        acceptedAvailableCount: scalingOptions.AcceptedAvailableCount);
+                        acceptedAvailablePercentage: scalingOptions.AcceptedAvailablePercentage);
                 }
                 catch (Exception ex)
                 {
@@ -58,7 +58,7 @@ public class ResourceBasedRateScalingController : IRateScalingController, IDispo
     public void Stop() => _resourceMonitor?.Stop();
 
     private void ScaleRate(IDynamicRateLimiter rateLimiter, double cpu, double mem, double ideal,
-        int scaleFactor, int initialLimit, int acceptedQueueCount, double acceptedAvailableCount)
+        int scaleFactor, int initialLimit, int acceptedQueueCount, double acceptedAvailablePercentage)
     {
         if (_lastCpu > 0 && _lastMem > 0)
         {
@@ -74,7 +74,7 @@ public class ResourceBasedRateScalingController : IRateScalingController, IDispo
         long newLimit;
         if (rateScale < 0)
             newLimit = rateLimit + rateScale;
-        else if (availableCountAvg > acceptedAvailableCount * rateLimit && queueCountAvg <= acceptedQueueCount)
+        else if (availableCountAvg > acceptedAvailablePercentage * rateLimit && queueCountAvg <= acceptedQueueCount)
             newLimit = rateLimit - rateScale / 2;
         else
             newLimit = rateLimit + rateScale;
