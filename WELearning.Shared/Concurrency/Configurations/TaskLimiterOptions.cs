@@ -7,7 +7,7 @@ public class TaskLimiterOptions : RateLimiterOptions
     public double TargetCpuUtil { get; set; }
     public double WaitTime { get; set; }
     public double ServiceTime { get; set; }
-    public int AcquireRatePerSecond { get; set; } = 24;
+    public int AcquireRatePerSecond { get; set; } = 5;
     public new int InitialLimit { get; set; }
     public new RateCollectorOptions CollectorOptions { get; set; }
 }
