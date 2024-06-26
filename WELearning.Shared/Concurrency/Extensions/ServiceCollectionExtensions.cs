@@ -17,7 +17,7 @@ public static partial class ServiceCollectionExtensions
         return services.AddSingleton<IDistributedLockManager, InMemoryLockManager>();
     }
 
-    public static IServiceCollection AddDefaultSyncAsyncTaskRunner(this IServiceCollection services, Action<TaskLimiterOptions> configure)
+    public static IServiceCollection AddSyncAsyncTaskRunner(this IServiceCollection services, Action<TaskLimiterOptions> configure)
     {
         return services.AddSingleton<ISyncAsyncTaskRunner, SyncAsyncTaskRunner>()
             .AddSingleton<ISyncAsyncTaskLimiter, SyncAsyncTaskLimiter>()

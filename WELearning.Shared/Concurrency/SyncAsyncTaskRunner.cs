@@ -11,20 +11,36 @@ public class SyncAsyncTaskRunner : ISyncAsyncTaskRunner
         _taskLimiter = taskLimiter;
     }
 
-    public async Task TryRunTaskAsync(long rateCount, Func<IDisposable, Task> task)
+    public async Task RunSyncAsync(long rateCount, Func<IDisposable, Task> task, bool longRunning = true)
     {
         if (_taskLimiter.TryAcquire(rateCount, out var scope))
+            await RunAsyncCore(rateCount, task, longRunning, scope);
+        else
+            await task(new SimpleScope());
+    }
+
+    public async Task RunAsync(long rateCount, Func<IDisposable, Task> task, bool longRunning = true)
+    {
+        var scope = _taskLimiter.Acquire(rateCount);
+        await RunAsyncCore(rateCount, task, longRunning, scope);
+    }
+
+    protected virtual async Task RunAsyncCore(long rateCount, Func<IDisposable, Task> task, bool longRunning, IDisposable scope)
+    {
+        Task asyncTask = null;
+        Task MainTask() => task(new SimpleScope(onDispose: () =>
         {
-            Task asyncTask = null;
+            using var _ = scope;
+            asyncTask?.Dispose();
+        }));
+
+        if (longRunning)
+        {
             asyncTask = Task.Factory.StartNew(
-                function: () => task(new SimpleScope(onDispose: () =>
-                {
-                    using var _ = scope;
-                    using var _1 = asyncTask;
-                })),
+                function: MainTask,
                 creationOptions: TaskCreationOptions.LongRunning);
         }
         else
-            await task(new SimpleScope());
+            await Task.Run(MainTask);
     }
 }

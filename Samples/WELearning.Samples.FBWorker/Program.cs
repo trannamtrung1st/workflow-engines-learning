@@ -42,7 +42,7 @@ builder.Services
     .AddResourceMonitor()
     .AddResourceBasedFuzzyRateScaler()
     .AddResourceBasedRateScaling(configure: rateScalingConfig.Bind)
-    .AddDefaultSyncAsyncTaskRunner(configure: taskLimiterConfig.Bind)
+    .AddSyncAsyncTaskRunner(configure: taskLimiterConfig.Bind)
     .AddInMemoryLockManager()
     .AddDefaultDistributedLockManager()
     .AddDefaultBlockRunner()

@@ -33,7 +33,7 @@ var serviceCollection = new ServiceCollection()
     .AddLogging(cfg => cfg.AddSimpleConsole())
     .AddInMemoryLockManager()
     .AddDefaultDistributedLockManager()
-    .AddDefaultSyncAsyncTaskRunner(configure: (options) =>
+    .AddSyncAsyncTaskRunner(configure: (options) =>
     {
         options.InitialLimit = minThreads;
         options.AvailableCores = Environment.ProcessorCount;
