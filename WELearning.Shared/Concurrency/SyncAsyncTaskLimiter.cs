@@ -35,7 +35,10 @@ public class SyncAsyncTaskLimiter : DynamicRateLimiter, ISyncAsyncTaskLimiter
     {
         var disposable = base.AcquireCore(count, wait);
         if (disposable != null)
+        {
+            _acquiredQueue.Enqueue(DateTime.UtcNow);
             Interlocked.Increment(ref _asyncCount);
+        }
         return disposable;
     }
 
