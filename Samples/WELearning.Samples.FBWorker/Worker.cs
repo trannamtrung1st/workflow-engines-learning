@@ -49,7 +49,7 @@ public class Worker : BackgroundService
     {
         var appSettings = _appSettingsOptions.Value;
 
-        var idealUsage = _configuration.GetValue<double>("AppSettings:IdealUsage");
+        var idealUsage = _configuration.GetValue<double>("RateScaling:IdealUsage");
         appSettings.WorkerCount = (int)(_resourceMonitor.TotalCores * idealUsage); // [NOTE] default worker count
         _taskLimiterOptions.Value.AvailableCores = _resourceMonitor.TotalCores;
 
