@@ -24,14 +24,14 @@ public static partial class ServiceCollectionExtensions
             .Configure(configure);
     }
 
-    public static IServiceCollection AddFuzzyThreadController(this IServiceCollection services)
+    public static IServiceCollection AddResourceBasedFuzzyRateScaler(this IServiceCollection services)
     {
-        return services.AddSingleton<IFuzzyThreadController, FuzzyThreadController>();
+        return services.AddSingleton<IResourceBasedFuzzyRateScaler, ResourceBasedFuzzyRateScaler>();
     }
 
-    public static IServiceCollection AddResourceBasedConcurrencyScaling(this IServiceCollection services, Action<ResourceBasedConcurrencyScalingOptions> configure)
+    public static IServiceCollection AddResourceBasedRateScaling(this IServiceCollection services, Action<ResourceBasedRateScalingOptions> configure)
     {
-        return services.AddSingleton<IConcurrencyScalingController, ResourceBasedConcurrencyScalingController>()
+        return services.AddSingleton<IRateScalingController, ResourceBasedRateScalingController>()
             .Configure(configure);
     }
 }

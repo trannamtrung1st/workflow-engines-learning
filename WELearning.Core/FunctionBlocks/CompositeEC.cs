@@ -367,7 +367,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
 
     protected Task TryRunTaskAsync(Func<Task> task)
     {
-        return _taskRunner.TryRunTaskAsync(async (asyncScope) =>
+        return _taskRunner.TryRunTaskAsync(rateCount: 1, async (asyncScope) =>
         {
             using var _2 = asyncScope;
             try { await task(); }

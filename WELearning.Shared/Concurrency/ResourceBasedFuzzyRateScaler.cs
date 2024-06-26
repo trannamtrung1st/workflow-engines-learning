@@ -4,11 +4,11 @@ using WELearning.Shared.Concurrency.Abstracts;
 
 namespace WELearning.Shared.Concurrency;
 
-public class FuzzyThreadController : IFuzzyThreadController
+public class ResourceBasedFuzzyRateScaler : IResourceBasedFuzzyRateScaler
 {
     private readonly IFuzzyEngine _fuzzyEngine;
 
-    public FuzzyThreadController()
+    public ResourceBasedFuzzyRateScaler()
     {
 
         var cpu = new LinguisticVariable("Cpu");
@@ -56,16 +56,16 @@ public class FuzzyThreadController : IFuzzyThreadController
         }
     }
 
-    public int GetThreadScale(double cpu, double memory, double ideal, int factor = 10, double incFactor = 1, double decFactor = 3)
+    public int GetRateScale(double cpu, double memory, double ideal, int factor = 10, double incFactor = 1, double decFactor = 3)
     {
         var fuzzyOutput = _fuzzyEngine.Defuzzify(new
         {
             Cpu = cpu > 1 ? 1 : cpu,
             Memory = memory > 1 ? 1 : memory
         });
-        var threadScale = (int)Math.Round((ideal - fuzzyOutput) * factor);
-        if (threadScale > 0) threadScale = (int)(threadScale * incFactor);
-        else if (threadScale < 0) threadScale = (int)(threadScale * decFactor);
-        return threadScale;
+        var rateScale = (int)Math.Round((ideal - fuzzyOutput) * factor);
+        if (rateScale > 0) rateScale = (int)(rateScale * incFactor);
+        else if (rateScale < 0) rateScale = (int)(rateScale * decFactor);
+        return rateScale;
     }
 }

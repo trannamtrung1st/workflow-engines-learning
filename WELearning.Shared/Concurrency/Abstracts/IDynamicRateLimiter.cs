@@ -2,12 +2,12 @@ namespace WELearning.Shared.Concurrency.Abstracts;
 
 public interface IDynamicRateLimiter : IDisposable
 {
-    (int Limit, int Acquired, int Available, int QueueCount) State { get; }
+    (long Limit, long Acquired, long Available, long QueueCount) State { get; }
 
-    int SetLimit(int limit);
-    IDisposable Acquire();
-    bool TryAcquire(out IDisposable scope);
+    long SetLimit(long limit);
+    IDisposable Acquire(long count);
+    bool TryAcquire(long count, out IDisposable scope);
     void StartRateCollector();
     void StopRateCollector();
-    void GetRateStatistics(out int queueCountAvg, out int availableCountAvg);
+    void GetRateStatistics(out long queueCountAvg, out long availableCountAvg);
 }

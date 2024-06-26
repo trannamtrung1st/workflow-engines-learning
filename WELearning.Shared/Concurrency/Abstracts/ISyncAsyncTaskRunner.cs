@@ -2,5 +2,5 @@ namespace WELearning.Shared.Concurrency.Abstracts;
 
 public interface ISyncAsyncTaskRunner
 {
-    Task TryRunTaskAsync(Func<IDisposable, Task> task);
+    Task TryRunTaskAsync(long rateCount, Func<IDisposable, Task> task);
 }

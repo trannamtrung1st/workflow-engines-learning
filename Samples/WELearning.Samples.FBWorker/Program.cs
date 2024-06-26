@@ -22,7 +22,7 @@ threadSet = ThreadPool.SetMaxThreads(workerThreads: maxThreads, completionPortTh
 var builder = WebApplication.CreateBuilder(args);
 var appSettingsConfig = builder.Configuration.GetSection("AppSettings");
 var taskLimiterConfig = builder.Configuration.GetSection("TaskLimiter");
-var concurrencyScalingConfig = builder.Configuration.GetSection("ConcurrencyScaling");
+var rateScalingConfig = builder.Configuration.GetSection("RateScaling");
 
 builder.Services
     .Configure<AppSettings>(appSettingsConfig.Bind)
@@ -40,10 +40,10 @@ builder.Services
     .AddScoped<IAssetService, AssetService>()
     .AddRateMonitor()
     .AddResourceMonitor()
-    .AddFuzzyThreadController()
+    .AddResourceBasedFuzzyRateScaler()
     .AddInMemoryLockManager()
     .AddDefaultDistributedLockManager()
-    .AddResourceBasedConcurrencyScaling(configure: concurrencyScalingConfig.Bind)
+    .AddResourceBasedRateScaling(configure: rateScalingConfig.Bind)
     .AddDefaultSyncAsyncTaskRunner(configure: taskLimiterConfig.Bind)
     .AddDefaultBlockRunner()
     .AddDefaultFunctionRunner()
@@ -74,10 +74,10 @@ app.UseSwaggerUI();
 
 app.MapPost("/api/fb/workers/scaling/start", (
     [FromServices] ISyncAsyncTaskLimiter taskLimiter,
-    [FromServices] IConcurrencyScalingController controller) =>
+    [FromServices] IRateScalingController controller) =>
 {
     taskLimiter.StartRateCollector();
-    controller.Start(concurrencyLimiter: taskLimiter);
+    controller.Start(rateLimiter: taskLimiter);
     return Results.NoContent();
 })
 .WithDisplayName("Start FB dynamic scaling worker")
@@ -86,7 +86,7 @@ app.MapPost("/api/fb/workers/scaling/start", (
 
 app.MapPost("/api/fb/workers/scaling/stop", (
     [FromServices] ISyncAsyncTaskLimiter taskLimiter,
-    [FromServices] IConcurrencyScalingController controller) =>
+    [FromServices] IRateScalingController controller) =>
 {
     controller.Stop();
     taskLimiter.StopRateCollector();

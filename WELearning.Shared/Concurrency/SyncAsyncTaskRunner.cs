@@ -11,9 +11,9 @@ public class SyncAsyncTaskRunner : ISyncAsyncTaskRunner
         _taskLimiter = taskLimiter;
     }
 
-    public async Task TryRunTaskAsync(Func<IDisposable, Task> task)
+    public async Task TryRunTaskAsync(long rateCount, Func<IDisposable, Task> task)
     {
-        if (_taskLimiter.TryAcquire(out var scope))
+        if (_taskLimiter.TryAcquire(rateCount, out var scope))
         {
             Task asyncTask = null;
             asyncTask = Task.Factory.StartNew(
