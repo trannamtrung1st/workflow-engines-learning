@@ -80,7 +80,7 @@ public class ResourceBasedRateScalingController : IRateScalingController, IDispo
             newLimit = rateLimit + rateScale;
         if (newLimit < initialLimit) newLimit = initialLimit;
         rateLimiter.SetLimit(newLimit);
-        _logger.LogWarning(
+        _logger.LogInformation(
             "CPU: {Cpu} - Memory: {Memory}\n" +
             "Scale: {Scale} - Acquired: {Acquired} - Available: {Available} - Queue: {QueueCount}\n" +
             "New rate limit: {Limit}",
