@@ -23,6 +23,7 @@ public class FunctionBlockService : IFunctionBlockService
     private readonly IBlockFrameworkFactory _blockFrameworkFactory;
     private readonly DeviceFunctionFramework _functionFramework;
     private readonly ISyncAsyncTaskRunner _taskRunner;
+    private readonly IConsumerRateLimiters _consumerRateLimiters;
     private readonly IAssetService _assetService;
     private readonly IRateMonitor _rateMonitor;
     private readonly ILogger<IExecutionControl> _controlLogger;
@@ -38,6 +39,7 @@ public class FunctionBlockService : IFunctionBlockService
         IRateMonitor rateMonitor,
         ILogger<IExecutionControl> controlLogger,
         ISyncAsyncTaskRunner taskRunner,
+        IConsumerRateLimiters consumerRateLimiters,
         IHttpClients clients)
     {
         _configuration = configuration;
@@ -49,6 +51,7 @@ public class FunctionBlockService : IFunctionBlockService
         _controlLogger = controlLogger;
         _rateMonitor = rateMonitor;
         _taskRunner = taskRunner;
+        _consumerRateLimiters = consumerRateLimiters;
         _clients = clients;
     }
 
@@ -65,7 +68,7 @@ public class FunctionBlockService : IFunctionBlockService
         var cfbDef = await BuildBlock(@event.DemoBlockId, cancellationToken: runTokens.Combined);
         using var execControl = new CompositeEC<DeviceFunctionFramework>(
             block: new(cfbDef.Id), definition: cfbDef,
-            _blockRunner, _functionRunner, _blockFrameworkFactory, _functionFramework, _taskRunner);
+            _blockRunner, _functionRunner, _blockFrameworkFactory, _functionFramework, _taskRunner, taskLimiter: _consumerRateLimiters.TaskLimiter);
 
         RegisterLogActivityHandlers(execControl);
         try

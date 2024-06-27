@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using WELearning.Shared.Concurrency;
 using WELearning.Shared.Concurrency.Abstracts;
 using WELearning.Shared.Concurrency.Configurations;
+using Microsoft.Extensions.Logging;
 
 namespace WELearning.Shared.Extensions;
 
@@ -17,11 +18,9 @@ public static partial class ServiceCollectionExtensions
         return services.AddSingleton<IDistributedLockManager, InMemoryLockManager>();
     }
 
-    public static IServiceCollection AddSyncAsyncTaskRunner(this IServiceCollection services, Action<TaskLimiterOptions> configure)
+    public static IServiceCollection AddSyncAsyncTaskRunner(this IServiceCollection services)
     {
-        return services.AddSingleton<ISyncAsyncTaskRunner, SyncAsyncTaskRunner>()
-            .AddSingleton<ISyncAsyncTaskLimiter, SyncAsyncTaskLimiter>()
-            .Configure(configure);
+        return services.AddSingleton<ISyncAsyncTaskRunner, SyncAsyncTaskRunner>();
     }
 
     public static IServiceCollection AddResourceBasedFuzzyRateScaler(this IServiceCollection services)
@@ -33,5 +32,35 @@ public static partial class ServiceCollectionExtensions
     {
         return services.AddSingleton<IRateScalingController, ResourceBasedRateScalingController>()
             .Configure(configure);
+    }
+
+    public static IServiceCollection AddConsumerRateLimiters(this IServiceCollection services,
+        Action<TaskLimiterOptions> configureTaskLimiter = null,
+        Action<RateLimiterOptions> configureSizeLimiter = null)
+    {
+        return services.AddSingleton<IConsumerRateLimiters>(provider =>
+        {
+            var taskLogger = provider.GetRequiredService<ILogger<SyncAsyncTaskLimiter>>();
+            TaskLimiterOptions taskLimiterOptions = null;
+            RateLimiterOptions sizeLimiterOptions = null;
+
+            if (configureTaskLimiter != null)
+            {
+                taskLimiterOptions = new TaskLimiterOptions();
+                configureTaskLimiter(taskLimiterOptions);
+            }
+
+            if (configureSizeLimiter != null)
+            {
+                sizeLimiterOptions = new RateLimiterOptions();
+                configureSizeLimiter(sizeLimiterOptions);
+            }
+
+            return new ConsumerRateLimiters(
+                taskLimiterOptions,
+                sizeLimiterOptions,
+                taskLogger
+            );
+        });
     }
 }

@@ -4,35 +4,26 @@ namespace WELearning.Shared.Concurrency;
 
 public class SyncAsyncTaskRunner : ISyncAsyncTaskRunner
 {
-    private readonly ISyncAsyncTaskLimiter _taskLimiter;
-
-    public SyncAsyncTaskRunner(ISyncAsyncTaskLimiter taskLimiter)
+    public async Task RunSyncAsync(IDisposable asyncScope, Func<IAsyncDisposable, Task> task, bool longRunning = true)
     {
-        _taskLimiter = taskLimiter;
-    }
-
-    public async Task RunSyncAsync(long rateCount, Func<IDisposable, Task> task, bool longRunning = true)
-    {
-        if (_taskLimiter.TryAcquire(rateCount, out var scope))
-            await RunAsyncCore(rateCount, task, longRunning, scope);
+        if (asyncScope != null)
+            await RunAsync(asyncScope, task, longRunning);
         else
-            await task(new SimpleScope());
+            await task(new SimpleAsyncScope());
     }
 
-    public async Task RunAsync(long rateCount, Func<IDisposable, Task> task, bool longRunning = true)
+    public async Task RunSyncAsync(IAsyncDisposable asyncScope, Func<IAsyncDisposable, Task> task, bool longRunning = true)
     {
-        var scope = _taskLimiter.Acquire(rateCount);
-        await RunAsyncCore(rateCount, task, longRunning, scope);
+        if (asyncScope != null)
+            await RunAsync(asyncScope, task, longRunning);
+        else
+            await task(new SimpleAsyncScope());
     }
 
-    protected virtual async Task RunAsyncCore(long rateCount, Func<IDisposable, Task> task, bool longRunning, IDisposable scope)
+    protected virtual Task RunAsync(object asyncScope, Func<IAsyncDisposable, Task> task, bool longRunning)
     {
         Task asyncTask = null;
-        Task MainTask() => task(new SimpleScope(onDispose: () =>
-        {
-            using var _ = scope;
-            asyncTask?.Dispose();
-        }));
+        Task MainTask() => task(new SimpleAsyncScope(asyncScope, asyncTask));
 
         if (longRunning)
         {
@@ -41,6 +32,10 @@ public class SyncAsyncTaskRunner : ISyncAsyncTaskRunner
                 creationOptions: TaskCreationOptions.LongRunning);
         }
         else
-            await Task.Run(MainTask);
+        {
+            _ = Task.Run(MainTask);
+        }
+
+        return Task.CompletedTask;
     }
 }

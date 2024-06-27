@@ -2,6 +2,6 @@ namespace WELearning.Shared.Concurrency.Configurations;
 
 public class RateLimiterOptions
 {
+    public string Name { get; set; }
     public int InitialLimit { get; set; }
-    public RateCollectorOptions CollectorOptions { get; set; }
 }

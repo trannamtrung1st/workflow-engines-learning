@@ -16,6 +16,7 @@ namespace WELearning.Samples.FBWorker.Services;
 public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
 {
     private readonly IServiceProvider _serviceProvider;
+    private readonly IConsumerRateLimiters _rateLimiters;
     private readonly ISyncAsyncTaskRunner _taskRunner;
     private readonly ILogger<FunctionBlockWorker> _logger;
     private readonly IOptions<AppSettings> _appSettings;
@@ -26,6 +27,7 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
     public FunctionBlockWorker(
         IServiceProvider serviceProvider,
         ISyncAsyncTaskRunner taskRunner,
+        IConsumerRateLimiters rateLimiters,
         ILogger<FunctionBlockWorker> logger,
         IOptions<AppSettings> appSettings,
         IConfiguration configuration,
@@ -33,6 +35,7 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
     {
         _serviceProvider = serviceProvider;
         _taskRunner = taskRunner;
+        _rateLimiters = rateLimiters;
         _logger = logger;
         _appSettings = appSettings;
         _configuration = configuration;
@@ -144,9 +147,10 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
             channel.BasicAck(e.DeliveryTag, multiple: false);
         }
 
-        await _taskRunner.RunSyncAsync(rateCount: 1, async (asyncScope) =>
+        var taskScope = await _rateLimiters.TaskLimiter.TryAcquire(count: 1);
+        await _taskRunner.RunSyncAsync(taskScope, async (asyncScope) =>
         {
-            using var _ = asyncScope;
+            await using var _ = asyncScope;
             using var _1 = cts;
             using var _2 = reg;
             try { await Handle(); }

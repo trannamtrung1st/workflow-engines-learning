@@ -60,7 +60,7 @@ public class ResourceMonitor : IResourceMonitor
         return used / total;
     }
 
-    public void SetMonitor(Func<double, double, Task> monitorCallback, double interval = 10000)
+    public void SetMonitor(Func<double, double, Task> monitorCallback, double interval = 5000)
     {
         if (!IsLinux)
             return;

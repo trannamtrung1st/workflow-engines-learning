@@ -23,6 +23,7 @@ using WELearning.DynamicCodeExecution.Models;
 using WELearning.Shared.Extensions;
 using WELearning.Shared.Concurrency;
 using WELearning.Shared.Concurrency.Abstracts;
+using WELearning.Shared.Concurrency.Configurations;
 
 const int minThreads = 512;
 ThreadPool.SetMinThreads(workerThreads: minThreads, completionPortThreads: minThreads);
@@ -33,14 +34,20 @@ var serviceCollection = new ServiceCollection()
     .AddLogging(cfg => cfg.AddSimpleConsole())
     .AddInMemoryLockManager()
     .AddDefaultDistributedLockManager()
-    .AddSyncAsyncTaskRunner(configure: (options) =>
+    .AddSingleton<ISyncAsyncTaskLimiter>(provider =>
     {
-        options.InitialLimit = minThreads;
-        options.AvailableCores = Environment.ProcessorCount;
-        options.TargetCpuUtil = 0.75;
-        options.WaitTime = 4000;
-        options.ServiceTime = 25;
+        var logger = provider.GetRequiredService<ILogger<SyncAsyncTaskLimiter>>();
+        var options = new TaskLimiterOptions
+        {
+            InitialLimit = minThreads,
+            AvailableCores = Environment.ProcessorCount,
+            TargetCpuUtil = 0.75,
+            WaitTime = 4000,
+            ServiceTime = 25
+        };
+        return new SyncAsyncTaskLimiter(options, logger);
     })
+    .AddSyncAsyncTaskRunner()
     .AddDefaultBlockRunner()
     .AddDefaultFunctionRunner()
     .AddDefaultRuntimeEngineFactory()
@@ -262,6 +269,7 @@ static class TestFunctionBlocks
         var blockFrameworkFactory = serviceProvider.GetRequiredService<IBlockFrameworkFactory>();
         var functionFramework = serviceProvider.GetRequiredService<AppFunctionFramework>();
         var taskRunner = serviceProvider.GetRequiredService<ISyncAsyncTaskRunner>();
+        var taskLimiter = serviceProvider.GetRequiredService<ISyncAsyncTaskLimiter>();
         var jsEngine = engineFactory.CreateEngine(ERuntime.Javascript);
         var jsEngineName = jsEngine.GetType().Name;
         var csCompiledCFB = ComplexCFB.Build(
@@ -269,7 +277,7 @@ static class TestFunctionBlocks
             bMultiplyDef: PredefinedBFBs.MultiplyCsCompiled,
             bRandomDef: PredefinedBFBs.RandomCsCompiled,
             bDelayDef: PredefinedBFBs.DelayCsCompiled);
-        IExecutionControl CreateControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFramework, taskRunner);
+        IExecutionControl CreateControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFramework, taskRunner, taskLimiter);
 
         Task<double> RunCsCompiled() => RunComplexCFB(
             blockRunner, CreateControl: () => CreateControl(blockDef: csCompiledCFB), runTokens: tokensProvider());
@@ -445,9 +453,10 @@ static class TestFunctionBlocks
         var blockFrameworkFactory = serviceProvider.GetRequiredService<IBlockFrameworkFactory>();
         var functionFramework = serviceProvider.GetRequiredService<AppFunctionFramework>();
         var taskRunner = serviceProvider.GetRequiredService<ISyncAsyncTaskRunner>();
+        var taskLimiter = serviceProvider.GetRequiredService<ISyncAsyncTaskLimiter>();
         var dataStore = serviceProvider.GetService<DataStore>();
         const int DelayMs = 5000;
-        ICompositeEC CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFramework, taskRunner);
+        ICompositeEC CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFramework, taskRunner, taskLimiter);
         IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFunctionFramework>(block: new(blockDef.Id), blockDef, importBlocks: null, functionRunner, blockFrameworkFactory, functionFramework);
 
         Console.WriteLine("=== Test sample metric ===");

@@ -42,17 +42,13 @@ services:
       FunctionBlock__JavascriptEngine__LibraryFolderPath: /app/libs
       AppSettings__WorkerCount: 1
       AppSettings__DeviceServiceUrl: http://device-service-1
+
       TaskLimiter__InitialLimit: 0
-      TaskLimiter__AvailableCores: 3
-      TaskLimiter__TargetCpuUtil: 0.75
       TaskLimiter__WaitTime: 4000
       TaskLimiter__ServiceTime: 5
-      RateScaling__InitialLimit: 0
-      RateScaling__ScaleFactor: 30
-      RateScaling__ScaleCheckInterval: 5000
-      RateScaling__AcceptedAvailablePercentage: 0.3
-      RateScaling__AcceptedQueueCount: 5
-      RateScaling__IdealUsage: 0.75
+      RateScaling__Parameters__TaskLimiter__ScaleFactor: 30
+      RateScaling__Parameters__TaskLimiter__IdealUsage: 0.75
+
       RabbitMqClient__HostName: rabbitmq-1
       RabbitMqChannel__PrefetchCount: 5000
     networks:

@@ -12,6 +12,7 @@ public class ResourceBasedRateScalingController : IRateScalingController, IDispo
     private readonly IResourceBasedFuzzyRateScaler _fuzzyRateScaler;
     private readonly ILogger<ResourceBasedRateScalingController> _logger;
     private readonly IOptions<ResourceBasedRateScalingOptions> _options;
+    private System.Timers.Timer _rateCollector;
     private bool _resourceMonitorSet = false;
     private double _lastCpu;
     private double _lastMem;
@@ -28,7 +29,7 @@ public class ResourceBasedRateScalingController : IRateScalingController, IDispo
         _options = options;
     }
 
-    public void Start(IDynamicRateLimiter rateLimiter)
+    public void Start(IEnumerable<IDynamicRateLimiter> rateLimiters)
     {
         if (!_resourceMonitorSet)
         {
@@ -38,11 +39,13 @@ public class ResourceBasedRateScalingController : IRateScalingController, IDispo
             {
                 try
                 {
-                    ScaleRate(rateLimiter, cpu, mem,
-                        ideal: scalingOptions.IdealUsage, scaleFactor: scalingOptions.ScaleFactor,
-                        initialLimit: scalingOptions.InitialLimit,
-                        acceptedQueueCount: scalingOptions.AcceptedQueueCount,
-                        acceptedAvailablePercentage: scalingOptions.AcceptedAvailablePercentage);
+                    _logger.LogInformation("===== Resource consumption =====\nCPU: {Cpu} - Memory: {Memory}", cpu, mem);
+
+                    foreach (var rateLimiter in rateLimiters)
+                    {
+                        var parameters = scalingOptions.Parameters[rateLimiter.Name];
+                        ScaleRate(rateLimiter, cpu, mem, parameters);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -57,9 +60,9 @@ public class ResourceBasedRateScalingController : IRateScalingController, IDispo
 
     public void Stop() => _resourceMonitor?.Stop();
 
-    private void ScaleRate(IDynamicRateLimiter rateLimiter, double cpu, double mem, double ideal,
-        int scaleFactor, int initialLimit, int acceptedQueueCount, double acceptedAvailablePercentage)
+    private void ScaleRate(IDynamicRateLimiter rateLimiter, double cpu, double mem, ScalingParameters parameters)
     {
+        int scaleFactor = parameters.ScaleFactor;
         if (_lastCpu > 0 && _lastMem > 0)
         {
             var cpuDiff = Math.Abs(cpu - _lastCpu);
@@ -68,28 +71,48 @@ public class ResourceBasedRateScalingController : IRateScalingController, IDispo
             scaleFactor -= (int)(scaleFactor * biggerDiff);
         }
         _lastCpu = cpu; _lastMem = mem;
-        var rateScale = _fuzzyRateScaler.GetRateScale(cpu, mem, ideal, factor: scaleFactor);
+        var rateScale = _fuzzyRateScaler.GetRateScale(cpu, mem, ideal: parameters.IdealUsage, factor: scaleFactor);
         if (rateScale == 0) return;
-        var (rateLimit, acquired, availableCountAvg, queueCountAvg) = rateLimiter.State;
-        long newLimit;
+        var (rateLimit, acquired, _, _) = rateLimiter.State;
+        rateLimiter.GetRateStatistics(out var availableCountAvg, out var queueCountAvg);
+        int newLimit;
         if (rateScale < 0)
             newLimit = rateLimit + rateScale;
-        else if (availableCountAvg > acceptedAvailablePercentage * rateLimit && queueCountAvg <= acceptedQueueCount)
+        else if (availableCountAvg > parameters.AcceptedAvailablePercentage * rateLimit && queueCountAvg <= parameters.AcceptedQueueCount)
             newLimit = rateLimit - rateScale / 2;
         else
             newLimit = rateLimit + rateScale;
-        if (newLimit < initialLimit) newLimit = initialLimit;
+        if (newLimit < rateLimiter.InitialLimit) newLimit = rateLimiter.InitialLimit;
         rateLimiter.SetLimit(newLimit);
         _logger.LogInformation(
-            "CPU: {Cpu} - Memory: {Memory}\n" +
+            "Limiter: {Limiter}\n" +
             "Scale: {Scale} - Acquired: {Acquired} - Available: {Available} - Queue: {QueueCount}\n" +
             "New rate limit: {Limit}",
-            cpu, mem, rateScale, acquired, availableCountAvg, queueCountAvg, newLimit);
+            rateLimiter.Name, rateScale, acquired, availableCountAvg, queueCountAvg, newLimit);
     }
+
+    public void StartRateCollector(IEnumerable<IDynamicRateLimiter> rateLimiters)
+    {
+        if (_rateCollector == null)
+        {
+            var collectorOptions = _options.Value.RateCollectorOptions;
+            _rateCollector = new(interval: collectorOptions.Interval);
+            _rateCollector.AutoReset = true;
+            _rateCollector.Elapsed += (s, e) =>
+            {
+                foreach (var limiter in rateLimiters)
+                    limiter.CollectRate(collectorOptions.MovingAverageRange);
+            };
+        }
+        _rateCollector.Start();
+    }
+
+    public void StopRateCollector() => _rateCollector?.Stop();
 
     public void Dispose()
     {
         GC.SuppressFinalize(this);
         _resourceMonitor?.Stop();
+        _rateCollector?.Dispose();
     }
 }

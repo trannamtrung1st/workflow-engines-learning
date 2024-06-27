@@ -42,7 +42,8 @@ builder.Services
     .AddResourceMonitor()
     .AddResourceBasedFuzzyRateScaler()
     .AddResourceBasedRateScaling(configure: rateScalingConfig.Bind)
-    .AddSyncAsyncTaskRunner(configure: taskLimiterConfig.Bind)
+    .AddConsumerRateLimiters(configureTaskLimiter: taskLimiterConfig.Bind)
+    .AddSyncAsyncTaskRunner()
     .AddInMemoryLockManager()
     .AddDefaultDistributedLockManager()
     .AddDefaultBlockRunner()
@@ -73,11 +74,11 @@ app.UseSwaggerUI();
 
 
 app.MapPost("/api/fb/workers/scaling/start", (
-    [FromServices] ISyncAsyncTaskLimiter taskLimiter,
+    [FromServices] IConsumerRateLimiters rateLimiters,
     [FromServices] IRateScalingController controller) =>
 {
-    taskLimiter.StartRateCollector();
-    controller.Start(rateLimiter: taskLimiter);
+    controller.StartRateCollector(rateLimiters: rateLimiters.RateLimiters);
+    controller.Start(rateLimiters: rateLimiters.RateLimiters);
     return Results.NoContent();
 })
 .WithDisplayName("Start FB dynamic scaling worker")
@@ -85,11 +86,10 @@ app.MapPost("/api/fb/workers/scaling/start", (
 
 
 app.MapPost("/api/fb/workers/scaling/stop", (
-    [FromServices] ISyncAsyncTaskLimiter taskLimiter,
     [FromServices] IRateScalingController controller) =>
 {
     controller.Stop();
-    taskLimiter.StopRateCollector();
+    controller.StopRateCollector();
     return Results.NoContent();
 })
 .WithDisplayName("Stop FB dynamic scaling worker")

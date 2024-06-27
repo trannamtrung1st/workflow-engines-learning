@@ -13,6 +13,15 @@ public sealed class SimpleScope : IDisposable
         _onDispose = onDispose;
     }
 
+    public SimpleScope(params IDisposable[] disposables)
+    {
+        _onDispose = () =>
+        {
+            foreach (var disposable in disposables)
+                try { disposable?.Dispose(); } catch { }
+        };
+    }
+
     public void Dispose() => _onDispose?.Invoke();
 }
 
@@ -27,6 +36,18 @@ public sealed class SimpleAsyncScope : IAsyncDisposable
     public SimpleAsyncScope(Func<Task> onDispose)
     {
         _onDispose = onDispose;
+    }
+
+    public SimpleAsyncScope(params object[] disposables)
+    {
+        _onDispose = async () =>
+        {
+            foreach (var obj in disposables)
+                if (obj is IDisposable disposable)
+                    try { disposable.Dispose(); } catch { }
+                else if (obj is IAsyncDisposable asyncDisposable)
+                    try { await asyncDisposable.DisposeAsync(); } catch { }
+        };
     }
 
     public async ValueTask DisposeAsync()
