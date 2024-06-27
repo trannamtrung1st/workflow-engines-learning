@@ -13,6 +13,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Mvc;
 using RabbitMQ.Client;
 using WELearning.Shared.Concurrency.Abstracts;
+using WELearning.Shared.Diagnostic.Abstracts;
 
 const int minThreads = 512;
 int maxThreads = minThreads * 2;
@@ -74,6 +75,8 @@ app.UseSwaggerUI();
 
 
 app.MapPost("/api/fb/workers/scaling/start", (
+    [FromServices] IConfiguration configuration,
+    [FromServices] ILogger<Program> logger,
     [FromServices] IConsumerRateLimiters rateLimiters,
     [FromServices] IRateScalingController controller) =>
 {
@@ -127,6 +130,17 @@ app.Run();
 static void Setup(WebApplication app)
 {
     var provider = app.Services;
+    var resourceMonitor = provider.GetService<IResourceMonitor>();
+    var configuration = provider.GetService<IConfiguration>();
+    var logger = provider.GetService<ILogger<Program>>();
+
+    resourceMonitor.Collected += (o, e) =>
+    {
+        var (cpu, mem) = e;
+        logger.LogInformation("===== Resource consumption =====\nCPU: {Cpu} - Memory: {Memory}", cpu, mem);
+    };
+    var resourceMonitorInterval = configuration.GetValue<int>("AppSettings:ResourceMonitorInterval");
+    resourceMonitor.Start(interval: resourceMonitorInterval);
 }
 
 static void SetupRabbitMq(IServiceCollection services, IConfiguration configuration)

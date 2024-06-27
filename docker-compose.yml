@@ -48,6 +48,7 @@ services:
       TaskLimiter__ServiceTime: 5
       RateScaling__Parameters__TaskLimiter__ScaleFactor: 30
       RateScaling__Parameters__TaskLimiter__IdealUsage: 0.75
+      RateScaling__Parameters__TaskLimiter__AcceptedAvailablePercentage: 0.3
 
       RabbitMqClient__HostName: rabbitmq-1
       RabbitMqChannel__PrefetchCount: 5000

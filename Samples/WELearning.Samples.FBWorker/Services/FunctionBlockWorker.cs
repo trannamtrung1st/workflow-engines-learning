@@ -147,7 +147,7 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
             channel.BasicAck(e.DeliveryTag, multiple: false);
         }
 
-        var taskScope = await _rateLimiters.TaskLimiter.TryAcquire(count: 1);
+        var taskScope = _rateLimiters.TaskLimiter.TryAcquire(count: 1);
         await _taskRunner.RunSyncAsync(taskScope, async (asyncScope) =>
         {
             await using var _ = asyncScope;

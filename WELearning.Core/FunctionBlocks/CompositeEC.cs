@@ -370,7 +370,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
 
     protected async Task TryRunTaskAsync(Func<Task> task)
     {
-        var taskScope = await _taskLimiter.TryAcquire(count: 1);
+        var taskScope = _taskLimiter.TryAcquire(count: 1);
         await _taskRunner.RunSyncAsync(taskScope, async (asyncScope) =>
         {
             await using var _ = asyncScope;
