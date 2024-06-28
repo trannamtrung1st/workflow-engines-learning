@@ -75,17 +75,19 @@ public class ResourceBasedRateScalingController : IRateScalingController, IDispo
         var (rateLimit, acquired, currentAvailable) = rateLimiter.State;
         var minAvailable = Math.Min(currentAvailable, availableCountAvg);
         _limiterLastAvailables.TryGetValue(rateLimiter.Name, out var lastAvailable);
-        _limiterLastAvailables[rateLimiter.Name] = availableCountAvg;
         int newLimit;
         if (rateScale < 0)
             newLimit = rateLimit + rateScale;
         else if (minAvailable > parameters.AcceptedAvailablePercentage * rateLimit)
         {
             var diff = Math.Abs(lastAvailable - availableCountAvg);
-            newLimit = rateLimit - diff / 2;
+            newLimit = rateLimit - Math.Max(rateScale / 2, diff / 2);
         }
         else
+        {
+            _limiterLastAvailables[rateLimiter.Name] = availableCountAvg;
             newLimit = rateLimit + rateScale;
+        }
         if (newLimit < rateLimiter.InitialLimit) newLimit = rateLimiter.InitialLimit;
         rateLimiter.SetLimit(newLimit);
         _logger.LogInformation(
