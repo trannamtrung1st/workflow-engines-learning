@@ -103,7 +103,7 @@ app.MapPut("/api/configs/app-settings", (
     [FromQuery] int? workerCount,
     [FromQuery] int? concurrencyLimit,
     [FromServices] IOptions<AppSettings> appSettings,
-    [FromServices] ISyncAsyncTaskLimiter taskLimiter) =>
+    [FromServices] IConsumerRateLimiters rateLimiters) =>
 {
     var appsettingsChanges = new List<string>();
     if (workerCount.HasValue)
@@ -114,7 +114,7 @@ app.MapPut("/api/configs/app-settings", (
     appSettings.Value.InvokeChanged(appsettingsChanges);
 
     if (concurrencyLimit.HasValue)
-        taskLimiter.SetLimit(limit: concurrencyLimit.Value);
+        rateLimiters.TaskLimiter.SetLimit(limit: concurrencyLimit.Value);
 
     return Results.NoContent();
 })
