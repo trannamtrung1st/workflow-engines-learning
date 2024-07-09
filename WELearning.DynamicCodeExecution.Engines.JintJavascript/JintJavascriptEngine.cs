@@ -65,7 +65,8 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         {
             var engine = new Engine(options: cfg =>
             {
-                cfg.EnableModules(basePath: _jintOptions.Value.LibraryFolderPath, restrictToBasePath: true);
+                if (!string.IsNullOrEmpty(_jintOptions.Value.LibraryFolderPath))
+                    cfg.EnableModules(basePath: _jintOptions.Value.LibraryFolderPath, restrictToBasePath: true);
                 if (assemblies?.Any() == true)
                     cfg.AllowClr(assemblies);
                 cfg.DebuggerStatementHandling(DebuggerStatementHandling.Script);
