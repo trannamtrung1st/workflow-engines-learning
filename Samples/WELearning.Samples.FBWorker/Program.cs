@@ -57,7 +57,8 @@ builder.Services
     .AddJintJavascriptEngine(options =>
     {
         var libraryFolderPath = builder.Configuration["FunctionBlock:JavascriptEngine:LibraryFolderPath"];
-        options.LibraryFolderPath = libraryFolderPath;
+        if (!string.IsNullOrEmpty(libraryFolderPath))
+            options.LibraryFolderPath = libraryFolderPath;
     });
 
 SetupRabbitMq(services: builder.Services, configuration: builder.Configuration);
