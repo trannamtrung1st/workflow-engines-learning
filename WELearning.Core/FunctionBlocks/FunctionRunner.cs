@@ -100,4 +100,24 @@ public class FunctionRunner : IFunctionRunner
         var types = function.Types != null ? _typeProvider.GetTypes(function.Types) : null;
         return (engine, assemblies, types);
     }
+
+    public async Task<IDisposable> Compile(Function function, IEnumerable<string> inputs, IEnumerable<string> outputs, IEnumerable<ImportModule> modules, Guid? optimizationScopeId, RunTokens tokens)
+    {
+        var (engine, assemblies, types) = PrepareInputs(function);
+        var scope = await engine.Compile(
+            request: new(
+                content: function.Content,
+                contentId: function.Id,
+                imports: function.Imports,
+                assemblies, types, tokens,
+                inputs: inputs, outputs: outputs,
+                async: function.Async,
+                optimizationScopeId: optimizationScopeId,
+                useRawContent: function.UseRawContent,
+                isScriptOnly: function.IsScriptOnly,
+                modules: modules
+            )
+        );
+        return scope;
+    }
 }

@@ -1,9 +1,8 @@
 using System.Reflection;
-using WELearning.DynamicCodeExecution.Helpers;
 
 namespace WELearning.DynamicCodeExecution.Models;
 
-public class ExecuteCodeRequest<TArg>
+public class ExecuteCodeRequest<TArg> : CompileCodeRequest
 {
     public ExecuteCodeRequest(
         string content, string contentId, TArg arguments, IEnumerable<string> imports,
@@ -11,34 +10,13 @@ public class ExecuteCodeRequest<TArg>
         IDictionary<string, object> inputs = null, IDictionary<string, object> outputs = null,
         Guid? optimizationScopeId = default, bool useRawContent = false, bool isScriptOnly = false,
         IEnumerable<ImportModule> modules = null)
+        : base(content, contentId, imports, assemblies, types, tokens, async, inputs?.Keys, outputs?.Keys, optimizationScopeId, useRawContent, isScriptOnly, modules)
     {
-        Content = content;
-        ContentId = contentId;
         Arguments = arguments;
         Inputs = inputs; Outputs = outputs;
-        Imports = imports;
-        Assemblies = assemblies;
-        Types = types;
-        Tokens = tokens;
-        Async = async ?? SyntaxHelper.HasAsyncSyntax(content);
-        OptimizationScopeId = optimizationScopeId;
-        UseRawContent = useRawContent;
-        IsScriptOnly = isScriptOnly;
-        Modules = modules;
     }
 
-    public string ContentId { get; } // [NOTE] should be refreshed for new versions
-    public string Content { get; }
-    public bool Async { get; }
     public TArg Arguments { get; }
-    public IDictionary<string, object> Inputs { get; }
-    public IDictionary<string, object> Outputs { get; }
-    public IEnumerable<string> Imports { get; }
-    public IEnumerable<Assembly> Assemblies { get; }
-    public IEnumerable<Type> Types { get; }
-    public Guid? OptimizationScopeId { get; }
-    public RunTokens Tokens { get; }
-    public bool UseRawContent { get; }
-    public bool IsScriptOnly { get; }
-    public IEnumerable<ImportModule> Modules { get; }
+    public new IDictionary<string, object> Inputs { get; }
+    public new IDictionary<string, object> Outputs { get; }
 }

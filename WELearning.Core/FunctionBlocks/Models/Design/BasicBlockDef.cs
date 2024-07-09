@@ -54,4 +54,18 @@ public class BasicBlockDef : BaseBlockDef
         _moduleFunctions = functions;
         return _moduleFunctions;
     }
+
+    public (IEnumerable<string> Inputs, IEnumerable<string> Outputs) GetVariableNames()
+    {
+        var inputs = new List<string>();
+        var outputs = new List<string>();
+
+        foreach (var variable in Variables)
+        {
+            var source = variable.CanOutput() ? outputs : inputs;
+            source.Add(variable.Name);
+        }
+
+        return (inputs, outputs);
+    }
 }

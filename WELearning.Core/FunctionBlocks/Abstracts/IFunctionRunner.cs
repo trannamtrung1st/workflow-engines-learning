@@ -19,4 +19,8 @@ public interface IFunctionRunner
 
     Task<(TReturn Result, IDisposable OptimizationScope)> Evaluate<TReturn, TArg>(
         Function function, TArg arguments, Guid? optimizationScopeId, RunTokens tokens);
+
+    Task<IDisposable> Compile(
+        Function function, IEnumerable<string> inputs, IEnumerable<string> outputs,
+        IEnumerable<ImportModule> modules, Guid? optimizationScopeId, RunTokens tokens);
 }

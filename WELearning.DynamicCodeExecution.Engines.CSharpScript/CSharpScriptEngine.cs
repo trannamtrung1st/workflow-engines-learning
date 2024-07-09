@@ -103,4 +103,9 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
     {
         _scriptCache.Dispose();
     }
+
+    public Task<IDisposable> Compile(CompileCodeRequest request)
+    {
+        throw new NotImplementedException();
+    }
 }

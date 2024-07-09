@@ -459,6 +459,8 @@ static class TestFunctionBlocks
         ICompositeEC CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFramework, taskRunner, taskLimiter);
         IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFunctionFramework>(block: new(blockDef.Id), blockDef, importBlocks: null, functionRunner, blockFrameworkFactory, functionFramework);
 
+        await blockRunner.Compile(new(BlockDefinition: PredefinedBFBs.AddJs, Tokens: tokensProvider()), optimizationScopeId: default);
+
         Console.WriteLine("=== Test sample metric ===");
         await RunSampleMetric(dataStore, blockRunner, CreateControl: () => CreateCompositeControl(blockDef: SampleMetricCFB.Build()), runTokens: tokensProvider());
 

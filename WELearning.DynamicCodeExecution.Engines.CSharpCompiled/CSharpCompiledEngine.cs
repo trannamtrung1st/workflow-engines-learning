@@ -123,4 +123,9 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
     {
         _assemblyCache.Dispose();
     }
+
+    public Task<IDisposable> Compile(CompileCodeRequest request)
+    {
+        throw new NotImplementedException();
+    }
 }

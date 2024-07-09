@@ -59,7 +59,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         return (moduleName, contentSizeInBytes);
     }
 
-    private (EngineWrap Engine, OptimizationScope Scope) PrepareEngine<TArg>(ExecuteCodeRequest<TArg> request, Assembly[] assemblies)
+    private (EngineWrap Engine, OptimizationScope Scope) PrepareEngine(CompileCodeRequest request, Assembly[] assemblies)
     {
         EngineWrap CreateNewEngine()
         {
@@ -133,21 +133,21 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 
     public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request)
     {
-        var (result, scope) = await ExecuteCore(request);
+        var (result, scope) = await ExecuteCore(compileRequest: request, executeRequest: request);
         var castResult = Cast<TReturn>(result);
         return (castResult, scope);
     }
 
     public async Task<IDisposable> Execute<TArg>(ExecuteCodeRequest<TArg> request)
     {
-        var (_, scope) = await ExecuteCore(request);
+        var (_, scope) = await ExecuteCore(compileRequest: request, executeRequest: request);
         return scope;
     }
 
-    protected async Task<(JsValue Result, IDisposable Scope)> ExecuteCore<TArg>(ExecuteCodeRequest<TArg> request)
+    protected async Task<(JsValue Result, IDisposable Scope)> ExecuteCore<TArg>(CompileCodeRequest compileRequest, ExecuteCodeRequest<TArg> executeRequest)
     {
-        var combinedAssemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types)?.ToArray();
-        var (engineWrap, optimizationScope) = PrepareEngine(request, combinedAssemblies);
+        var combinedAssemblies = ReflectionHelper.CombineAssemblies(compileRequest.Assemblies, compileRequest.Types)?.ToArray();
+        var (engineWrap, optimizationScope) = PrepareEngine(compileRequest, combinedAssemblies);
         JsValue result = default;
 
         void DisposeEngine()
@@ -159,13 +159,22 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 
         try
         {
-            var (content, lineStart, lineEnd, indexStart, indexEnd) = PreprocessContent(request);
-            var arguments = GetArgumentValues(engine: engineWrap.Engine, inputs: request.Inputs, outputs: request.Outputs);
+            var (content, lineStart, lineEnd, indexStart, indexEnd) = PreprocessContent(compileRequest);
             try
             {
-                result = request.IsScriptOnly
-                    ? await ExecuteScript(request, engineWrap, arguments, content)
-                    : await ExecuteModule(request, engineWrap, arguments, content);
+                if (executeRequest != null)
+                {
+                    var arguments = GetArgumentValues(engine: engineWrap.Engine, inputs: executeRequest.Inputs, outputs: executeRequest.Outputs);
+                    result = compileRequest.IsScriptOnly
+                        ? await ExecuteScript(executeRequest, engineWrap, arguments, content)
+                        : await ExecuteModule(executeRequest, engineWrap, arguments, content);
+                }
+                else
+                {
+                    if (compileRequest.IsScriptOnly)
+                        CompileScript(compileRequest, content);
+                    else await CompileModule(compileRequest, engineWrap, content);
+                }
             }
             catch (Acornima.ParseErrorException ex)
             {
@@ -265,6 +274,22 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         return result;
     }
 
+    private async Task CompileModule(CompileCodeRequest request, EngineWrap engineWrap, string content)
+    {
+        var preparedModule = GetPreparedModule(key: request.ContentId, () => content);
+        var (moduleName, cacheSize) = GetModuleObjectCacheEntry(engineId: engineWrap.Id, contentId: request.ContentId, content);
+        await engineWrap.SafeAccessEngine((engine) =>
+        {
+            engineWrap.ResetNodePosition();
+            var module = _lockManager.MutexAccess($"MODULE_OBJECTS.{moduleName}",
+                task: () => engineWrap.GetModuleObject(preparedModule, moduleName, cacheSize));
+            var exportedFunction = module.Get(ExportedFunctionName);
+            return Task.CompletedTask;
+        }, cancellationToken: request.Tokens.Combined);
+    }
+
+    private void CompileScript(CompileCodeRequest request, string content) => GetPreparedScript(key: request.ContentId, () => content);
+
     private static void SetValues<TArg>(Engine engine, TArg arguments)
     {
         if (arguments is IDictionary<string, object> dict)
@@ -317,25 +342,25 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     }
 
     private (string Content, int LineStart, int LineEnd, int IndexStart, int IndexEnd)
-        PreprocessContent<TArg>(ExecuteCodeRequest<TArg> request)
+        PreprocessContent(CompileCodeRequest compileRequest)
     {
-        return _lockManager.MutexAccess(key: $"CONTENTS.{request.ContentId}",
-            task: () => _preprocessedContentCache.GetOrCreate(request.ContentId, (entry) =>
+        return _lockManager.MutexAccess(key: $"CONTENTS.{compileRequest.ContentId}",
+            task: () => _preprocessedContentCache.GetOrCreate(compileRequest.ContentId, (entry) =>
             {
                 var flattenArguments = new HashSet<string>();
-                if (request.Inputs != null)
-                    foreach (var input in request.Inputs) flattenArguments.Add(input.Key);
-                if (request.Outputs != null)
-                    foreach (var output in request.Outputs) flattenArguments.Add(output.Key);
+                if (compileRequest.Inputs != null)
+                    foreach (var input in compileRequest.Inputs) flattenArguments.Add(input);
+                if (compileRequest.Outputs != null)
+                    foreach (var output in compileRequest.Outputs) flattenArguments.Add(output);
 
-                var flattenOutputs = request.Outputs?.Keys.ToList();
-                var contentLineCount = request.Content.NewLineCount();
-                var importStatements = GetImportStatements(request.Imports);
+                var flattenOutputs = compileRequest.Outputs?.ToList();
+                var contentLineCount = compileRequest.Content.NewLineCount();
+                var importStatements = GetImportStatements(compileRequest.Imports);
 
-                var contentInfo = request.UseRawContent
-                    ? (request.Content, 1, contentLineCount, 0, request.Content.Length - 1)
+                var contentInfo = compileRequest.UseRawContent
+                    ? (compileRequest.Content, 1, contentLineCount, 0, compileRequest.Content.Length - 1)
                     : JavascriptHelper.WrapModuleFunction(
-                        script: request.Content, async: request.Async, isScript: request.IsScriptOnly,
+                        script: compileRequest.Content, async: compileRequest.Async, isScript: compileRequest.IsScriptOnly,
                         topStatements: importStatements,
                         flattenArguments: flattenArguments,
                         flattenOutputs: flattenOutputs);
@@ -423,6 +448,12 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             default: throw new NotSupportedException($"{jsValue.Type}");
         }
         return (TReturn)value;
+    }
+
+    public async Task<IDisposable> Compile(CompileCodeRequest request)
+    {
+        var (_, scope) = await ExecuteCore<object>(compileRequest: request, executeRequest: null);
+        return scope;
     }
 
     class EngineCache : IDisposable

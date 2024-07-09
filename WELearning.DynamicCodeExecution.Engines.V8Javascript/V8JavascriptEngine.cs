@@ -186,6 +186,11 @@ public class V8JavascriptEngine : IRuntimeEngine, IDisposable
         return optimizationScope;
     }
 
+    public Task<IDisposable> Compile(CompileCodeRequest request)
+    {
+        throw new NotImplementedException();
+    }
+
     class OptimizationScope : IDisposable
     {
         private readonly Action<Guid> RemoveCache;
