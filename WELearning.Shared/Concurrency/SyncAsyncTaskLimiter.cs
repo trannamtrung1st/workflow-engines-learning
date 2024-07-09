@@ -13,10 +13,13 @@ public class SyncAsyncTaskLimiter : DynamicRateLimiter, ISyncAsyncTaskLimiter
         TaskLimiterOptions limiterOptions,
         ILogger<SyncAsyncTaskLimiter> logger) : base(limiterOptions: limiterOptions)
     {
+        Options = limiterOptions;
         // Reference: https://engineering.zalando.com/posts/2019/04/how-to-set-an-ideal-thread-pool-size.html
         _maxAsyncLimit = (int)(limiterOptions.AvailableCores * limiterOptions.TargetCpuUtil * (1 + limiterOptions.WaitTime / limiterOptions.ServiceTime));
         logger.LogDebug("Max async limit: {Limit}", _maxAsyncLimit);
     }
+
+    public TaskLimiterOptions Options { get; }
 
     protected override IDisposable AcquireCore(int count, bool wait)
     {
