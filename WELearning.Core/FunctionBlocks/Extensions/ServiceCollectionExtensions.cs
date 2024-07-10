@@ -17,12 +17,6 @@ public static partial class ServiceCollectionExtensions
         return services.AddSingleton<IFunctionRunner, FunctionRunner>();
     }
 
-    public static IServiceCollection AddFunctionFramework<TFunctionFramework>(this IServiceCollection services)
-        where TFunctionFramework : class
-    {
-        return services.AddSingleton<TFunctionFramework>();
-    }
-
     public static IServiceCollection AddBlockFrameworkFactory<TFactory>(this IServiceCollection services)
         where TFactory : class, IBlockFrameworkFactory
     {

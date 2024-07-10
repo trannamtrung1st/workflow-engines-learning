@@ -52,7 +52,6 @@ builder.Services
     .AddDefaultRuntimeEngineFactory()
     .AddDefaultTypeProvider()
     .AddBlockFrameworkFactory<DeviceBlockFrameworkFactory>()
-    .AddFunctionFramework<DeviceFunctionFramework>()
     // For JS engines, first found engine will be used
     .AddJintJavascriptEngine(options =>
     {

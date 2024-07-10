@@ -21,20 +21,20 @@ public class FunctionBlockService : IFunctionBlockService
     private readonly IBlockRunner _blockRunner;
     private readonly IFunctionRunner _functionRunner;
     private readonly IBlockFrameworkFactory _blockFrameworkFactory;
-    private readonly DeviceFunctionFramework _functionFramework;
     private readonly ISyncAsyncTaskRunner _taskRunner;
     private readonly IConsumerRateLimiters _consumerRateLimiters;
     private readonly IAssetService _assetService;
     private readonly IRateMonitor _rateMonitor;
     private readonly ILogger<IExecutionControl> _controlLogger;
     private readonly IHttpClients _clients;
+    private readonly DeviceFunctionFramework _functionFramework;
 
     public FunctionBlockService(
         IConfiguration configuration,
         IBlockRunner blockRunner,
         IFunctionRunner functionRunner,
         IBlockFrameworkFactory blockFrameworkFactory,
-        DeviceFunctionFramework functionFramework,
+        ILogger<DeviceFunctionFramework> functionFrameworkLogger,
         IAssetService assetService,
         IRateMonitor rateMonitor,
         ILogger<IExecutionControl> controlLogger,
@@ -46,13 +46,13 @@ public class FunctionBlockService : IFunctionBlockService
         _blockRunner = blockRunner;
         _functionRunner = functionRunner;
         _blockFrameworkFactory = blockFrameworkFactory;
-        _functionFramework = functionFramework;
         _assetService = assetService;
         _controlLogger = controlLogger;
         _rateMonitor = rateMonitor;
         _taskRunner = taskRunner;
         _consumerRateLimiters = consumerRateLimiters;
         _clients = clients;
+        _functionFramework = new DeviceFunctionFramework(logger: functionFrameworkLogger);
     }
 
     public async Task HandleAttributeChanged(AttributeChangedEvent @event, CancellationToken cancellationToken)
