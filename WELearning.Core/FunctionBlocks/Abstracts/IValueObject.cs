@@ -23,5 +23,6 @@ public interface IValueObject
     void TryCommit();
     void WaitValueSet(CancellationToken cancellationToken);
     bool RegisterTempValueSet(Func<Task> callback);
+    void TrySetDefaultValue();
     IValueObject CloneFor(Variable variable);
 }

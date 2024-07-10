@@ -451,7 +451,8 @@ static class TestFunctionBlocks
         var engineFactory = serviceProvider.GetRequiredService<IRuntimeEngineFactory>();
         var functionRunner = serviceProvider.GetRequiredService<IFunctionRunner>();
         var blockFrameworkFactory = serviceProvider.GetRequiredService<IBlockFrameworkFactory>();
-        var functionFramework = serviceProvider.GetRequiredService<AppFunctionFramework>();
+        var functionFrameworkLogger = serviceProvider.GetRequiredService<ILogger<AppFunctionFramework>>();
+        var functionFramework = new AppFunctionFramework(logger: functionFrameworkLogger);
         var taskRunner = serviceProvider.GetRequiredService<ISyncAsyncTaskRunner>();
         var taskLimiter = serviceProvider.GetRequiredService<ISyncAsyncTaskLimiter>();
         var dataStore = serviceProvider.GetService<DataStore>();

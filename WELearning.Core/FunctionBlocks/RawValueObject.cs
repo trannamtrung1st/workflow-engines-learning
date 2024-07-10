@@ -11,8 +11,6 @@ public class RawValueObject : IValueObject, IDisposable
     public RawValueObject(Variable variable)
     {
         _valueSet = new ManualResetEventSlim();
-        if (variable.DefaultValue != null)
-            Value = variable.DefaultValue;
         Variable = variable;
         ValueChanged = false;
     }
@@ -56,6 +54,7 @@ public class RawValueObject : IValueObject, IDisposable
     {
         if (_tempValueSet)
             Value = TempValue;
+        else TrySetDefaultValue();
     }
 
     protected virtual void SetCoreValue(object value) => _value = value;
@@ -143,4 +142,10 @@ public class RawValueObject : IValueObject, IDisposable
     }
 
     public virtual object GetProperty(string name) => throw new NotSupportedException($"Property {name} is not supported!");
+
+    public virtual void TrySetDefaultValue()
+    {
+        if (Variable.DefaultValue != null)
+            Value = Variable.DefaultValue;
+    }
 }

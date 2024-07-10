@@ -49,9 +49,19 @@ public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where
     public event EventHandler Idle;
 
     public virtual IValueObject GetInOut(string key) => GetValueObject(key, EVariableType.InOut);
-    public virtual IValueObject GetInput(string key) => GetValueObject(key, EVariableType.Input);
+    public virtual IValueObject GetInput(string key)
+    {
+        var valueObject = GetValueObject(key, EVariableType.Input);
+        valueObject.TrySetDefaultValue();
+        return valueObject;
+    }
     public virtual IValueObject GetOutput(string key) => GetValueObject(key, EVariableType.Output);
-    public virtual IValueObject GetInternalData(string key) => GetValueObject(key, EVariableType.Internal);
+    public virtual IValueObject GetInternalData(string key)
+    {
+        var valueObject = GetValueObject(key, EVariableType.Internal);
+        valueObject.TrySetDefaultValue();
+        return valueObject;
+    }
     public virtual IValueObject GetValueObject(string name, EVariableType type)
     {
         var variable = ValidateVariable(name, type);
