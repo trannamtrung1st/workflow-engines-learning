@@ -305,12 +305,12 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
 
         var outputEvents = Definition.Events.Where(e => !e.IsInput && Result.OutputEvents.Contains(e.Name));
         var allVariableNames = outputEvents.SelectMany(ev => ev.VariableNames);
-        var usingDataConnections = Definition.DataConnections
+        var usingDataConnections = Definition.DataConnections?
             .Where(c => c.BlockId == null && allVariableNames.Contains(c.VariableName) && c.BindingType == EBindingType.Output)
-            .ToArray();
-        var usingReferences = Definition.References
+            .ToArray() ?? [];
+        var usingReferences = Definition.References?
             .Where(c => c.SourceBlockId == null && allVariableNames.Contains(c.SourceVariableName) && c.BindingType == EBindingType.Output)
-            .ToArray();
+            .ToArray() ?? [];
         var outputValues = new List<IValueObject>();
 
         foreach (var connection in usingDataConnections)
