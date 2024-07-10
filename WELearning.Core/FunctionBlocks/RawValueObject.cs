@@ -145,7 +145,7 @@ public class RawValueObject : IValueObject, IDisposable
 
     public virtual void TrySetDefaultValue()
     {
-        if (Variable.DefaultValue != null)
+        if (!ValueSet && Variable.DefaultValue != null)
             Value = Variable.DefaultValue;
     }
 }

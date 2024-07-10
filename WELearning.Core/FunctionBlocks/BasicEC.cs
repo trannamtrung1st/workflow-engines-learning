@@ -194,11 +194,11 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
         foreach (var variable in variables)
         {
             var valueObject = GetValueObject(variable.Name, variable.VariableType);
+            var refBinding = blockFramework.GetBindingFor(valueObject);
             Dictionary<string, object> source = variable.CanOutput() ? outputs : inputs;
             switch (variable.DataType)
             {
                 case Core.Constants.EDataType.Reference:
-                    var refBinding = blockFramework.GetBindingFor(valueObject);
                     source[variable.Name] = refBinding;
                     break;
                 default:
