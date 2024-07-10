@@ -33,10 +33,13 @@ public static class PredefinedBFBs
     public static readonly BasicBlockDef LogInputJs;
 
     public static BasicBlockDef CreateInOutBlock(params Variable[] variables)
+        => CreateInOutBlock(id: $"InOut-{Guid.NewGuid()}", name: "InOut block", variables);
+
+    public static BasicBlockDef CreateInOutBlock(string id, string name, params Variable[] variables)
     {
         if (variables.Any(v => v.VariableType != EVariableType.InOut))
             throw new ArgumentException("Invalid binding type!");
-        var bInOut = new BasicBlockDef(id: $"InOut-{Guid.NewGuid()}", name: "InOut block");
+        var bInOut = new BasicBlockDef(id, name);
         bInOut.Variables = variables;
         var eTrigger = new BlockEvent(isInput: true, name: "Trigger", variableNames: variables.Select(v => v.Name).ToArray());
         var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: variables.Select(v => v.Name).ToArray());
