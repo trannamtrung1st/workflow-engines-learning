@@ -308,6 +308,9 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         var usingDataConnections = Definition.DataConnections
             .Where(c => c.BlockId == null && allVariableNames.Contains(c.VariableName) && c.BindingType == EBindingType.Output)
             .ToArray();
+        var usingReferences = Definition.References
+            .Where(c => c.SourceBlockId == null && allVariableNames.Contains(c.SourceVariableName) && c.BindingType == EBindingType.Output)
+            .ToArray();
         var outputValues = new List<IValueObject>();
 
         foreach (var connection in usingDataConnections)
@@ -321,6 +324,21 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
             var sourceValue = sourceExecControl.GetOutput(connection.SourceVariableName);
 
             IValueObject valueObject = GetOutput(connection.VariableName);
+            valueObject.TempValue = sourceValue.Value;
+            outputValues.Add(valueObject);
+        }
+
+        foreach (var connection in usingReferences)
+        {
+            if (connection.BlockId == null || connection.VariableName == null)
+                throw new ArgumentException("Invalid connection!");
+
+            var sourceBlock = Definition.Blocks.FirstOrDefault(b => b.Id == connection.BlockId)
+                ?? throw new KeyNotFoundException($"Source block {connection.BlockId} not found!");
+            var sourceExecControl = GetOrInitExecutionControl(sourceBlock);
+            var sourceValue = sourceExecControl.GetOutput(connection.VariableName);
+
+            IValueObject valueObject = GetOutput(connection.SourceVariableName);
             valueObject.TempValue = sourceValue.Value;
             outputValues.Add(valueObject);
         }
