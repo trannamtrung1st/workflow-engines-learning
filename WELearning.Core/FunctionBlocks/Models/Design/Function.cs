@@ -39,17 +39,27 @@ public class Function
     public IEnumerable<string> Imports { get; set; }
     public IEnumerable<string> Assemblies { get; set; }
     public IEnumerable<string> Types { get; set; }
-    private Type[] _extensions;
-    public string[] Extensions { get; set; }
+
+    private Type[] _extensionTypes;
+    private string[] _extensions;
+    public string[] Extensions
+    {
+        get => _extensions; set
+        {
+            _extensions = value;
+            _extensionTypes = value?.Select(Type.GetType).ToArray();
+        }
+    }
+
     public bool UseRawContent { get; set; }
     public bool IsScriptOnly { get; set; }
     public bool Exported { get; set; }
 
-    public Type[] GetExtensions()
+    public Type[] GetExtensionTypes() => _extensionTypes;
+    public void SetExtensionTypes(Type[] types)
     {
-        if (_extensions == null)
-            _extensions = Extensions?.Select(Type.GetType).ToArray();
-        return _extensions;
+        _extensionTypes = types;
+        _extensions = types?.Select(t => t.FullName).ToArray();
     }
 
     public static Function CreateRawExpression(string content, ERuntime runtime)
