@@ -48,7 +48,7 @@ public class Function
     public Type[] GetExtensions()
     {
         if (_extensions == null)
-            _extensions = Extensions.Select(Type.GetType).ToArray();
+            _extensions = Extensions?.Select(Type.GetType).ToArray();
         return _extensions;
     }
 
