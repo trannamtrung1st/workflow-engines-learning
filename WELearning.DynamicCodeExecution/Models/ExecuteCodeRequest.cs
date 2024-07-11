@@ -5,12 +5,12 @@ namespace WELearning.DynamicCodeExecution.Models;
 public class ExecuteCodeRequest<TArg> : CompileCodeRequest
 {
     public ExecuteCodeRequest(
-        string content, string contentId, TArg arguments, IEnumerable<string> imports,
-        IEnumerable<Assembly> assemblies, IEnumerable<Type> types, RunTokens tokens, bool? async = null,
-        IDictionary<string, object> inputs = null, IDictionary<string, object> outputs = null,
+        string content, string contentId, TArg arguments, RunTokens tokens,
+        IEnumerable<string> imports = null, IEnumerable<Assembly> assemblies = null, IEnumerable<Type> types = null, Type[] extensions = null,
+        bool? async = null, IDictionary<string, object> inputs = null, IDictionary<string, object> outputs = null,
         Guid? optimizationScopeId = default, bool useRawContent = false, bool isScriptOnly = false,
         IEnumerable<ImportModule> modules = null)
-        : base(content, contentId, imports, assemblies, types, tokens, async, inputs?.Keys, outputs?.Keys, optimizationScopeId, useRawContent, isScriptOnly, modules)
+        : base(content, contentId, tokens, imports, assemblies, types, extensions, async, inputs?.Keys, outputs?.Keys, optimizationScopeId, useRawContent, isScriptOnly, modules)
     {
         Arguments = arguments;
         Inputs = inputs; Outputs = outputs;

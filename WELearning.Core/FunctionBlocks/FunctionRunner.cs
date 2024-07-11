@@ -32,9 +32,8 @@ public class FunctionRunner : IFunctionRunner
             request: new(
                 content: function.Content,
                 contentId: function.Id,
-                arguments: globalObject,
-                imports: function.Imports,
-                assemblies, types, tokens,
+                arguments: globalObject, tokens,
+                imports: function.Imports, assemblies, types, extensions: function.GetExtensions(),
                 inputs: inputs, outputs: outputs,
                 async: function.Async,
                 optimizationScopeId: optimizationScopeId,
@@ -56,9 +55,8 @@ public class FunctionRunner : IFunctionRunner
             request: new(
                 content: function.Content,
                 contentId: function.Id,
-                arguments: globalObject,
-                imports: function.Imports,
-                assemblies, types, tokens,
+                arguments: globalObject, tokens,
+                imports: function.Imports, assemblies, types, extensions: function.GetExtensions(),
                 inputs: inputs, outputs: outputs,
                 async: function.Async,
                 optimizationScopeId: optimizationScopeId,
@@ -78,9 +76,8 @@ public class FunctionRunner : IFunctionRunner
             request: new(
                 content: function.Content,
                 contentId: function.Id,
-                arguments: arguments,
-                imports: function.Imports,
-                assemblies, types, tokens,
+                arguments: arguments, tokens,
+                imports: function.Imports, assemblies, types, extensions: function.GetExtensions(),
                 inputs: null, outputs: null,
                 async: function.Async,
                 optimizationScopeId: optimizationScopeId,
@@ -107,9 +104,8 @@ public class FunctionRunner : IFunctionRunner
         var scope = await engine.Compile(
             request: new(
                 content: function.Content,
-                contentId: function.Id,
-                imports: function.Imports,
-                assemblies, types, tokens,
+                contentId: function.Id, tokens,
+                imports: function.Imports, assemblies, types, extensions: function.GetExtensions(),
                 inputs: inputs, outputs: outputs,
                 async: function.Async,
                 optimizationScopeId: optimizationScopeId,

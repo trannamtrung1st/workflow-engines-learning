@@ -69,6 +69,8 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                     cfg.EnableModules(basePath: _jintOptions.Value.LibraryFolderPath, restrictToBasePath: true);
                 if (assemblies?.Any() == true)
                     cfg.AllowClr(assemblies);
+                if (request.Extensions?.Length > 0)
+                    cfg.AddExtensionMethods(request.Extensions);
                 cfg.DebuggerStatementHandling(DebuggerStatementHandling.Script);
                 cfg.DebugMode(debugMode: true);
                 cfg.MaxStatements(DefaultMaxStatements); // [NOTE] be careful with imported libraries

@@ -9,9 +9,9 @@ public class Function
     {
     }
 
-    public Function(string id, string name, string content,
-        ERuntime runtime, IEnumerable<string> imports,
-        IEnumerable<string> assemblies, IEnumerable<string> types,
+    public Function(string id, string name, string content, ERuntime runtime,
+        IEnumerable<string> imports = null, IEnumerable<string> assemblies = null,
+        IEnumerable<string> types = null, string[] extensions = null,
         bool? async = null, bool useRawContent = false, bool isScriptOnly = false,
         string signature = null, bool exported = false)
     {
@@ -22,6 +22,7 @@ public class Function
         Imports = imports;
         Assemblies = assemblies;
         Types = types;
+        Extensions = extensions;
         Async = async ?? SyntaxHelper.HasAsyncSyntax(content);
         UseRawContent = useRawContent;
         IsScriptOnly = isScriptOnly;
@@ -38,17 +39,25 @@ public class Function
     public IEnumerable<string> Imports { get; set; }
     public IEnumerable<string> Assemblies { get; set; }
     public IEnumerable<string> Types { get; set; }
+    private Type[] _extensions;
+    public string[] Extensions { get; set; }
     public bool UseRawContent { get; set; }
     public bool IsScriptOnly { get; set; }
     public bool Exported { get; set; }
+
+    public Type[] GetExtensions()
+    {
+        if (_extensions == null)
+            _extensions = Extensions.Select(Type.GetType).ToArray();
+        return _extensions;
+    }
 
     public static Function CreateRawExpression(string content, ERuntime runtime)
     {
         var randomId = Guid.NewGuid().ToString();
         return new Function(
             id: randomId, name: randomId, content, runtime,
-            imports: null, assemblies: null, types: null, async: null,
-            useRawContent: true, isScriptOnly: true, signature: null, exported: false
+            useRawContent: true, isScriptOnly: true, exported: false
         );
     }
 }

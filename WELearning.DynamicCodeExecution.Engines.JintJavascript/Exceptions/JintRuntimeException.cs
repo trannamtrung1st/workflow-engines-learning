@@ -86,7 +86,8 @@ public class JintRuntimeException : RuntimeException
         Regex exPositionRegex = new(@$"at {mainFunction}.+?([\d]+:[\d]+)", RegexOptions.RightToLeft);
         var match = exPositionRegex.Match(stack);
         var exPositionStr = match.Groups[1].Value;
-        var parts = exPositionStr.Split(':');
+        var parts = exPositionStr.Split(':', options: StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length < 2) return (-1, -1, -1);
         var exLine = int.Parse(parts[0]);
         var exCol = int.Parse(parts[1]);
         var searchIndex = 0;

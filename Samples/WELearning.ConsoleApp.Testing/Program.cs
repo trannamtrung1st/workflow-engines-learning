@@ -227,10 +227,19 @@ static class TestEngines
                     return `Hello ` + testLodash.toString() + apiString;
                 ",
                 contentId: Guid.NewGuid().ToString(),
-                arguments: new { TestAsync },
+                arguments: new { TestAsync }, runTokens,
                 imports: new[] { "import './lodash.min.js';" },
-                assemblies: null, types: null, runTokens,
                 inputs: new Dictionary<string, object> { [nameof(TestAsync)] = TestAsync }
+            ));
+
+        var extensions = new[] { typeof(Enumerable) };
+        var list = Array.Empty<int>();
+        await runtimeEngine.Execute<string, object>(
+            request: new(
+                content: @"const ext = list.Where(x => !!x);",
+                contentId: Guid.NewGuid().ToString(),
+                arguments: new { list }, runTokens, extensions: extensions,
+                inputs: new Dictionary<string, object> { [nameof(list)] = list }
             ));
     }
 
@@ -246,9 +255,8 @@ static class TestEngines
                     return `Hello ` + testLodash.toString() + apiString;
                 ",
                 contentId: Guid.NewGuid().ToString(),
-                arguments: new { TestAsync },
+                arguments: new { TestAsync }, runTokens,
                 imports: new[] { "import { fetch } from 'fetch.min.js'", "import 'lodash.min.js'", "import 'axios.min.js'" },
-                assemblies: null, types: null, runTokens,
                 inputs: new Dictionary<string, object> { [nameof(TestAsync)] = TestAsync }
             ));
     }
