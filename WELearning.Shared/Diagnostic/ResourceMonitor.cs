@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
 using WELearning.Shared.Diagnostic.Abstracts;
 
 namespace WELearning.Shared.Diagnostic;
@@ -9,17 +10,23 @@ public class ResourceMonitor : IResourceMonitor
     private System.Timers.Timer _currentTimer;
     private DateTime _lastCpuTime;
     private long _lastCpuUsage;
+    private readonly ILogger<ResourceMonitor> _logger;
 
-    public ResourceMonitor()
+    public ResourceMonitor(ILogger<ResourceMonitor> logger)
     {
+        _logger = logger;
         _lastCpuTime = DateTime.UtcNow;
+        TotalCores = Environment.ProcessorCount;
+
         if (IsLinux)
         {
-            _lastCpuUsage = IsLinux ? GetCpuUsageMs() : default;
-            TotalCores = GetTotalCores();
+            try
+            {
+                _lastCpuUsage = IsLinux ? GetCpuUsageMs() : default;
+                TotalCores = GetTotalCores();
+            }
+            catch (Exception ex) { _logger.LogError(ex, ex.Message); }
         }
-        else
-            TotalCores = Environment.ProcessorCount;
     }
 
     public event EventHandler<(double Cpu, double Memory)> Collected;
