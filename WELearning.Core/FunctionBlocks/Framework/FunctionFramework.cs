@@ -1,10 +1,11 @@
 using Microsoft.Extensions.Logging;
 using WELearning.Core.FunctionBlocks.Exceptions;
+using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 
 namespace WELearning.Core.FunctionBlocks.Framework;
 
 // [IMPORTANT] do not expose complex types cause Jint engine requires proxy which won't work for every types
-public class FunctionFramework
+public class FunctionFramework : IFunctionFramework
 {
     private readonly ILogger<FunctionFramework> _logger;
 
@@ -13,6 +14,7 @@ public class FunctionFramework
         _logger = logger;
     }
 
+    public virtual string VariableName => "FB";
     public virtual Task DelayAsync(int ms) => Task.Delay(ms);
     public virtual void Delay(int ms) => DelayAsync(ms).Wait();
 

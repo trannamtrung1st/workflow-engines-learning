@@ -2,7 +2,6 @@ namespace WELearning.Core.FunctionBlocks.Constants;
 
 public static class BuiltInVariables
 {
-    public const string FB = "FB";
     public const string THIS = "THIS";
     public const string EVENTS = "EVENTS";
     public const string IN = "IN";

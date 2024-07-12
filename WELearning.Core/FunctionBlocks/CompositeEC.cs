@@ -14,7 +14,7 @@ using WELearning.Shared.Concurrency.Abstracts;
 namespace WELearning.Core.FunctionBlocks;
 
 public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompositeEC, IDisposable
-    where TFunctionFramework : class
+    where TFunctionFramework : class, IFunctionFramework
 {
     private readonly TFunctionFramework _functionFramework;
     private readonly IBlockRunner _blockRunner;
@@ -272,7 +272,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                         var (result, scope) = await _functionRunner.Evaluate<object, Dictionary<string, object>>(
                             function: connection.Preprocessing, arguments: new()
                             {
-                                [BuiltInVariables.FB] = _functionFramework,
+                                [_functionFramework.VariableName] = _functionFramework,
                                 [BuiltInVariables.THIS] = value,
                             },
                             optimizationScopeId, tokens);
