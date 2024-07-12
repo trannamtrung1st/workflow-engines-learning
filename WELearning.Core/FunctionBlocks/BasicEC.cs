@@ -10,7 +10,7 @@ using WELearning.DynamicCodeExecution.Models;
 namespace WELearning.Core.FunctionBlocks;
 
 public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDisposable
-    where TFunctionFramework : class
+    where TFunctionFramework : IFunctionFramework
 {
     private readonly TFunctionFramework _functionFramework;
     private readonly IEnumerable<ImportModule> _importModules;

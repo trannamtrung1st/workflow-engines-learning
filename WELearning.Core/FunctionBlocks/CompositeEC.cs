@@ -14,7 +14,7 @@ using WELearning.Shared.Concurrency.Abstracts;
 namespace WELearning.Core.FunctionBlocks;
 
 public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompositeEC, IDisposable
-    where TFunctionFramework : class, IFunctionFramework
+    where TFunctionFramework : IFunctionFramework
 {
     private readonly TFunctionFramework _functionFramework;
     private readonly IBlockRunner _blockRunner;

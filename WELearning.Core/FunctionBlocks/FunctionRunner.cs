@@ -26,6 +26,7 @@ public class FunctionRunner : IFunctionRunner
         Function function, BlockGlobalObject<TFunctionFramework> globalObject,
         IDictionary<string, object> inputs, IDictionary<string, object> outputs,
         IEnumerable<ImportModule> modules, Guid? optimizationScopeId, RunTokens tokens)
+        where TFunctionFramework : IFunctionFramework
     {
         var (engine, assemblies, types) = PrepareInputs(function);
         var result = await engine.Execute<TReturn, BlockGlobalObject<TFunctionFramework>>(
@@ -49,6 +50,7 @@ public class FunctionRunner : IFunctionRunner
         Function function, IBlockFramework blockFramework, BlockGlobalObject<TFunctionFramework> globalObject,
         IDictionary<string, object> inputs, IDictionary<string, object> outputs,
         IEnumerable<ImportModule> modules, Guid? optimizationScopeId, RunTokens tokens)
+        where TFunctionFramework : IFunctionFramework
     {
         var (engine, assemblies, types) = PrepareInputs(function);
         var (result, scope) = await engine.Execute<dynamic, BlockGlobalObject<TFunctionFramework>>(

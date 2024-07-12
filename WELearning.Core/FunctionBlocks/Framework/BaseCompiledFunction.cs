@@ -5,16 +5,17 @@ using WELearning.DynamicCodeExecution.Abstracts;
 
 namespace WELearning.Core.FunctionBlocks.Framework;
 
-public abstract class BaseCompiledFunction<TBlockFramework> : IExecutable<object, BlockGlobalObject<TBlockFramework>>
+public abstract class BaseCompiledFunction<TFunctionFramework> : IExecutable<object, BlockGlobalObject<TFunctionFramework>>
+    where TFunctionFramework : IFunctionFramework
 {
-    protected TBlockFramework FB;
+    protected TFunctionFramework FB;
     protected IReadOnlyDictionary<string, IReadBinding> IN;
     protected IReadOnlyDictionary<string, IWriteBinding> OUT;
     protected IReadOnlyDictionary<string, IReadWriteBinding> INOUT;
     protected IReadOnlyDictionary<string, IReadWriteBinding> INTERNAL;
     protected IOutputEventPublisher EVENTS;
 
-    public Task<object> Execute(BlockGlobalObject<TBlockFramework> global, CancellationToken cancellationToken)
+    public Task<object> Execute(BlockGlobalObject<TFunctionFramework> global, CancellationToken cancellationToken)
     {
         FB = global.FB;
         IN = global.IN;
@@ -29,7 +30,7 @@ public abstract class BaseCompiledFunction<TBlockFramework> : IExecutable<object
 
     public static string WrapScript(string script)
     {
-        var frameworkTypeName = typeof(TBlockFramework).FullName;
+        var frameworkTypeName = typeof(TFunctionFramework).FullName;
         return @$"
 public class Function : BaseCompiledFunction<{frameworkTypeName}>
 {{
@@ -42,16 +43,17 @@ public class Function : BaseCompiledFunction<{frameworkTypeName}>
     }
 }
 
-public abstract class BaseCompiledFunction<TReturn, TBlockFramework> : IExecutable<TReturn, BlockGlobalObject<TBlockFramework>>
+public abstract class BaseCompiledFunction<TReturn, TFunctionFramework> : IExecutable<TReturn, BlockGlobalObject<TFunctionFramework>>
+    where TFunctionFramework : IFunctionFramework
 {
-    protected TBlockFramework FB;
+    protected TFunctionFramework FB;
     protected IReadOnlyDictionary<string, IReadBinding> IN;
     protected IReadOnlyDictionary<string, IWriteBinding> OUT;
     protected IReadOnlyDictionary<string, IReadWriteBinding> INOUT;
     protected IReadOnlyDictionary<string, IReadWriteBinding> INTERNAL;
     protected IOutputEventPublisher EVENTS;
 
-    public Task<TReturn> Execute(BlockGlobalObject<TBlockFramework> global, CancellationToken cancellationToken)
+    public Task<TReturn> Execute(BlockGlobalObject<TFunctionFramework> global, CancellationToken cancellationToken)
     {
         FB = global.FB;
         IN = global.IN;
@@ -67,7 +69,7 @@ public abstract class BaseCompiledFunction<TReturn, TBlockFramework> : IExecutab
     public static string WrapScript(string script)
     {
         var returnTypeName = typeof(TReturn).FullName;
-        var frameworkTypeName = typeof(TBlockFramework).FullName;
+        var frameworkTypeName = typeof(TFunctionFramework).FullName;
         return @$"
 public class Function : BaseCompiledFunction<{returnTypeName}, {frameworkTypeName}>
 {{

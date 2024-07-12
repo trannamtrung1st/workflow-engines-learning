@@ -295,9 +295,9 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 
     private static void SetValues<TArg>(Engine engine, TArg arguments)
     {
-        if (arguments is IDictionary<string, object> dict)
+        if (arguments is IArguments argumentsObj)
         {
-            foreach (var kvp in dict)
+            foreach (var kvp in argumentsObj.GetArguments())
                 engine.SetValue(kvp.Key, kvp.Value);
         }
         else
