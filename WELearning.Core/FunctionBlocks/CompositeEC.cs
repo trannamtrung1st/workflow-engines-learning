@@ -8,8 +8,8 @@ using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
 using WELearning.DynamicCodeExecution.Models;
-using WELearning.Shared.Concurrency;
-using WELearning.Shared.Concurrency.Abstracts;
+using TNT.Boilerplates.Concurrency.Abstracts;
+using TNT.Boilerplates.Common.Disposable;
 
 namespace WELearning.Core.FunctionBlocks;
 

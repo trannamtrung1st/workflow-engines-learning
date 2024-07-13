@@ -5,7 +5,7 @@ using WELearning.Samples.DeviceService.Services.Abstracts;
 using WELearning.Samples.Shared.Constants;
 using WELearning.Samples.Shared.Models;
 using WELearning.Samples.Shared.RabbitMq.Abstracts;
-using WELearning.Shared.Diagnostic.Abstracts;
+using TNT.Boilerplates.Diagnostic.Abstracts;
 
 namespace WELearning.Samples.DeviceService.Services;
 

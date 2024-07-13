@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Options;
 using WELearning.Samples.FBWorker.Configurations;
 using WELearning.Samples.FBWorker.Services.Abstracts;
-using WELearning.Shared.Concurrency.Abstracts;
-using WELearning.Shared.Diagnostic.Abstracts;
+using TNT.Boilerplates.Concurrency.Abstracts;
+using TNT.Boilerplates.Diagnostic.Abstracts;
 
 namespace WELearning.Samples.FBWorker;
 
@@ -14,7 +14,7 @@ public class Worker : BackgroundService
     private readonly IConfiguration _configuration;
     private readonly IFunctionBlockWorker _fbWorker;
     private readonly IRateMonitor _rateMonitor;
-    private readonly IConsumerRateLimiters _consumerRateLimiters;
+    private readonly IMultiRateLimiters _multiRateLimiters;
 
     public Worker(
         ILogger<Worker> logger,
@@ -23,7 +23,7 @@ public class Worker : BackgroundService
         IConfiguration configuration,
         IFunctionBlockWorker fbWorker,
         IRateMonitor rateMonitor,
-        IConsumerRateLimiters consumerRateLimiters)
+        IMultiRateLimiters multiRateLimiters)
     {
         _logger = logger;
         _appSettingsOptions = appSettingsOptions;
@@ -31,7 +31,7 @@ public class Worker : BackgroundService
         _configuration = configuration;
         _fbWorker = fbWorker;
         _rateMonitor = rateMonitor;
-        _consumerRateLimiters = consumerRateLimiters;
+        _multiRateLimiters = multiRateLimiters;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -51,7 +51,7 @@ public class Worker : BackgroundService
 
         var idealUsage = _configuration.GetValue<double>("RateScaling:IdealUsage");
         appSettings.WorkerCount = (int)(_resourceMonitor.TotalCores * idealUsage); // [NOTE] default worker count
-        _consumerRateLimiters.TaskLimiter.Options.AvailableCores = _resourceMonitor.TotalCores;
+        _multiRateLimiters.TaskLimiter.Options.AvailableCores = _resourceMonitor.TotalCores;
 
         if (appSettings.WorkerCount < 1)
             appSettings.WorkerCount = 1;

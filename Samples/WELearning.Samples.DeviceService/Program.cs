@@ -4,14 +4,14 @@ using WELearning.Samples.DeviceService.Services;
 using WELearning.Samples.DeviceService.Services.Abstracts;
 using WELearning.Samples.DeviceService.Configurations;
 using Microsoft.Extensions.Options;
-using WELearning.Shared.Diagnostic.Abstracts;
-using WELearning.Shared.Extensions;
+using TNT.Boilerplates.Diagnostic.Abstracts;
 using WELearning.Samples.Shared.Models;
 using WELearning.Samples.Shared.Constants;
 using WELearning.Samples.Shared.Extensions;
 using Microsoft.AspNetCore.Http.Extensions;
 using WELearning.Samples.Shared.RabbitMq.Abstracts;
 using RabbitMQ.Client;
+using TNT.Boilerplates.Diagnostic.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 var appSettingsConfig = builder.Configuration.GetSection("AppSettings");

@@ -8,15 +8,16 @@ using WELearning.Samples.FBWorker.Services.Abstracts;
 using WELearning.Samples.Shared.Constants;
 using WELearning.Samples.Shared.Models;
 using WELearning.Samples.Shared.RabbitMq.Abstracts;
-using WELearning.Shared.Concurrency;
-using WELearning.Shared.Concurrency.Abstracts;
+using TNT.Boilerplates.Concurrency;
+using TNT.Boilerplates.Concurrency.Abstracts;
+using TNT.Boilerplates.Common.Disposable;
 
 namespace WELearning.Samples.FBWorker.Services;
 
 public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
 {
     private readonly IServiceProvider _serviceProvider;
-    private readonly IConsumerRateLimiters _rateLimiters;
+    private readonly IMultiRateLimiters _rateLimiters;
     private readonly ISyncAsyncTaskRunner _taskRunner;
     private readonly ILogger<FunctionBlockWorker> _logger;
     private readonly IOptions<AppSettings> _appSettings;
@@ -27,7 +28,7 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
     public FunctionBlockWorker(
         IServiceProvider serviceProvider,
         ISyncAsyncTaskRunner taskRunner,
-        IConsumerRateLimiters rateLimiters,
+        IMultiRateLimiters rateLimiters,
         ILogger<FunctionBlockWorker> logger,
         IOptions<AppSettings> appSettings,
         IConfiguration configuration,

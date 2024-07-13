@@ -20,10 +20,10 @@ using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Constants;
 using WELearning.DynamicCodeExecution.Extensions;
 using WELearning.DynamicCodeExecution.Models;
-using WELearning.Shared.Extensions;
-using WELearning.Shared.Concurrency;
-using WELearning.Shared.Concurrency.Abstracts;
-using WELearning.Shared.Concurrency.Configurations;
+using TNT.Boilerplates.Concurrency;
+using TNT.Boilerplates.Concurrency.Abstracts;
+using TNT.Boilerplates.Concurrency.Configurations;
+using TNT.Boilerplates.Concurrency.Extensions;
 
 const int minThreads = 512;
 ThreadPool.SetMinThreads(workerThreads: minThreads, completionPortThreads: minThreads);

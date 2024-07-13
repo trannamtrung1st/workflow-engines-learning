@@ -10,8 +10,8 @@ using WELearning.Samples.FBWorker.FunctionBlock;
 using WELearning.Samples.FBWorker.FunctionBlock.ValueObjects;
 using WELearning.Samples.FBWorker.Services.Abstracts;
 using WELearning.Samples.Shared.Models;
-using WELearning.Shared.Concurrency.Abstracts;
-using WELearning.Shared.Diagnostic.Abstracts;
+using TNT.Boilerplates.Concurrency.Abstracts;
+using TNT.Boilerplates.Diagnostic.Abstracts;
 
 namespace WELearning.Samples.FBWorker.Services;
 
@@ -22,7 +22,7 @@ public class FunctionBlockService : IFunctionBlockService
     private readonly IFunctionRunner _functionRunner;
     private readonly IBlockFrameworkFactory _blockFrameworkFactory;
     private readonly ISyncAsyncTaskRunner _taskRunner;
-    private readonly IConsumerRateLimiters _consumerRateLimiters;
+    private readonly IMultiRateLimiters _multiRateLimiters;
     private readonly IAssetService _assetService;
     private readonly IRateMonitor _rateMonitor;
     private readonly ILogger<IExecutionControl> _controlLogger;
@@ -39,7 +39,7 @@ public class FunctionBlockService : IFunctionBlockService
         IRateMonitor rateMonitor,
         ILogger<IExecutionControl> controlLogger,
         ISyncAsyncTaskRunner taskRunner,
-        IConsumerRateLimiters consumerRateLimiters,
+        IMultiRateLimiters multiRateLimiters,
         IHttpClients clients)
     {
         _configuration = configuration;
@@ -50,7 +50,7 @@ public class FunctionBlockService : IFunctionBlockService
         _controlLogger = controlLogger;
         _rateMonitor = rateMonitor;
         _taskRunner = taskRunner;
-        _consumerRateLimiters = consumerRateLimiters;
+        _multiRateLimiters = multiRateLimiters;
         _clients = clients;
         _functionFramework = new DeviceFunctionFramework(logger: functionFrameworkLogger);
     }
@@ -68,7 +68,7 @@ public class FunctionBlockService : IFunctionBlockService
         var cfbDef = await BuildBlock(@event.DemoBlockId, cancellationToken: runTokens.Combined);
         using var execControl = new CompositeEC<DeviceFunctionFramework>(
             block: new(cfbDef.Id), definition: cfbDef,
-            _blockRunner, _functionRunner, _blockFrameworkFactory, _functionFramework, _taskRunner, taskLimiter: _consumerRateLimiters.TaskLimiter);
+            _blockRunner, _functionRunner, _blockFrameworkFactory, _functionFramework, _taskRunner, taskLimiter: _multiRateLimiters.TaskLimiter);
 
         RegisterLogActivityHandlers(execControl);
         try

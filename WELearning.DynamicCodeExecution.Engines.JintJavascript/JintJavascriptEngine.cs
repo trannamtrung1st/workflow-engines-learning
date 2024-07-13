@@ -17,7 +17,7 @@ using WELearning.DynamicCodeExecution.Exceptions;
 using WELearning.DynamicCodeExecution.Extensions;
 using WELearning.DynamicCodeExecution.Helpers;
 using WELearning.DynamicCodeExecution.Models;
-using WELearning.Shared.Concurrency.Abstracts;
+using TNT.Boilerplates.Concurrency.Abstracts;
 
 namespace WELearning.DynamicCodeExecution.Engines;
 

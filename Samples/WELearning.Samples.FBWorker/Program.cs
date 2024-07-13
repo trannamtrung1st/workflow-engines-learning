@@ -7,13 +7,14 @@ using WELearning.DynamicCodeExecution.Extensions;
 using WELearning.Samples.FBWorker.FunctionBlock;
 using WELearning.Samples.Shared.Constants;
 using WELearning.Samples.Shared.Extensions;
-using WELearning.Shared.Extensions;
 using WELearning.Core.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Mvc;
 using RabbitMQ.Client;
-using WELearning.Shared.Concurrency.Abstracts;
-using WELearning.Shared.Diagnostic.Abstracts;
+using TNT.Boilerplates.Concurrency.Abstracts;
+using TNT.Boilerplates.Diagnostic.Abstracts;
+using TNT.Boilerplates.Diagnostic.Extensions;
+using TNT.Boilerplates.Concurrency.Extensions;
 
 const int minThreads = 512;
 int maxThreads = minThreads * 2;
@@ -43,7 +44,7 @@ builder.Services
     .AddResourceMonitor()
     .AddResourceBasedFuzzyRateScaler()
     .AddResourceBasedRateScaling(configure: rateScalingConfig.Bind)
-    .AddConsumerRateLimiters(configureTaskLimiter: taskLimiterConfig.Bind)
+    .AddMultiRateLimiters(configureTaskLimiter: taskLimiterConfig.Bind)
     .AddSyncAsyncTaskRunner()
     .AddInMemoryLockManager()
     .AddDefaultDistributedLockManager()
@@ -77,7 +78,7 @@ app.UseSwaggerUI();
 app.MapPost("/api/fb/workers/scaling/start", (
     [FromServices] IConfiguration configuration,
     [FromServices] ILogger<Program> logger,
-    [FromServices] IConsumerRateLimiters rateLimiters,
+    [FromServices] IMultiRateLimiters rateLimiters,
     [FromServices] IRateScalingController controller) =>
 {
     controller.StartRateCollector(rateLimiters: rateLimiters.RateLimiters);
@@ -103,7 +104,7 @@ app.MapPut("/api/configs/app-settings", (
     [FromQuery] int? workerCount,
     [FromQuery] int? concurrencyLimit,
     [FromServices] IOptions<AppSettings> appSettings,
-    [FromServices] IConsumerRateLimiters rateLimiters) =>
+    [FromServices] IMultiRateLimiters rateLimiters) =>
 {
     var appsettingsChanges = new List<string>();
     if (workerCount.HasValue)

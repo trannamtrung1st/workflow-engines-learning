@@ -8,7 +8,10 @@
   <ItemGroup>
     <ProjectReference
       Include="..\WELearning.DynamicCodeExecution\WELearning.DynamicCodeExecution.csproj" />
-    <ProjectReference Include="..\WELearning.Shared\WELearning.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TNT.Boilerplates.Concurrency" Version="1.0.0" />
   </ItemGroup>
 
 </Project>
