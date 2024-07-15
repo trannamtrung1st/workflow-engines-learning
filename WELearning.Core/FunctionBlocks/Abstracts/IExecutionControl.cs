@@ -22,6 +22,7 @@ public interface IExecutionControl : IDisposable
 
     Variable GetVariable(string key, EVariableType type);
     IEnumerable<Variable> GetVariables();
+    IReadOnlyDictionary<string, object> GetReservedInputs();
     IValueObject GetInput(string key);
     IValueObject GetOutput(string key);
     IValueObject GetInOut(string key);

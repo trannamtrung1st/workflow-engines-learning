@@ -155,7 +155,8 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                         var runRequest = new RunBlockRequest(
                             runId: CurrentRunRequest.RunId, blockBindings,
                             tokens: CurrentRunRequest.Tokens,
-                            triggerEvent: triggerEvent);
+                            triggerEvent: triggerEvent,
+                            reservedInputs: CurrentRunRequest.ReservedInputs);
                         await _blockRunner.Run(runRequest, execControl, optimizationScopeId);
                         var nextBlockTriggers = Definition.FindNextBlocks(block.Id, outputEvents: execControl.Result.OutputEvents);
                         EnqueueTask((taskScope) => TriggerBlocks(nextBlockTriggers, optimizationScopeId, taskScope, tokens));
@@ -365,7 +366,8 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                 var importBlocks = basicBlockDef.ImportBlockIds?
                     .Select(bId => Definition.GetDefinition(bId))
                     .OfType<BasicBlockDef>().ToArray();
-                execControl = new BasicEC<TFunctionFramework>(block, definition: basicBlockDef, importBlocks: importBlocks, _functionRunner, _blockFrameworkFactory, _functionFramework);
+                var importBlocksRequest = new ImportBlocksRequest(importBlocks, moduleName: basicBlockDef.ModuleName);
+                execControl = new BasicEC<TFunctionFramework>(block, definition: basicBlockDef, importBlocksRequest, _functionRunner, _blockFrameworkFactory, _functionFramework);
             }
             else if (definition is CompositeBlockDef compositeBlockDef)
                 execControl = new CompositeEC<TFunctionFramework>(block, definition: compositeBlockDef, _blockRunner, _functionRunner, _blockFrameworkFactory, _functionFramework, _taskRunner, _taskLimiter);

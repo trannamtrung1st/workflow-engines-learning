@@ -24,6 +24,7 @@ public class BasicBlockDef : BaseBlockDef
     }
 
     public IEnumerable<string> ImportBlockIds { get; set; }
+    public string ModuleName { get; set; }
 
     private IEnumerable<ModuleFunction> _moduleFunctions;
     public IEnumerable<ModuleFunction> GetModuleFunctions()

@@ -466,7 +466,7 @@ static class TestFunctionBlocks
         var dataStore = serviceProvider.GetService<DataStore>();
         const int DelayMs = 5000;
         ICompositeEC CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFramework, taskRunner, taskLimiter);
-        IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFunctionFramework>(block: new(blockDef.Id), blockDef, importBlocks: null, functionRunner, blockFrameworkFactory, functionFramework);
+        IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFunctionFramework>(block: new(blockDef.Id), blockDef, importBlocksRequest: null, functionRunner, blockFrameworkFactory, functionFramework);
 
         await blockRunner.Compile(new(BlockDefinition: PredefinedBFBs.AddJs, Tokens: tokensProvider()), optimizationScopeId: default);
 
@@ -476,6 +476,13 @@ static class TestFunctionBlocks
         await RunObjectAndFunctions(blockRunner, CreateControl: () => CreateCompositeControl(ObjectAndFunctionsCFB.Build()), runTokens: tokensProvider());
 
         await RunLogAndDebug(blockRunner, CreateControl: CreateCompositeControl, tokensProvider);
+
+        var bReservedInputsDef = PredefinedBFBs.CreateBlockSimple(
+            id: "ReservedInputs", name: "Sample reserved inputs",
+            content: "FB.Log('This is a reserved input (StartTimeUtc):', StartTimeUtc)");
+        await RunBlockReservedInputs(
+            blockRunner, CreateControl: () => CreateBasicControl(blockDef: bReservedInputsDef),
+            runTokens: tokensProvider());
 
         Console.WriteLine("DelayJS {0} ms", DelayMs);
         await RunBlockDelay(
@@ -511,6 +518,21 @@ static class TestFunctionBlocks
 
         Console.WriteLine("=== Test entry report ===");
         await RunEntryReport(dataStore, blockRunner, CreateControl: () => CreateCompositeControl(blockDef: EntryReportCFB.Build()), runTokens: tokensProvider());
+    }
+
+    public static async Task RunBlockReservedInputs(
+        IBlockRunner blockRunner, Func<IExecutionControl> CreateControl,
+        RunTokens runTokens)
+    {
+        using var _ = runTokens;
+        using var execControl = CreateControl();
+        var bindings = Array.Empty<VariableBinding>();
+        var reservedInputs = new Dictionary<string, object>()
+        {
+            ["StartTimeUtc"] = DateTime.UtcNow
+        };
+        var runRequest = new RunBlockRequest(bindings, runTokens, triggerEvent: null, reservedInputs);
+        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default);
     }
 
     public static async Task RunBlockDelay(
@@ -640,8 +662,6 @@ static class TestFunctionBlocks
                 using var runTokens = tokensProvider();
                 var runRequest = new RunBlockRequest(bindings, tokens: runTokens);
                 await blockRunner.Run(runRequest, execControl, optimizationScopeId: default);
-                var finalResult = execControl.GetOutput("Result");
-                Console.WriteLine("Complex CFB result: {0}", finalResult);
             }
             catch { }
             finally

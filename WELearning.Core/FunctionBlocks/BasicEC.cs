@@ -18,14 +18,14 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
     public BasicEC(
         BlockInstance block,
         BasicBlockDef definition,
-        IEnumerable<BasicBlockDef> importBlocks,
+        ImportBlocksRequest importBlocksRequest,
         IFunctionRunner functionRunner,
         IBlockFrameworkFactory blockFrameworkFactory,
         TFunctionFramework functionFramework) : base(block, definition, functionRunner, blockFrameworkFactory)
     {
         _functionFramework = functionFramework;
         CurrentState = Definition.ExecutionControlChart?.InitialState;
-        _importModules = PrepareModules(importBlocks);
+        _importModules = PrepareModules(importBlocksRequest);
     }
 
     public virtual Function RunningFunction { get; protected set; }
@@ -69,7 +69,9 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
             {
                 optimizationScopes = new HashSet<IDisposable>();
                 var triggerEvent = GetTriggerOrDefault(request.TriggerEvent);
-                outputEvents = await TriggerStateMachine(triggerEvent, optimizationScopes, optimizationScopeId ?? Guid.NewGuid());
+                outputEvents = await TriggerStateMachine(
+                    triggerEvent, reservedInputs: request.ReservedInputs,
+                    optimizationScopes, optimizationScopeId ?? Guid.NewGuid());
             }
 
             var finalState = CurrentState;
@@ -91,13 +93,14 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
     }
 
     protected virtual async Task<IEnumerable<string>> TriggerStateMachine(
-        string triggerEvent, HashSet<IDisposable> optimizationScopes, Guid optimizationScopeId)
+        string triggerEvent, IReadOnlyDictionary<string, object> reservedInputs,
+        HashSet<IDisposable> optimizationScopes, Guid optimizationScopeId)
     {
         var outputEvents = new HashSet<string>();
         var blockFramework = _blockFrameworkFactory.Create(this);
         var publisher = blockFramework.CreateEventPublisher(outputEvents);
-        var (inputs, outputs) = PrepareArguments(blockFramework);
-        var globalObject = new BlockGlobalObject<TFunctionFramework>(_functionFramework, blockFramework, publisher);
+        var (inputs, outputs) = PrepareArguments(blockFramework, reservedInputs);
+        var globalObject = new BlockGlobalObject<TFunctionFramework>(_functionFramework, blockFramework, publisher, reservedInputs);
 
         async Task<bool> Evaluate(Function condition)
         {
@@ -177,15 +180,15 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
             events.Add(ev);
     }
 
-    protected IEnumerable<ImportModule> PrepareModules(IEnumerable<BasicBlockDef> importBlocks)
+    protected IEnumerable<ImportModule> PrepareModules(ImportBlocksRequest importBlocksRequest)
     {
-        if (importBlocks == null) return null;
-        var functions = importBlocks.SelectMany(b => b.GetModuleFunctions()).ToArray();
-        var module = new ImportModule(id: Definition.Id, moduleName: FunctionDefaults.ModuleFunctions, functions);
+        if (importBlocksRequest?.ImportBlocks == null) return null;
+        var functions = importBlocksRequest.ImportBlocks.SelectMany(b => b.GetModuleFunctions()).ToArray();
+        var module = new ImportModule(id: Definition.Id, moduleName: importBlocksRequest.ModuleName, functions);
         return new[] { module };
     }
 
-    protected virtual (Dictionary<string, object> Inputs, Dictionary<string, object> Outputs) PrepareArguments(IBlockFramework blockFramework)
+    protected virtual (Dictionary<string, object> Inputs, Dictionary<string, object> Outputs) PrepareArguments(IBlockFramework blockFramework, IReadOnlyDictionary<string, object> reservedInputs)
     {
         var inputs = new Dictionary<string, object>();
         var outputs = new Dictionary<string, object>();
@@ -205,6 +208,12 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
                     source[variable.Name] = valueObject.Value;
                     break;
             }
+        }
+
+        if (reservedInputs?.Count > 0)
+        {
+            foreach (var kvp in reservedInputs)
+                inputs[kvp.Key] = kvp.Value;
         }
 
         return (inputs, outputs);

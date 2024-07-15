@@ -27,10 +27,10 @@ public class BlockFramework : IBlockFramework
     private readonly HashSet<string> _outputEvents;
     public virtual IEnumerable<string> OutputEvents => _outputEvents;
 
-    public IReadOnlyDictionary<string, IReadBinding> InputBindings => _inputBindings;
-    public IReadOnlyDictionary<string, IWriteBinding> OutputBindings => _outputBindings;
-    public IReadOnlyDictionary<string, IReadWriteBinding> InOutBindings => _inOutBindings;
-    public IReadOnlyDictionary<string, IReadWriteBinding> InternalBindings => _internalBindings;
+    public virtual IReadOnlyDictionary<string, IReadBinding> InputBindings => _inputBindings;
+    public virtual IReadOnlyDictionary<string, IWriteBinding> OutputBindings => _outputBindings;
+    public virtual IReadOnlyDictionary<string, IReadWriteBinding> InOutBindings => _inOutBindings;
+    public virtual IReadOnlyDictionary<string, IReadWriteBinding> InternalBindings => _internalBindings;
 
     public virtual object GetBindingFor(IValueObject valueObject)
     {

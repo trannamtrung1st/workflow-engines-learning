@@ -8,6 +8,7 @@ public static class BuiltInVariables
     public const string OUT = "OUT";
     public const string INOUT = "INOUT";
     public const string INTERNAL = "INTERNAL";
+    public const string RESERVED = "RESERVED";
 }
 
 public static class FunctionDefaults

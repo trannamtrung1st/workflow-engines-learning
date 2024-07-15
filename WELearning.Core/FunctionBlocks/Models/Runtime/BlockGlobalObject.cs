@@ -12,13 +12,15 @@ public class BlockGlobalObject<TFunctionFramework> : IArguments where TFunctionF
     public BlockGlobalObject(
         TFunctionFramework framework,
         IBlockFramework blockFramework,
-        IOutputEventPublisher publisher)
+        IOutputEventPublisher publisher,
+        IReadOnlyDictionary<string, object> reservedInputs)
     {
         FB = framework;
         IN = blockFramework.InputBindings;
         OUT = blockFramework.OutputBindings;
         INOUT = blockFramework.InOutBindings;
         INTERNAL = blockFramework.InternalBindings;
+        RESERVED = reservedInputs;
         EVENTS = publisher;
 
         _arguments = new()
@@ -28,6 +30,7 @@ public class BlockGlobalObject<TFunctionFramework> : IArguments where TFunctionF
             [BuiltInVariables.OUT] = OUT,
             [BuiltInVariables.INOUT] = INOUT,
             [BuiltInVariables.INTERNAL] = INTERNAL,
+            [BuiltInVariables.RESERVED] = RESERVED,
             [BuiltInVariables.EVENTS] = EVENTS,
         };
     }
@@ -37,6 +40,7 @@ public class BlockGlobalObject<TFunctionFramework> : IArguments where TFunctionF
     public IReadOnlyDictionary<string, IWriteBinding> OUT { get; }
     public IReadOnlyDictionary<string, IReadWriteBinding> INOUT { get; }
     public IReadOnlyDictionary<string, IReadWriteBinding> INTERNAL { get; }
+    public IReadOnlyDictionary<string, object> RESERVED { get; }
     public IOutputEventPublisher EVENTS { get; }
 
     public IReadOnlyDictionary<string, object> GetArguments() => _arguments;

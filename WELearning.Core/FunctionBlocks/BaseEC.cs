@@ -192,6 +192,8 @@ public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where
         }
     }
 
+    public IReadOnlyDictionary<string, object> GetReservedInputs() => CurrentRunRequest?.ReservedInputs;
+
     public virtual void WaitForIdle(CancellationToken cancellationToken) => _idleWait.Wait(cancellationToken);
 
     public virtual async Task MutexAccess(Func<Task> Task, CancellationToken cancellationToken)
