@@ -151,12 +151,13 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                         using var _ = taskScope;
                         var execControl = GetOrInitExecutionControl(block);
                         var triggerEvent = trigger.TriggerEvent ?? Definition.GetDefinition(block.DefinitionId).DefaultTriggerEvent;
-                        var blockBindings = await PrepareBindings(triggerEvent, block, onDelayed: EnqueueTriggerBlock, tokens);
+                        var reservedInputs = CurrentRunRequest.ReservedInputs;
+                        var blockBindings = await PrepareBindings(triggerEvent, block, onDelayed: EnqueueTriggerBlock, reservedInputs, tokens);
                         var runRequest = new RunBlockRequest(
                             runId: CurrentRunRequest.RunId, blockBindings,
                             tokens: CurrentRunRequest.Tokens,
                             triggerEvent: triggerEvent,
-                            reservedInputs: CurrentRunRequest.ReservedInputs);
+                            reservedInputs: reservedInputs);
                         await _blockRunner.Run(runRequest, execControl, optimizationScopeId);
                         var nextBlockTriggers = Definition.FindNextBlocks(block.Id, outputEvents: execControl.Result.OutputEvents);
                         EnqueueTask((taskScope) => TriggerBlocks(nextBlockTriggers, optimizationScopeId, taskScope, tokens));
@@ -178,7 +179,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         }
     }
 
-    protected virtual async Task<IEnumerable<VariableBinding>> PrepareBindings(string triggerEvent, BlockInstance block, Func<Task> onDelayed, RunTokens tokens)
+    protected virtual async Task<IEnumerable<VariableBinding>> PrepareBindings(string triggerEvent, BlockInstance block, Func<Task> onDelayed, IReadOnlyDictionary<string, object> reservedInputs, RunTokens tokens)
     {
         // [OPT] force set snapshot value before each BFB run to prevent concurrent modification of underlying reference object while BFB running
         var bindings = new List<VariableBinding>();
@@ -231,6 +232,19 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
             var inputDataConnections = Definition.DataConnections
                 .Where(c => c.BindingType == EBindingType.Input && c.BlockId == block.Id && inputEvent.VariableNames.Contains(c.VariableName))
                 .ToArray();
+            var lazyArguments = new Lazy<Dictionary<string, object>>(() =>
+            {
+                var arguments = new Dictionary<string, object>()
+                {
+                    [_functionFramework.VariableName] = _functionFramework,
+                };
+                if (reservedInputs?.Count > 0)
+                {
+                    foreach (var kvp in reservedInputs)
+                        arguments[kvp.Key] = kvp.Value;
+                }
+                return arguments;
+            });
 
             foreach (var connection in inputDataConnections)
             {
@@ -271,12 +285,10 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                     if (connection.Preprocessing != null)
                     {
                         var (result, scope) = await _functionRunner.Evaluate<object, Dictionary<string, object>>(
-                            function: connection.Preprocessing, arguments: new()
+                            function: connection.Preprocessing, arguments: new(lazyArguments.Value)
                             {
-                                [_functionFramework.VariableName] = _functionFramework,
-                                [BuiltInVariables.THIS] = value,
-                            },
-                            optimizationScopeId, tokens);
+                                [BuiltInVariables.THIS] = value
+                            }, optimizationScopeId, tokens);
                         value = result;
                         optimizationScopes.Add(scope);
                     }
