@@ -15,7 +15,7 @@ public abstract class EngineException : Exception
         int exLine, int exColumn, int exIndex, int userContentLineStart, int userContentLineEnd,
         int userContentIndexStart, int userContentIndexEnd)
     {
-        if (exLine == 0 || exColumn == 0 || exIndex < 0 || exLine > userContentLineEnd || exIndex > userContentIndexEnd)
+        if (exLine == 0 || exColumn < 0 || exIndex < 0 || exLine > userContentLineEnd || exIndex > userContentIndexEnd)
             return (-1, -1, -1);
         var originalLine = exLine - userContentLineStart + 1;
         return (originalLine, exColumn, exIndex - userContentIndexStart);
