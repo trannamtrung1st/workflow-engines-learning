@@ -162,7 +162,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 
         try
         {
-            var (content, lineStart, lineEnd, indexStart, indexEnd) = PreprocessContent(compileRequest);
+            var (content, lines, lineStart, lineEnd, indexStart, indexEnd) = PreprocessContent(compileRequest);
             try
             {
                 if (executeRequest != null)
@@ -182,7 +182,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             catch (Acornima.ParseErrorException ex)
             {
                 throw new JintCompilationError(
-                    parserException: ex,
+                    parserException: ex, lines,
                     userContentLineStart: lineStart,
                     userContentLineEnd: lineEnd,
                     userContentIndexStart: indexStart,
@@ -192,7 +192,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             {
                 throw new JintRuntimeException(ex,
                     mainFunction: WrapFunction,
-                    currentNodeLocation: engineWrap.CurrentNodeLocation,
+                    currentNodeLocation: engineWrap.CurrentNodeLocation, lines,
                     userContentLineStart: lineStart,
                     userContentLineEnd: lineEnd,
                     userContentIndexStart: indexStart,
@@ -202,7 +202,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             {
                 throw new JintRuntimeException(ex,
                     mainFunction: WrapFunction,
-                    currentNodeLocation: engineWrap.CurrentNodeLocation,
+                    currentNodeLocation: engineWrap.CurrentNodeLocation, lines,
                     userContentLineStart: lineStart,
                     userContentLineEnd: lineEnd,
                     userContentIndexStart: indexStart,
@@ -226,7 +226,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                     throw new JintRuntimeException(
                         systemException: ex, isUserSource,
                         currentNodePosition: engineWrap.CurrentNodePosition.Value,
-                        currentNodeLocation: engineWrap.CurrentNodeLocation,
+                        currentNodeLocation: engineWrap.CurrentNodeLocation, lines,
                         userContentLineStart: lineStart,
                         userContentLineEnd: lineEnd,
                         userContentIndexStart: indexStart,
@@ -346,17 +346,17 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         return argumentValues;
     }
 
-    private (string Content, int LineStart, int LineEnd, int IndexStart, int IndexEnd)
+    private (string Content, string[] Lines, int LineStart, int LineEnd, int IndexStart, int IndexEnd)
         PreprocessContent(CompileCodeRequest compileRequest)
     {
         return _lockManager.MutexAccess(key: $"CONTENTS.{compileRequest.ContentId}",
             task: () => _preprocessedContentCache.GetOrCreate(compileRequest.ContentId, (entry) =>
             {
-                (string Content, int, int, int, int) contentInfo;
-                var contentLineCount = compileRequest.Content.NewLineCount();
+                (string Content, string[], int, int, int, int) contentInfo;
+                var lines = compileRequest.Content.BreakLines();
                 if (compileRequest.UseRawContent || compileRequest.IsScriptOnly)
                 {
-                    contentInfo = (compileRequest.Content, 1, contentLineCount, 0, compileRequest.Content.Length);
+                    contentInfo = (compileRequest.Content, lines, 1, lines.Length, 0, compileRequest.Content.Length);
                 }
                 else
                 {

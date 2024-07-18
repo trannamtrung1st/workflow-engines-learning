@@ -13,31 +13,38 @@ public abstract class EngineException : Exception
     public virtual int EndIndex { get; protected set; }
 
     public static (int Line, int Column, int StartIndex, int EndIndex) RecalculatePosition(
-        int exLine, int exColumn, (int Start, int End) exLocation, int userContentLineStart, int userContentLineEnd,
+        int exLine, int exColumn, (int Start, int End) exLocation, string[] lines,
+        int userContentLineStart, int userContentLineEnd,
         int userContentIndexStart, int userContentIndexEnd)
     {
         if (exLine == 0 || exColumn < 0 || exLocation.Start < 0)
             return (-1, -1, -1, -1);
 
+        int originalLine; int originalColumn;
         int startIndex; int endIndex;
         if (exLine > userContentLineEnd || exLocation.End > userContentIndexEnd)
         {
             startIndex = userContentIndexEnd - userContentIndexStart + 1;
             endIndex = startIndex;
+            originalLine = userContentLineEnd - userContentLineStart + 1;
+            originalColumn = lines[userContentLineEnd - 1].Length;
         }
         else if (exLine < userContentLineStart || exLocation.Start < userContentIndexStart)
         {
             startIndex = 0;
             endIndex = startIndex;
+            originalLine = 1;
+            originalColumn = 0;
         }
         else
         {
             startIndex = exLocation.Start - userContentIndexStart;
             endIndex = exLocation.End == -1 ? -1 : exLocation.End - userContentIndexStart;
+            originalLine = exLine - userContentLineStart + 1;
+            originalColumn = exColumn;
         }
 
-        var originalLine = exLine - userContentLineStart + 1;
-        return (originalLine, exColumn, startIndex, endIndex);
+        return (originalLine, originalColumn, startIndex, endIndex);
     }
 
     public override string ToString() => UnderlyingException?.ToString() ?? base.ToString();

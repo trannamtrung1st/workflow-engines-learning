@@ -5,7 +5,7 @@ namespace WELearning.DynamicCodeExecution.Helpers;
 
 public static class JavascriptHelper
 {
-    public static (string Content, int LineStart, int LineEnd, int IndexStart, int IndexEnd) WrapModuleFunction(
+    public static (string Content, string[] Lines, int LineStart, int LineEnd, int IndexStart, int IndexEnd) WrapModuleFunction(
         string script, bool async, string returnStatements = null, string topStatements = null,
         string bottomStatements = null, string functionName = JsEngineConstants.ExportedFunctionName,
         bool isScript = false, IEnumerable<string> flattenArguments = null, IEnumerable<string> flattenOutputs = null
@@ -40,11 +40,12 @@ public static class JavascriptHelper
 {script}
 {bottomContent}";
 
-        var scriptLineCount = script.NewLineCount();
-        var topLineCount = topContent.NewLineCount();
+        var scriptLineCount = script.BreakLines().Length;
+        var topLineCount = topContent.BreakLines().Length;
+        var lines = finalContent.BreakLines();
         var topLength = topContent.Length;
         var scriptLength = script.Length;
-        return (finalContent, topLineCount + 1, topLineCount + scriptLineCount, topLength + 1, topLength + scriptLength);
+        return (finalContent, lines, topLineCount + 1, topLineCount + scriptLineCount, topLength + 1, topLength + scriptLength);
     }
 
     private static string GetPreprocessOutputContent(IEnumerable<string> flattenOutputs)

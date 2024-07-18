@@ -9,7 +9,9 @@ public class JintRuntimeException : RuntimeException
 {
     private string _source;
 
-    public JintRuntimeException(JavaScriptException jsException, string mainFunction, (int Start, int End) currentNodeLocation, int userContentLineStart, int userContentLineEnd, int userContentIndexStart, int userContentIndexEnd)
+    public JintRuntimeException(
+        JavaScriptException jsException, string mainFunction, (int Start, int End) currentNodeLocation,
+        string[] lines, int userContentLineStart, int userContentLineEnd, int userContentIndexStart, int userContentIndexEnd)
     {
         var error = jsException.Error;
         var stack = error.Get("stack").AsString();
@@ -20,7 +22,7 @@ public class JintRuntimeException : RuntimeException
             stack: stack,
             description: description,
             mainFunction: mainFunction,
-            currentNodeLocation,
+            currentNodeLocation, lines,
             userContentLineStart,
             userContentLineEnd,
             userContentIndexStart,
@@ -28,7 +30,9 @@ public class JintRuntimeException : RuntimeException
         );
     }
 
-    public JintRuntimeException(PromiseRejectedException rejectedException, string mainFunction, (int Start, int End) currentNodeLocation, int userContentLineStart, int userContentLineEnd, int userContentIndexStart, int userContentIndexEnd)
+    public JintRuntimeException(
+        PromiseRejectedException rejectedException, string mainFunction, (int Start, int End) currentNodeLocation,
+        string[] lines, int userContentLineStart, int userContentLineEnd, int userContentIndexStart, int userContentIndexEnd)
     {
         var rejectedValue = rejectedException.RejectedValue;
         var stack = rejectedValue.Get("stack").AsString();
@@ -39,7 +43,7 @@ public class JintRuntimeException : RuntimeException
             stack: stack,
             description: description,
             mainFunction: mainFunction,
-            currentNodeLocation,
+            currentNodeLocation, lines,
             userContentLineStart,
             userContentLineEnd,
             userContentIndexStart,
@@ -49,14 +53,14 @@ public class JintRuntimeException : RuntimeException
 
     public JintRuntimeException(
         Exception systemException, bool isUserSource, Acornima.Position currentNodePosition, (int Start, int End) currentNodeLocation,
-        int userContentLineStart, int userContentLineEnd, int userContentIndexStart, int userContentIndexEnd)
+        string[] lines, int userContentLineStart, int userContentLineEnd, int userContentIndexStart, int userContentIndexEnd)
     {
         _source = isUserSource ? SourceUser : SourceSystem;
         var (currentLine, currentColumn) = currentNodePosition;
         UnderlyingException = systemException;
         var (Line, Column, StartIndex, EndIndex) = RecalculatePosition(
             currentLine, exColumn: currentColumn + 1, // [NOTE] Jint wrong calculation
-            currentNodeLocation, userContentLineStart, userContentLineEnd, userContentIndexStart, userContentIndexEnd);
+            currentNodeLocation, lines, userContentLineStart, userContentLineEnd, userContentIndexStart, userContentIndexEnd);
         LineNumber = Line;
         this.Column = Column;
         this.StartIndex = StartIndex;
@@ -69,13 +73,13 @@ public class JintRuntimeException : RuntimeException
 
     protected virtual void SetUserExceptionDetails(
         Exception underlyingException, string source, string stack, string description, string mainFunction,
-        (int Start, int End) currentNodeLocation, int userContentLineStart, int userContentLineEnd, int userContentIndexStart, int userContentIndexEnd)
+        (int Start, int End) currentNodeLocation, string[] lines, int userContentLineStart, int userContentLineEnd, int userContentIndexStart, int userContentIndexEnd)
     {
         _source = source;
         UnderlyingException = underlyingException;
         var (Line, Column) = GetStackRootExceptionPosition(mainFunction, stack);
         (Line, Column, this.StartIndex, this.EndIndex) = RecalculatePosition(
-            Line, Column, exLocation: currentNodeLocation, userContentLineStart, userContentLineEnd, userContentIndexStart, userContentIndexEnd);
+            Line, Column, exLocation: currentNodeLocation, lines, userContentLineStart, userContentLineEnd, userContentIndexStart, userContentIndexEnd);
         LineNumber = Line;
         this.Column = Column;
         Description = description;
