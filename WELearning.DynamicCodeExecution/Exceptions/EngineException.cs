@@ -16,14 +16,28 @@ public abstract class EngineException : Exception
         int exLine, int exColumn, (int Start, int End) exLocation, int userContentLineStart, int userContentLineEnd,
         int userContentIndexStart, int userContentIndexEnd)
     {
-        if (exLine == 0 || exColumn < 0 || exLocation.Start < 0 || exLine > userContentLineEnd || exLocation.Start > userContentIndexEnd)
+        if (exLine == 0 || exColumn < 0 || exLocation.Start < 0)
             return (-1, -1, -1, -1);
+
+        int startIndex; int endIndex;
+        if (exLine > userContentLineEnd || exLocation.End > userContentIndexEnd)
+        {
+            startIndex = userContentIndexEnd - userContentIndexStart + 1;
+            endIndex = startIndex;
+        }
+        else if (exLine < userContentLineStart || exLocation.Start < userContentIndexStart)
+        {
+            startIndex = 0;
+            endIndex = startIndex;
+        }
+        else
+        {
+            startIndex = exLocation.Start - userContentIndexStart;
+            endIndex = exLocation.End == -1 ? -1 : exLocation.End - userContentIndexStart;
+        }
+
         var originalLine = exLine - userContentLineStart + 1;
-        return (
-            originalLine, exColumn,
-            exLocation.Start - userContentIndexStart,
-            exLocation.End == -1 ? -1 : exLocation.End - userContentIndexStart
-        );
+        return (originalLine, exColumn, startIndex, endIndex);
     }
 
     public override string ToString() => UnderlyingException?.ToString() ?? base.ToString();
