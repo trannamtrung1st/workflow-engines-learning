@@ -191,7 +191,8 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             catch (PromiseRejectedException ex)
             {
                 throw new JintRuntimeException(ex,
-                    content: content, mainFunction: WrapFunction,
+                    mainFunction: WrapFunction,
+                    currentNodeLocation: engineWrap.CurrentNodeLocation,
                     userContentLineStart: lineStart,
                     userContentLineEnd: lineEnd,
                     userContentIndexStart: indexStart,
@@ -200,7 +201,8 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             catch (JavaScriptException ex)
             {
                 throw new JintRuntimeException(ex,
-                    content: content, mainFunction: WrapFunction,
+                    mainFunction: WrapFunction,
+                    currentNodeLocation: engineWrap.CurrentNodeLocation,
                     userContentLineStart: lineStart,
                     userContentLineEnd: lineEnd,
                     userContentIndexStart: indexStart,
@@ -224,7 +226,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                     throw new JintRuntimeException(
                         systemException: ex, isUserSource,
                         currentNodePosition: engineWrap.CurrentNodePosition.Value,
-                        currentNodeIndex: engineWrap.CurrentNodeIndex,
+                        currentNodeLocation: engineWrap.CurrentNodeLocation,
                         userContentLineStart: lineStart,
                         userContentLineEnd: lineEnd,
                         userContentIndexStart: indexStart,
@@ -540,7 +542,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         public Engine Engine { get; }
         public Guid Id { get; }
         public Acornima.Position? CurrentNodePosition { get; private set; }
-        public int CurrentNodeIndex { get; private set; }
+        public (int Start, int End) CurrentNodeLocation { get; private set; }
         public int MaxLoopCount { get; }
         public bool IsMaxLoopCountReached { get; private set; }
         public MaxStatementsConstraint MaxStatementsConstraint { get; }
@@ -556,7 +558,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         public void ResetNodePosition()
         {
             _nodesCount = new();
-            CurrentNodeIndex = -1;
+            CurrentNodeLocation = (-1, -1);
             CurrentNodePosition = null;
         }
 
@@ -566,8 +568,9 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             {
                 if (e.CurrentCallFrame.FunctionName == WrapFunction)
                 {
-                    CurrentNodeIndex = e.CurrentNode?.Range.Start ?? -1;
-                    CurrentNodePosition = e.CurrentNode?.Location.Start;
+                    var range = e.CurrentNode.Range;
+                    CurrentNodeLocation = (range.Start, range.End);
+                    CurrentNodePosition = e.CurrentNode.Location.Start;
                 }
 
                 if (!_nodesCount.TryGetValue(e.CurrentNode, out int count))

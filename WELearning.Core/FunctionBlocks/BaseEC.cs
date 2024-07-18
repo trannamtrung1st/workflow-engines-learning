@@ -235,7 +235,7 @@ Original content (error located):
                 compErr.Description,
                 compErr.LineNumber,
                 compErr.Column,
-                compErr.Index,
+                compErr.StartIndex,
                 compErr.Source);
 
             if (logger != null)
@@ -254,7 +254,7 @@ Original content (error located):
                 exception.Description,
                 exception.LineNumber,
                 exception.Column,
-                exception.Index,
+                exception.StartIndex,
                 exception.Source);
 
             if (logger != null)
