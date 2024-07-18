@@ -352,23 +352,31 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         return _lockManager.MutexAccess(key: $"CONTENTS.{compileRequest.ContentId}",
             task: () => _preprocessedContentCache.GetOrCreate(compileRequest.ContentId, (entry) =>
             {
-                var flattenArguments = new HashSet<string>();
-                if (compileRequest.Inputs != null)
-                    foreach (var input in compileRequest.Inputs) flattenArguments.Add(input);
-                if (compileRequest.Outputs != null)
-                    foreach (var output in compileRequest.Outputs) flattenArguments.Add(output);
-
-                var flattenOutputs = compileRequest.Outputs?.ToList();
+                (string Content, int, int, int, int) contentInfo;
                 var contentLineCount = compileRequest.Content.NewLineCount();
-                var importStatements = GetImportStatements(compileRequest.Imports);
+                if (compileRequest.UseRawContent || compileRequest.IsScriptOnly)
+                {
+                    contentInfo = (compileRequest.Content, 1, contentLineCount, 0, compileRequest.Content.Length);
+                }
+                else
+                {
+                    var flattenArguments = new HashSet<string>();
+                    if (compileRequest.Inputs != null)
+                        foreach (var input in compileRequest.Inputs)
+                            flattenArguments.Add(input);
+                    if (compileRequest.Outputs != null)
+                        foreach (var output in compileRequest.Outputs)
+                            flattenArguments.Add(output);
 
-                var contentInfo = compileRequest.UseRawContent
-                    ? (compileRequest.Content, 1, contentLineCount, 0, compileRequest.Content.Length - 1)
-                    : JavascriptHelper.WrapModuleFunction(
-                        script: compileRequest.Content, async: compileRequest.Async, isScript: compileRequest.IsScriptOnly,
-                        topStatements: importStatements,
-                        flattenArguments: flattenArguments,
-                        flattenOutputs: flattenOutputs);
+                    var flattenOutputs = compileRequest.Outputs?.ToList();
+                    var importStatements = GetImportStatements(compileRequest.Imports);
+
+                    contentInfo = JavascriptHelper.WrapModuleFunction(
+                            script: compileRequest.Content, async: compileRequest.Async, isScript: compileRequest.IsScriptOnly,
+                            topStatements: importStatements,
+                            flattenArguments: flattenArguments,
+                            flattenOutputs: flattenOutputs);
+                }
 
                 var contentSizeInBytes = contentInfo.Content.Length * 2;
                 entry.SetSize(contentSizeInBytes);
