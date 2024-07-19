@@ -15,6 +15,9 @@ using TNT.Boilerplates.Concurrency.Abstracts;
 using TNT.Boilerplates.Diagnostic.Abstracts;
 using TNT.Boilerplates.Diagnostic.Extensions;
 using TNT.Boilerplates.Concurrency.Extensions;
+using WELearning.Samples.FBWorker.Constants;
+using TNT.Boilerplates.Concurrency.Configurations;
+using TNT.Boilerplates.Concurrency;
 
 const int minThreads = 512;
 int maxThreads = minThreads * 2;
@@ -23,7 +26,6 @@ threadSet = ThreadPool.SetMaxThreads(workerThreads: maxThreads, completionPortTh
 
 var builder = WebApplication.CreateBuilder(args);
 var appSettingsConfig = builder.Configuration.GetSection("AppSettings");
-var taskLimiterConfig = builder.Configuration.GetSection("TaskLimiter");
 var rateScalingConfig = builder.Configuration.GetSection("RateScaling");
 
 builder.Services
@@ -44,7 +46,7 @@ builder.Services
     .AddResourceMonitor()
     .AddResourceBasedFuzzyRateScaler()
     .AddResourceBasedRateScaling(configure: rateScalingConfig.Bind)
-    .AddMultiRateLimiters(configureTaskLimiter: taskLimiterConfig.Bind)
+    .AddLimiterManager(configure: (provider, manager) => ConfigureLimiterManager(builder.Configuration, provider, manager))
     .AddSyncAsyncTaskRunner()
     .AddInMemoryLockManager()
     .AddDefaultDistributedLockManager()
@@ -78,11 +80,13 @@ app.UseSwaggerUI();
 app.MapPost("/api/fb/workers/scaling/start", (
     [FromServices] IConfiguration configuration,
     [FromServices] ILogger<Program> logger,
-    [FromServices] IMultiRateLimiters rateLimiters,
+    [FromServices] ILimiterManager limiterManager,
     [FromServices] IRateScalingController controller) =>
 {
-    controller.StartRateCollector(rateLimiters: rateLimiters.RateLimiters);
-    controller.Start(rateLimiters: rateLimiters.RateLimiters);
+    limiterManager.TryGetTaskLimiter(ConcurrencyConstants.LimiterNames.TaskLimiter, out var taskLimiter);
+    var limiters = new[] { taskLimiter };
+    controller.StartRateCollector(rateLimiters: limiters);
+    controller.Start(rateLimiters: limiters);
     return Results.NoContent();
 })
 .WithDisplayName("Start FB dynamic scaling worker")
@@ -104,7 +108,7 @@ app.MapPut("/api/configs/app-settings", (
     [FromQuery] int? workerCount,
     [FromQuery] int? concurrencyLimit,
     [FromServices] IOptions<AppSettings> appSettings,
-    [FromServices] IMultiRateLimiters rateLimiters) =>
+    [FromServices] ILimiterManager limiterManager) =>
 {
     var appsettingsChanges = new List<string>();
     if (workerCount.HasValue)
@@ -114,8 +118,8 @@ app.MapPut("/api/configs/app-settings", (
     }
     appSettings.Value.InvokeChanged(appsettingsChanges);
 
-    if (concurrencyLimit.HasValue)
-        rateLimiters.TaskLimiter.SetLimit(limit: concurrencyLimit.Value);
+    if (concurrencyLimit.HasValue && limiterManager.TryGetTaskLimiter(ConcurrencyConstants.LimiterNames.TaskLimiter, out var taskLimiter))
+        taskLimiter.SetLimit(limit: concurrencyLimit.Value);
 
     return Results.NoContent();
 })
@@ -171,4 +175,13 @@ static void OnConnectionShutdown(object sender, ShutdownEventArgs e, ILogger log
         logger.LogError(e.Exception, "RabbitMQ connection shutdown reason: {Reason} | Message: {Message}", e.Cause, e.Exception?.Message);
     else
         logger.LogInformation("RabbitMQ connection shutdown reason: {Reason}", e.Cause);
+}
+
+static void ConfigureLimiterManager(IConfiguration configuration, IServiceProvider provider, ILimiterManager manager)
+{
+    var taskLimiterConfig = configuration.GetSection("TaskLimiter");
+    var taskLimiterOptions = taskLimiterConfig.Get<TaskLimiterOptions>();
+    var taskLimiterLogger = provider.GetRequiredService<ILogger<SyncAsyncTaskLimiter>>();
+    var taskLimiter = new SyncAsyncTaskLimiter(taskLimiterOptions, logger: taskLimiterLogger);
+    manager.AddLimiter(ConcurrencyConstants.LimiterNames.TaskLimiter, taskLimiter);
 }

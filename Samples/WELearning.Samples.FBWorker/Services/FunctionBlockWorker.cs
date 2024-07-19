@@ -8,16 +8,16 @@ using WELearning.Samples.FBWorker.Services.Abstracts;
 using WELearning.Samples.Shared.Constants;
 using WELearning.Samples.Shared.Models;
 using WELearning.Samples.Shared.RabbitMq.Abstracts;
-using TNT.Boilerplates.Concurrency;
 using TNT.Boilerplates.Concurrency.Abstracts;
 using TNT.Boilerplates.Common.Disposable;
+using WELearning.Samples.FBWorker.Constants;
 
 namespace WELearning.Samples.FBWorker.Services;
 
 public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
 {
     private readonly IServiceProvider _serviceProvider;
-    private readonly IMultiRateLimiters _rateLimiters;
+    private readonly ILimiterManager _limiterManager;
     private readonly ISyncAsyncTaskRunner _taskRunner;
     private readonly ILogger<FunctionBlockWorker> _logger;
     private readonly IOptions<AppSettings> _appSettings;
@@ -28,7 +28,7 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
     public FunctionBlockWorker(
         IServiceProvider serviceProvider,
         ISyncAsyncTaskRunner taskRunner,
-        IMultiRateLimiters rateLimiters,
+        ILimiterManager limiterManager,
         ILogger<FunctionBlockWorker> logger,
         IOptions<AppSettings> appSettings,
         IConfiguration configuration,
@@ -36,7 +36,7 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
     {
         _serviceProvider = serviceProvider;
         _taskRunner = taskRunner;
-        _rateLimiters = rateLimiters;
+        _limiterManager = limiterManager;
         _logger = logger;
         _appSettings = appSettings;
         _configuration = configuration;
@@ -148,7 +148,8 @@ public class FunctionBlockWorker : IFunctionBlockWorker, IDisposable
             channel.BasicAck(e.DeliveryTag, multiple: false);
         }
 
-        var taskScope = _rateLimiters.TaskLimiter.TryAcquire(count: 1);
+        _limiterManager.TryGetTaskLimiter(ConcurrencyConstants.LimiterNames.TaskLimiter, out var taskLimiter);
+        var taskScope = taskLimiter.TryAcquire(count: 1);
         await _taskRunner.RunSyncAsync(taskScope, async (asyncScope) =>
         {
             await using var _ = asyncScope;
