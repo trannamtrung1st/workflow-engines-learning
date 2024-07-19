@@ -83,10 +83,8 @@ app.MapPost("/api/fb/workers/scaling/start", (
     [FromServices] ILimiterManager limiterManager,
     [FromServices] IRateScalingController controller) =>
 {
-    limiterManager.TryGetTaskLimiter(ConcurrencyConstants.LimiterNames.TaskLimiter, out var taskLimiter);
-    var limiters = new[] { taskLimiter };
-    controller.StartRateCollector(rateLimiters: limiters);
-    controller.Start(rateLimiters: limiters);
+    controller.StartRateCollector(rateLimiters: limiterManager.AllLimiters);
+    controller.Start(rateLimiters: limiterManager.AllLimiters);
     return Results.NoContent();
 })
 .WithDisplayName("Start FB dynamic scaling worker")

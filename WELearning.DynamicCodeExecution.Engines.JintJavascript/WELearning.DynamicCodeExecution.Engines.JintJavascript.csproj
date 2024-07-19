@@ -10,7 +10,7 @@
     <PackageReference Include="Acornima" Version="1.0.0" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
-    <PackageReference Include="TNT.Boilerplates.Concurrency" Version="1.0.1" />
+    <PackageReference Include="TNT.Boilerplates.Concurrency" Version="1.0.2" />
   </ItemGroup>
 
   <PropertyGroup>
