@@ -1,3 +1,4 @@
+using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
 
@@ -9,4 +10,5 @@ public interface IBasicEC : IExecutionControl
     BasicBlockDef Definition { get; }
     string CurrentState { get; }
     new BFBExecutionResult Result { get; }
+    IFunctionFramework FunctionFramework { get; }
 }

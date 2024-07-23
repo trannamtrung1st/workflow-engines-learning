@@ -16,7 +16,7 @@ namespace WELearning.Core.FunctionBlocks;
 public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompositeEC, IDisposable
     where TFunctionFramework : IFunctionFramework
 {
-    private readonly TFunctionFramework _functionFramework;
+    private readonly IFunctionFrameworkFactory<TFunctionFramework> _functionFrameworkFactory;
     private readonly IBlockRunner _blockRunner;
     private readonly ISyncAsyncTaskRunner _taskRunner;
     private readonly ISyncAsyncTaskLimiter _taskLimiter;
@@ -39,11 +39,11 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         IBlockRunner blockRunner,
         IFunctionRunner functionRunner,
         IBlockFrameworkFactory blockFrameworkFactory,
-        TFunctionFramework functionFramework,
+        IFunctionFrameworkFactory<TFunctionFramework> functionFrameworkFactory,
         ISyncAsyncTaskRunner taskRunner,
         ISyncAsyncTaskLimiter taskLimiter) : base(block, definition, functionRunner, blockFrameworkFactory)
     {
-        _functionFramework = functionFramework;
+        _functionFrameworkFactory = functionFrameworkFactory;
         _blockRunner = blockRunner;
         _taskRunner = taskRunner;
         _taskLimiter = taskLimiter;
@@ -234,10 +234,11 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                 .ToArray();
             var lazyArguments = new Lazy<Dictionary<string, object>>(() =>
             {
-                var arguments = new Dictionary<string, object>()
-                {
-                    [_functionFramework.VariableName] = _functionFramework,
-                };
+                var arguments = new Dictionary<string, object>();
+
+                if (blockExecControl is IBasicEC basicEC)
+                    arguments[basicEC.FunctionFramework.VariableName] = basicEC.FunctionFramework;
+
                 if (reservedInputs?.Count > 0)
                 {
                     foreach (var kvp in reservedInputs)
@@ -368,10 +369,10 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         return execControl != null;
     }
 
-    protected virtual IExecutionControl GetOrInitExecutionControl(BlockInstance block)
-        => _blockExecControlMap.GetOrAdd(block.Id, (key) =>
+    protected virtual IExecutionControl GetOrInitExecutionControl(BlockInstance blockInstance)
+        => _blockExecControlMap.GetOrAdd(blockInstance.Id, (key) =>
         {
-            var definition = Definition.GetDefinition(block.DefinitionId);
+            var definition = Definition.GetDefinition(blockInstance.DefinitionId);
             IExecutionControl execControl;
             if (definition is BasicBlockDef basicBlockDef)
             {
@@ -379,16 +380,22 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                     .Select(bId => Definition.GetDefinition(bId))
                     .OfType<BasicBlockDef>().ToArray();
                 var importBlocksRequest = new ImportBlocksRequest(importBlocks, moduleName: basicBlockDef.ModuleName);
-                execControl = new BasicEC<TFunctionFramework>(block, definition: basicBlockDef, importBlocksRequest, _functionRunner, _blockFrameworkFactory, _functionFramework);
+                execControl = CreateBasicControl(blockInstance, basicBlockDef, importBlocksRequest);
             }
             else if (definition is CompositeBlockDef compositeBlockDef)
-                execControl = new CompositeEC<TFunctionFramework>(block, definition: compositeBlockDef, _blockRunner, _functionRunner, _blockFrameworkFactory, _functionFramework, _taskRunner, _taskLimiter);
+                execControl = CreateCompositeControl(blockInstance, compositeBlockDef);
             else throw new NotSupportedException($"Definition of type {definition.GetType().FullName} not supported!");
             execControl.Running += HandleControlRunning;
             execControl.Completed += HandleControlCompleted;
             execControl.Failed += HandleControlFailed;
             return execControl;
         });
+
+    protected virtual IBasicEC CreateBasicControl(BlockInstance blockInstance, BasicBlockDef basicBlockDef, ImportBlocksRequest importBlocksRequest)
+        => new BasicEC<TFunctionFramework>(blockInstance, definition: basicBlockDef, importBlocksRequest, _functionRunner, _blockFrameworkFactory, _functionFrameworkFactory);
+
+    protected virtual ICompositeEC CreateCompositeControl(BlockInstance blockInstance, CompositeBlockDef compositeBlockDef)
+        => new CompositeEC<TFunctionFramework>(blockInstance, definition: compositeBlockDef, _blockRunner, _functionRunner, _blockFrameworkFactory, _functionFrameworkFactory, _taskRunner, _taskLimiter);
 
     protected virtual void HandleControlRunning(object sender, EventArgs ev) => ControlRunning?.Invoke(sender, ev);
 

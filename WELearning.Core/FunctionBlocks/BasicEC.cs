@@ -20,9 +20,9 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
         ImportBlocksRequest importBlocksRequest,
         IFunctionRunner functionRunner,
         IBlockFrameworkFactory blockFrameworkFactory,
-        TFunctionFramework functionFramework) : base(block, definition, functionRunner, blockFrameworkFactory)
+        IFunctionFrameworkFactory<TFunctionFramework> functionFrameworkFactory) : base(block, definition, functionRunner, blockFrameworkFactory)
     {
-        _functionFramework = functionFramework;
+        _functionFramework = functionFrameworkFactory.Create(this);
         CurrentState = Definition.ExecutionControlChart?.InitialState;
         _importModules = PrepareModules(importBlocksRequest);
     }
@@ -36,6 +36,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
         protected set => _result = value as BFBExecutionResult;
     }
     BFBExecutionResult IBasicEC.Result => _result;
+    public IFunctionFramework FunctionFramework => _functionFramework;
 
     protected virtual async Task<BlockStateTransition> FindTransition(string triggerEvent, Func<Function, Task<bool>> Evaluate)
     {

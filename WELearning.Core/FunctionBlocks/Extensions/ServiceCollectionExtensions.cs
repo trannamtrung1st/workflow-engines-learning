@@ -22,4 +22,11 @@ public static partial class ServiceCollectionExtensions
     {
         return services.AddScoped<IBlockFrameworkFactory, TFactory>();
     }
+
+    public static IServiceCollection AddFunctionFrameworkFactory<TFunctionFramework, TFactory>(this IServiceCollection services)
+        where TFactory : class, IFunctionFrameworkFactory<TFunctionFramework>
+        where TFunctionFramework : IFunctionFramework
+    {
+        return services.AddSingleton<IFunctionFrameworkFactory<TFunctionFramework>, TFactory>();
+    }
 }

@@ -28,20 +28,20 @@ public class FunctionBlockService : IFunctionBlockService
     private readonly IRateMonitor _rateMonitor;
     private readonly ILogger<IExecutionControl> _controlLogger;
     private readonly IHttpClients _clients;
-    private readonly DeviceFunctionFramework _functionFramework;
+    private readonly IFunctionFrameworkFactory<DeviceFunctionFramework> _functionFrameworkFactory;
 
     public FunctionBlockService(
         IConfiguration configuration,
         IBlockRunner blockRunner,
         IFunctionRunner functionRunner,
         IBlockFrameworkFactory blockFrameworkFactory,
-        ILogger<DeviceFunctionFramework> functionFrameworkLogger,
         IAssetService assetService,
         IRateMonitor rateMonitor,
         ILogger<IExecutionControl> controlLogger,
         ISyncAsyncTaskRunner taskRunner,
         ILimiterManager limiterManager,
-        IHttpClients clients)
+        IHttpClients clients,
+        IFunctionFrameworkFactory<DeviceFunctionFramework> functionFrameworkFactory)
     {
         _configuration = configuration;
         _blockRunner = blockRunner;
@@ -53,7 +53,7 @@ public class FunctionBlockService : IFunctionBlockService
         _taskRunner = taskRunner;
         _limiterManager = limiterManager;
         _clients = clients;
-        _functionFramework = new DeviceFunctionFramework(logger: functionFrameworkLogger);
+        _functionFrameworkFactory = functionFrameworkFactory;
     }
 
     public async Task HandleAttributeChanged(AttributeChangedEvent @event, CancellationToken cancellationToken)
@@ -70,7 +70,7 @@ public class FunctionBlockService : IFunctionBlockService
         _limiterManager.TryGetTaskLimiter(ConcurrencyConstants.LimiterNames.TaskLimiter, out var taskLimiter);
         using var execControl = new CompositeEC<DeviceFunctionFramework>(
             block: new(cfbDef.Id), definition: cfbDef,
-            _blockRunner, _functionRunner, _blockFrameworkFactory, _functionFramework, _taskRunner, taskLimiter);
+            _blockRunner, _functionRunner, _blockFrameworkFactory, _functionFrameworkFactory, _taskRunner, taskLimiter);
 
         RegisterLogActivityHandlers(execControl);
         try

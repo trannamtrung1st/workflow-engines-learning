@@ -53,6 +53,7 @@ var serviceCollection = new ServiceCollection()
     .AddDefaultRuntimeEngineFactory()
     .AddDefaultTypeProvider()
     .AddBlockFrameworkFactory<AppBlockFrameworkFactory>()
+    .AddFunctionFrameworkFactory<AppFunctionFramework, AppFunctionFrameworkFactory>()
     .AddCSharpCompiledEngine()
     .AddCSharpScriptEngine()
     // For JS engines, first found engine will be used
@@ -274,8 +275,7 @@ static class TestFunctionBlocks
         var engineFactory = serviceProvider.GetRequiredService<IRuntimeEngineFactory>();
         var functionRunner = serviceProvider.GetRequiredService<IFunctionRunner>();
         var blockFrameworkFactory = serviceProvider.GetRequiredService<IBlockFrameworkFactory>();
-        var functionFrameworkLogger = serviceProvider.GetRequiredService<ILogger<AppFunctionFramework>>();
-        var functionFramework = new AppFunctionFramework(logger: functionFrameworkLogger);
+        var functionFrameworkFactory = serviceProvider.GetRequiredService<IFunctionFrameworkFactory<AppFunctionFramework>>();
         var taskRunner = serviceProvider.GetRequiredService<ISyncAsyncTaskRunner>();
         var taskLimiter = serviceProvider.GetRequiredService<ISyncAsyncTaskLimiter>();
         var jsEngine = engineFactory.CreateEngine(ERuntime.Javascript);
@@ -285,7 +285,7 @@ static class TestFunctionBlocks
             bMultiplyDef: PredefinedBFBs.MultiplyCsCompiled,
             bRandomDef: PredefinedBFBs.RandomCsCompiled,
             bDelayDef: PredefinedBFBs.DelayCsCompiled);
-        IExecutionControl CreateControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFramework, taskRunner, taskLimiter);
+        IExecutionControl CreateControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFrameworkFactory, taskRunner, taskLimiter);
 
         Task<double> RunCsCompiled() => RunComplexCFB(
             blockRunner, CreateControl: () => CreateControl(blockDef: csCompiledCFB), runTokens: tokensProvider());
@@ -459,14 +459,13 @@ static class TestFunctionBlocks
         var engineFactory = serviceProvider.GetRequiredService<IRuntimeEngineFactory>();
         var functionRunner = serviceProvider.GetRequiredService<IFunctionRunner>();
         var blockFrameworkFactory = serviceProvider.GetRequiredService<IBlockFrameworkFactory>();
-        var functionFrameworkLogger = serviceProvider.GetRequiredService<ILogger<AppFunctionFramework>>();
-        var functionFramework = new AppFunctionFramework(logger: functionFrameworkLogger);
+        var functionFrameworkFactory = serviceProvider.GetRequiredService<IFunctionFrameworkFactory<AppFunctionFramework>>();
         var taskRunner = serviceProvider.GetRequiredService<ISyncAsyncTaskRunner>();
         var taskLimiter = serviceProvider.GetRequiredService<ISyncAsyncTaskLimiter>();
         var dataStore = serviceProvider.GetService<DataStore>();
         const int DelayMs = 5000;
-        ICompositeEC CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFramework, taskRunner, taskLimiter);
-        IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFunctionFramework>(block: new(blockDef.Id), blockDef, importBlocksRequest: null, functionRunner, blockFrameworkFactory, functionFramework);
+        ICompositeEC CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFrameworkFactory, taskRunner, taskLimiter);
+        IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFunctionFramework>(block: new(blockDef.Id), blockDef, importBlocksRequest: null, functionRunner, blockFrameworkFactory, functionFrameworkFactory);
 
         await blockRunner.Compile(new(BlockDefinition: PredefinedBFBs.AddJs, Tokens: tokensProvider()), optimizationScopeId: default);
 

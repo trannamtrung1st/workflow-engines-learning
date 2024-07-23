@@ -42,6 +42,7 @@ builder.Services
     .AddSingleton<IHttpClients, HttpClients>()
     .AddScoped<IFunctionBlockService, FunctionBlockService>()
     .AddScoped<IAssetService, AssetService>()
+    .AddFunctionFrameworkFactory<DeviceFunctionFramework, DeviceFunctionFrameworkFactory>()
     .AddRateMonitor()
     .AddResourceMonitor()
     .AddResourceBasedFuzzyRateScaler()

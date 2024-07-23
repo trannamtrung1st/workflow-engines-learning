@@ -1,13 +1,17 @@
 using Microsoft.Extensions.Logging;
+using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Framework;
 
 namespace WELearning.ConsoleApp.Testing.Framework;
 
 public class AppFunctionFramework : FunctionFramework
 {
+    private readonly IExecutionControl _control;
     private readonly ILogger<AppFunctionFramework> _logger;
-    public AppFunctionFramework(ILogger<AppFunctionFramework> logger) : base(logger)
+
+    public AppFunctionFramework(IExecutionControl control, ILogger<AppFunctionFramework> logger) : base(logger)
     {
+        _control = control;
         _logger = logger;
     }
 
