@@ -1,3 +1,4 @@
+using WELearning.DynamicCodeExecution;
 using WELearning.DynamicCodeExecution.Models;
 
 namespace WELearning.Core.FunctionBlocks.Models.Runtime;
@@ -11,6 +12,7 @@ public class RunBlockRequest
         TriggerEvent = triggerEvent;
         Tokens = tokens;
         ReservedInputs = reservedInputs;
+        Tracker = new CodeExecutionTracker();
     }
 
     public RunBlockRequest(IEnumerable<VariableBinding> bindings, RunTokens tokens, string triggerEvent = null, IReadOnlyDictionary<string, object> reservedInputs = null)
@@ -23,4 +25,5 @@ public class RunBlockRequest
     public IReadOnlyDictionary<string, object> ReservedInputs { get; }
     public string TriggerEvent { get; }
     public RunTokens Tokens { get; }
+    public CodeExecutionTracker Tracker { get; }
 }

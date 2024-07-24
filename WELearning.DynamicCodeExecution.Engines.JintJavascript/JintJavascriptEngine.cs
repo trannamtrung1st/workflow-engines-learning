@@ -261,7 +261,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             var exportedFunction = module.Get(ExportedFunctionName);
             result = await CallWithHandles(engineWrap, callFunction: () => exportedFunction.Call(arguments), tokens: request.Tokens);
             result = result.UnwrapIfPromise();
-        }, cancellationToken: request.Tokens.Combined);
+        }, request: request, cancellationToken: request.Tokens.Combined);
         return result;
     }
 
@@ -275,7 +275,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             SetValues(engine, request.Arguments);
             result = await CallWithHandles(engineWrap, callFunction: () => engine.Evaluate(preparedScript), tokens: request.Tokens);
             result = result.UnwrapIfPromise();
-        }, cancellationToken: request.Tokens.Combined);
+        }, request: request, cancellationToken: request.Tokens.Combined);
         return result;
     }
 
@@ -290,7 +290,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                 task: () => engineWrap.GetModuleObject(preparedModule, moduleName, cacheSize));
             var exportedFunction = module.Get(ExportedFunctionName);
             return Task.CompletedTask;
-        }, cancellationToken: request.Tokens.Combined);
+        }, request: null, cancellationToken: request.Tokens.Combined);
     }
 
     private void CompileScript(CompileCodeRequest request, string content) => GetPreparedScript(key: request.ContentId, () => content);
@@ -549,6 +549,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 
         public Engine Engine { get; }
         public Guid Id { get; }
+        public ExecuteCodeRequest CurrentExecuteRequest { get; private set; }
         public Acornima.Position? CurrentNodePosition { get; private set; }
         public (int Start, int End) CurrentNodeLocation { get; private set; }
         public int MaxLoopCount { get; }
@@ -574,11 +575,24 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         {
             if (e.CurrentNode != null)
             {
+                var range = e.CurrentNode.Range;
                 if (e.CurrentCallFrame.FunctionName == WrapFunction)
                 {
-                    var range = e.CurrentNode.Range;
                     CurrentNodeLocation = (range.Start, range.End);
                     CurrentNodePosition = e.CurrentNode.Location.Start;
+                }
+
+                if (CurrentExecuteRequest?.Tracker != null)
+                {
+                    var position = e.CurrentNode.Location.Start;
+                    CurrentExecuteRequest.Tracker.CurrentStatement = new CodeStatement
+                    {
+                        Column = position.Column,
+                        LineNumber = position.Line,
+                        StartIndex = range.Start,
+                        EndIndex = range.End,
+                        FunctionName = e.CurrentCallFrame.FunctionName,
+                    };
                 }
 
                 if (!_nodesCount.TryGetValue(e.CurrentNode, out int count))
@@ -594,10 +608,14 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             return default;
         }
 
-        public async Task SafeAccessEngine(Func<Engine, Task> task, CancellationToken cancellationToken)
+        public async Task SafeAccessEngine(Func<Engine, Task> task, ExecuteCodeRequest request, CancellationToken cancellationToken)
         {
             await _lock.WaitAsync(cancellationToken);
-            try { await task(Engine); }
+            try
+            {
+                CurrentExecuteRequest = request;
+                await task(Engine);
+            }
             finally { _lock.Release(); }
         }
 

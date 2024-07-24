@@ -18,35 +18,21 @@ public class FunctionFramework : IFunctionFramework
     public virtual Task DelayAsync(int ms) => Task.Delay(ms);
     public virtual void Delay(int ms) => DelayAsync(ms).Wait();
 
-    public virtual void LogTrace(params object[] data)
+    protected virtual void Log(LogLevel logLevel, params object[] data)
     {
         var message = GetLogMessage(data);
-        _logger.LogTrace(message);
+        _logger.Log(logLevel, message);
     }
 
-    public virtual void LogDebug(params object[] data)
-    {
-        var message = GetLogMessage(data);
-        _logger.LogDebug(message);
-    }
+    public virtual void LogTrace(params object[] data) => Log(LogLevel.Trace, data);
 
-    public virtual void Log(params object[] data)
-    {
-        var message = GetLogMessage(data);
-        _logger.LogInformation(message);
-    }
+    public virtual void LogDebug(params object[] data) => Log(LogLevel.Debug, data);
 
-    public virtual void LogError(params object[] data)
-    {
-        var message = GetLogMessage(data);
-        _logger.LogError(message);
-    }
+    public virtual void Log(params object[] data) => Log(LogLevel.Information, data);
 
-    public virtual void LogWarning(params object[] data)
-    {
-        var message = GetLogMessage(data);
-        _logger.LogWarning(message);
-    }
+    public virtual void LogError(params object[] data) => Log(LogLevel.Error, data);
+
+    public virtual void LogWarning(params object[] data) => Log(LogLevel.Warning, data);
 
     public static string GetLogMessage(object[] data) => string.Join(' ', data);
 

@@ -5,6 +5,7 @@ using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
 using WELearning.Core.Reflection.Abstracts;
+using WELearning.DynamicCodeExecution;
 using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Models;
 
@@ -23,7 +24,7 @@ public class FunctionRunner : IFunctionRunner
     }
 
     public async Task<(TReturn Result, IDisposable OptimizationScope)> Run<TReturn, TFunctionFramework>(
-        Function function, BlockGlobalObject<TFunctionFramework> globalObject,
+        Function function, CodeExecutionTracker tracker, BlockGlobalObject<TFunctionFramework> globalObject,
         IDictionary<string, object> inputs, IDictionary<string, object> outputs,
         IEnumerable<ImportModule> modules, Guid? optimizationScopeId, RunTokens tokens)
         where TFunctionFramework : IFunctionFramework
@@ -40,19 +41,21 @@ public class FunctionRunner : IFunctionRunner
                 optimizationScopeId: optimizationScopeId,
                 useRawContent: function.UseRawContent,
                 isScriptOnly: function.IsScriptOnly,
-                modules: modules
+                modules: modules,
+                tracker: tracker
             )
         );
         return result;
     }
 
     public async Task<IDisposable> Run<TFunctionFramework>(
-        Function function, IBlockFramework blockFramework, BlockGlobalObject<TFunctionFramework> globalObject,
+        Function function, CodeExecutionTracker tracker, IBlockFramework blockFramework, BlockGlobalObject<TFunctionFramework> globalObject,
         IDictionary<string, object> inputs, IDictionary<string, object> outputs,
         IEnumerable<ImportModule> modules, Guid? optimizationScopeId, RunTokens tokens)
         where TFunctionFramework : IFunctionFramework
     {
         var (engine, assemblies, types) = PrepareInputs(function);
+
         var (result, scope) = await engine.Execute<dynamic, BlockGlobalObject<TFunctionFramework>>(
             request: new(
                 content: function.Content,
@@ -64,14 +67,16 @@ public class FunctionRunner : IFunctionRunner
                 optimizationScopeId: optimizationScopeId,
                 useRawContent: function.UseRawContent,
                 isScriptOnly: function.IsScriptOnly,
-                modules: modules
+                modules: modules,
+                tracker: tracker
             )
         );
         blockFramework.HandleDynamicResult(result);
         return scope;
     }
 
-    public async Task<(TReturn Result, IDisposable OptimizationScope)> Evaluate<TReturn, TArg>(Function function, TArg arguments, Guid? optimizationScopeId, RunTokens tokens)
+    public async Task<(TReturn Result, IDisposable OptimizationScope)> Evaluate<TReturn, TArg>(
+        Function function, CodeExecutionTracker tracker, TArg arguments, Guid? optimizationScopeId, RunTokens tokens)
     {
         var (engine, assemblies, types) = PrepareInputs(function);
         var result = await engine.Execute<TReturn, TArg>(
@@ -85,7 +90,8 @@ public class FunctionRunner : IFunctionRunner
                 optimizationScopeId: optimizationScopeId,
                 useRawContent: function.UseRawContent,
                 isScriptOnly: function.IsScriptOnly,
-                modules: null
+                modules: null,
+                tracker: tracker
             )
         );
         return result;

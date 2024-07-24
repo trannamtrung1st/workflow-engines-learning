@@ -108,7 +108,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
             {
                 RunningFunction = condition;
                 var (result, optimizationScope) = await _functionRunner.Run<bool, TFunctionFramework>(
-                    condition, globalObject: globalObject, inputs, outputs,
+                    condition, tracker: CurrentRunRequest.Tracker, globalObject: globalObject, inputs, outputs,
                     modules: _importModules, optimizationScopeId, tokens: CurrentRunRequest.Tokens);
                 RunningFunction = null;
                 if (optimizationScope != null)
@@ -125,7 +125,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
             {
                 RunningFunction = actionFunction;
                 var optimizationScope = await _functionRunner.Run(
-                    actionFunction, blockFramework, globalObject, inputs, outputs,
+                    actionFunction, tracker: CurrentRunRequest.Tracker, blockFramework, globalObject, inputs, outputs,
                     modules: _importModules, optimizationScopeId, tokens: CurrentRunRequest.Tokens);
                 RunningFunction = null;
                 if (optimizationScope != null)

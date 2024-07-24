@@ -286,7 +286,8 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                     if (connection.Preprocessing != null)
                     {
                         var (result, scope) = await _functionRunner.Evaluate<object, Dictionary<string, object>>(
-                            function: connection.Preprocessing, arguments: new(lazyArguments.Value)
+                            function: connection.Preprocessing, tracker: CurrentRunRequest.Tracker,
+                            arguments: new(lazyArguments.Value)
                             {
                                 [BuiltInVariables.THIS] = value
                             }, optimizationScopeId, tokens);
