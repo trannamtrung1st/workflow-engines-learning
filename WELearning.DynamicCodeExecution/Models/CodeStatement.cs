@@ -7,4 +7,5 @@ public class CodeStatement
     public int StartIndex { get; set; }
     public int EndIndex { get; set; }
     public string FunctionName { get; set; }
+    public string Source { get; set; }
 }

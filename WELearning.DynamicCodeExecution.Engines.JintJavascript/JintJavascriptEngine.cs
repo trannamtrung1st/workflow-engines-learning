@@ -23,8 +23,10 @@ namespace WELearning.DynamicCodeExecution.Engines;
 
 public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 {
-    private static string ExportedFunctionName => JsEngineConstants.ExportedFunctionName;
-    private static string WrapFunction => JsEngineConstants.WrapFunction;
+    public const string StatementSourceExternal = "external";
+    public const string StatementSourceUser = "user";
+    private const string ExportedFunctionName = JsEngineConstants.ExportedFunctionName;
+    private const string WrapFunction = JsEngineConstants.WrapFunction;
     private const int DefaultMaxStatements = 3_000_000;
     private const int DefaultMaxLoopCount = 10_000;
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
@@ -162,51 +164,40 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 
         try
         {
-            var (content, lines, lineStart, lineEnd, indexStart, indexEnd) = PreprocessContent(compileRequest);
+            var userContentInfo = PreprocessContent(compileRequest);
             try
             {
                 if (executeRequest != null)
                 {
                     var arguments = GetArgumentValues(engine: engineWrap.Engine, inputs: executeRequest.Inputs, outputs: executeRequest.Outputs);
                     result = compileRequest.IsScriptOnly
-                        ? await ExecuteScript(executeRequest, engineWrap, arguments, content)
-                        : await ExecuteModule(executeRequest, engineWrap, arguments, content);
+                        ? await ExecuteScript(executeRequest, engineWrap, arguments, userContentInfo)
+                        : await ExecuteModule(executeRequest, engineWrap, arguments, userContentInfo);
                 }
                 else
                 {
                     if (compileRequest.IsScriptOnly)
-                        CompileScript(compileRequest, content);
-                    else await CompileModule(compileRequest, engineWrap, content);
+                        CompileScript(compileRequest, content: userContentInfo.Content);
+                    else await CompileModule(compileRequest, engineWrap, content: userContentInfo.Content);
                 }
             }
             catch (Acornima.ParseErrorException ex)
             {
-                throw new JintCompilationError(
-                    parserException: ex, lines,
-                    userContentLineStart: lineStart,
-                    userContentLineEnd: lineEnd,
-                    userContentIndexStart: indexStart,
-                    userContentIndexEnd: indexEnd);
+                throw new JintCompilationError(parserException: ex, contentInfo: userContentInfo);
             }
             catch (PromiseRejectedException ex)
             {
-                throw new JintRuntimeException(ex,
-                    mainFunction: WrapFunction,
-                    currentNodeLocation: engineWrap.CurrentNodeLocation, lines,
-                    userContentLineStart: lineStart,
-                    userContentLineEnd: lineEnd,
-                    userContentIndexStart: indexStart,
-                    userContentIndexEnd: indexEnd);
+                throw new JintRuntimeException(
+                    ex, mainFunction: WrapFunction,
+                    currentNodeLocation: engineWrap.CurrentNodeLocation,
+                    contentInfo: userContentInfo);
             }
             catch (JavaScriptException ex)
             {
-                throw new JintRuntimeException(ex,
-                    mainFunction: WrapFunction,
-                    currentNodeLocation: engineWrap.CurrentNodeLocation, lines,
-                    userContentLineStart: lineStart,
-                    userContentLineEnd: lineEnd,
-                    userContentIndexStart: indexStart,
-                    userContentIndexEnd: indexEnd);
+                throw new JintRuntimeException(
+                    ex, mainFunction: WrapFunction,
+                    currentNodeLocation: engineWrap.CurrentNodeLocation,
+                    contentInfo: userContentInfo);
             }
             catch (Exception ex)
             {
@@ -226,11 +217,8 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                     throw new JintRuntimeException(
                         systemException: ex, isUserSource,
                         currentNodePosition: engineWrap.CurrentNodePosition.Value,
-                        currentNodeLocation: engineWrap.CurrentNodeLocation, lines,
-                        userContentLineStart: lineStart,
-                        userContentLineEnd: lineEnd,
-                        userContentIndexStart: indexStart,
-                        userContentIndexEnd: indexEnd);
+                        currentNodeLocation: engineWrap.CurrentNodeLocation,
+                        contentInfo: userContentInfo);
 
                 throw;
             }
@@ -247,11 +235,11 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         }
     }
 
-    private async Task<JsValue> ExecuteModule<TArg>(ExecuteCodeRequest<TArg> request, EngineWrap engineWrap, JsValue[] arguments, string content)
+    private async Task<JsValue> ExecuteModule<TArg>(ExecuteCodeRequest<TArg> request, EngineWrap engineWrap, JsValue[] arguments, UserContentInfo contentInfo)
     {
         JsValue result = default;
-        var preparedModule = GetPreparedModule(key: request.ContentId, () => content);
-        var (moduleName, cacheSize) = GetModuleObjectCacheEntry(engineId: engineWrap.Id, contentId: request.ContentId, content);
+        var preparedModule = GetPreparedModule(key: request.ContentId, () => contentInfo.Content);
+        var (moduleName, cacheSize) = GetModuleObjectCacheEntry(engineId: engineWrap.Id, contentId: request.ContentId, contentInfo.Content);
         await engineWrap.SafeAccessEngine(async (engine) =>
         {
             engineWrap.ResetNodePosition();
@@ -261,21 +249,21 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             var exportedFunction = module.Get(ExportedFunctionName);
             result = await CallWithHandles(engineWrap, callFunction: () => exportedFunction.Call(arguments), tokens: request.Tokens);
             result = result.UnwrapIfPromise();
-        }, request: request, cancellationToken: request.Tokens.Combined);
+        }, request, contentInfo, cancellationToken: request.Tokens.Combined);
         return result;
     }
 
-    private async Task<JsValue> ExecuteScript<TArg>(ExecuteCodeRequest<TArg> request, EngineWrap engineWrap, JsValue[] arguments, string content)
+    private async Task<JsValue> ExecuteScript<TArg>(ExecuteCodeRequest<TArg> request, EngineWrap engineWrap, JsValue[] arguments, UserContentInfo contentInfo)
     {
         JsValue result = default;
-        var preparedScript = GetPreparedScript(key: request.ContentId, () => content);
+        var preparedScript = GetPreparedScript(key: request.ContentId, () => contentInfo.Content);
         await engineWrap.SafeAccessEngine(async (engine) =>
         {
             engineWrap.ResetNodePosition();
             SetValues(engine, request.Arguments);
             result = await CallWithHandles(engineWrap, callFunction: () => engine.Evaluate(preparedScript), tokens: request.Tokens);
             result = result.UnwrapIfPromise();
-        }, request: request, cancellationToken: request.Tokens.Combined);
+        }, request, contentInfo, cancellationToken: request.Tokens.Combined);
         return result;
     }
 
@@ -290,7 +278,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                 task: () => engineWrap.GetModuleObject(preparedModule, moduleName, cacheSize));
             var exportedFunction = module.Get(ExportedFunctionName);
             return Task.CompletedTask;
-        }, request: null, cancellationToken: request.Tokens.Combined);
+        }, request: null, contentInfo: null, cancellationToken: request.Tokens.Combined);
     }
 
     private void CompileScript(CompileCodeRequest request, string content) => GetPreparedScript(key: request.ContentId, () => content);
@@ -346,13 +334,12 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         return argumentValues;
     }
 
-    private (string Content, string[] Lines, int LineStart, int LineEnd, int IndexStart, int IndexEnd)
-        PreprocessContent(CompileCodeRequest compileRequest)
+    private UserContentInfo PreprocessContent(CompileCodeRequest compileRequest)
     {
         return _lockManager.MutexAccess(key: $"CONTENTS.{compileRequest.ContentId}",
             task: () => _preprocessedContentCache.GetOrCreate(compileRequest.ContentId, (entry) =>
             {
-                (string Content, string[], int, int, int, int) contentInfo;
+                UserContentInfo contentInfo;
                 var lines = compileRequest.Content.BreakLines();
                 if (compileRequest.UseRawContent || compileRequest.IsScriptOnly)
                 {
@@ -550,6 +537,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         public Engine Engine { get; }
         public Guid Id { get; }
         public ExecuteCodeRequest CurrentExecuteRequest { get; private set; }
+        public UserContentInfo? CurrentContentInfo { get; private set; }
         public Acornima.Position? CurrentNodePosition { get; private set; }
         public (int Start, int End) CurrentNodeLocation { get; private set; }
         public int MaxLoopCount { get; }
@@ -576,7 +564,8 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             if (e.CurrentNode != null)
             {
                 var range = e.CurrentNode.Range;
-                if (e.CurrentCallFrame.FunctionName == WrapFunction)
+                var isWrapFunction = e.CurrentCallFrame.FunctionName == WrapFunction;
+                if (isWrapFunction)
                 {
                     CurrentNodeLocation = (range.Start, range.End);
                     CurrentNodePosition = e.CurrentNode.Location.Start;
@@ -585,13 +574,19 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                 if (CurrentExecuteRequest?.Tracker != null)
                 {
                     var position = e.CurrentNode.Location.Start;
+                    var (Line, Column, StartIndex, EndIndex) = DiagnosticHelper.RecalculatePosition(
+                        lineNumber: position.Line,
+                        column: position.Column,
+                        location: (range.Start, range.End),
+                        contentInfo: CurrentContentInfo.Value);
                     CurrentExecuteRequest.Tracker.CurrentStatement = new CodeStatement
                     {
-                        Column = position.Column,
-                        LineNumber = position.Line,
-                        StartIndex = range.Start,
-                        EndIndex = range.End,
+                        LineNumber = Line,
+                        Column = Column,
+                        StartIndex = StartIndex,
+                        EndIndex = EndIndex,
                         FunctionName = e.CurrentCallFrame.FunctionName,
+                        Source = Line == -1 ? StatementSourceExternal : StatementSourceUser
                     };
                 }
 
@@ -608,12 +603,13 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             return default;
         }
 
-        public async Task SafeAccessEngine(Func<Engine, Task> task, ExecuteCodeRequest request, CancellationToken cancellationToken)
+        public async Task SafeAccessEngine(Func<Engine, Task> task, ExecuteCodeRequest request, UserContentInfo? contentInfo, CancellationToken cancellationToken)
         {
             await _lock.WaitAsync(cancellationToken);
             try
             {
                 CurrentExecuteRequest = request;
+                CurrentContentInfo = contentInfo;
                 await task(Engine);
             }
             finally { _lock.Release(); }

@@ -1,11 +1,12 @@
 using WELearning.DynamicCodeExecution.Constants;
 using WELearning.DynamicCodeExecution.Extensions;
+using WELearning.DynamicCodeExecution.Models;
 
 namespace WELearning.DynamicCodeExecution.Helpers;
 
 public static class JavascriptHelper
 {
-    public static (string Content, string[] Lines, int LineStart, int LineEnd, int IndexStart, int IndexEnd) WrapModuleFunction(
+    public static UserContentInfo WrapModuleFunction(
         string script, bool async, string returnStatements = null, string topStatements = null,
         string bottomStatements = null, string functionName = JsEngineConstants.ExportedFunctionName,
         bool isScript = false, IEnumerable<string> flattenArguments = null, IEnumerable<string> flattenOutputs = null
