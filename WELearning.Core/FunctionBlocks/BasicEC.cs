@@ -210,12 +210,8 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
             }
         }
 
-        if (reservedInputs?.Count > 0)
-        {
-            foreach (var kvp in reservedInputs)
-                inputs[kvp.Key] = kvp.Value;
-        }
-
+        reservedInputs?.AssignTo(inputs);
+        _functionFramework.GetReservedInputs()?.AssignTo(inputs);
         return (inputs, outputs);
     }
 }

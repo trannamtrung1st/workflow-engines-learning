@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Framework;
+using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 
 namespace WELearning.ConsoleApp.Testing.Framework;
 
@@ -16,14 +17,8 @@ public class AppFunctionFramework : FunctionFramework
     }
 
     public double NextRandomDouble() => Random.Shared.NextDouble();
-
-    protected override void Log(LogLevel logLevel, params object[] data)
-    {
-        var message = GetLogMessage(data);
-        var currentStatement = _control.CurrentRunRequest?.Tracker.CurrentStatement;
-        _logger.Log(logLevel, "[DEMO] Sending to editor...\n{Message} ({FunctionName}:{LineNumber})",
-            message, currentStatement?.FunctionName, currentStatement?.LineNumber ?? -1);
-    }
-
     public void DemoException() => throw new Exception("This is a sample .NET code exception!");
+
+    private IFrameworkConsole _console;
+    public override IFrameworkConsole GetFrameworkConsole() => _console ??= new AppFrameworkConsole(_logger, _control);
 }

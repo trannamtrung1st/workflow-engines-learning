@@ -235,15 +235,12 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
             var lazyArguments = new Lazy<Dictionary<string, object>>(() =>
             {
                 var arguments = new Dictionary<string, object>();
-
                 if (blockExecControl is IBasicEC basicEC)
-                    arguments[basicEC.FunctionFramework.VariableName] = basicEC.FunctionFramework;
-
-                if (reservedInputs?.Count > 0)
                 {
-                    foreach (var kvp in reservedInputs)
-                        arguments[kvp.Key] = kvp.Value;
+                    arguments[basicEC.FunctionFramework.VariableName] = basicEC.FunctionFramework;
+                    basicEC.FunctionFramework.GetReservedInputs()?.AssignTo(arguments);
                 }
+                reservedInputs?.AssignTo(arguments);
                 return arguments;
             });
 

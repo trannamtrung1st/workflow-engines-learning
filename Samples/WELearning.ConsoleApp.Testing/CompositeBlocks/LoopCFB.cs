@@ -159,7 +159,7 @@ public static class LoopCFB
             content: @$"
             OUT[""Result""].Write(0.0);
             var n = IN[""N""].AsInt();
-            FB.Log(""Loop: N is"", n);
+            CONSOLE.Log(""Loop: N is"", n);
             if (n > 0) 
                 EVENTS.Publish(""Loop"");
             else 

@@ -147,7 +147,7 @@ public static class PredefinedBFBs
             EVENTS.Publish('Completed');
             ",
             handleInvalidScript: @$"
-            FB.LogTrace(""Invalid arguments X, Y"");
+            console.trace(""Invalid arguments X, Y"");
             Result = null;
             EVENTS.Publish('Completed');
             ",
@@ -241,7 +241,7 @@ public static class PredefinedBFBs
             Result = X + Y
             ",
             handleInvalidScript: @$"
-            FB.LogTrace(""Invalid arguments X, Y"");
+            console.trace(""Invalid arguments X, Y"");
             Result = null;
             ",
             invalidConditionScript: @$"
@@ -553,7 +553,7 @@ let b = 5;"
         return CreateBlockSimple(id: "LogInput", name: "Log input",
             content: @"
             const json = JSON.stringify(Data);
-            FB.Log(json, Data.X, Data.Y, Data.Z);",
+            console.log(json, Data.X, Data.Y, Data.Z);",
             variables: new Variable("Data", EDataType.Any, EVariableType.InOut));
     }
 

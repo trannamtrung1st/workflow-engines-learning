@@ -199,7 +199,7 @@ static class PredefinedBFBs
             EVENTS.Publish(""Completed"");
             ",
             handleInvalidScript: @$"
-            FB.LogTrace(""Invalid arguments X, Y"");
+            CONSOLE.Trace(""Invalid arguments X, Y"");
             EVENTS.Publish(""Completed"");
             ",
             invalidConditionScript: @$"
@@ -222,7 +222,7 @@ static class PredefinedBFBs
             EVENTS.Publish(""Completed"");
             "),
             handleInvalidScript: BaseCompiledFunction<AppFunctionFramework>.WrapScript(@$"
-            FB.LogTrace(""Invalid arguments X, Y"");
+            CONSOLE.Trace(""Invalid arguments X, Y"");
             EVENTS.Publish(""Completed"");
             "),
             invalidConditionScript: BaseCompiledFunction<bool, AppFunctionFramework>.WrapScript(@$"
@@ -242,7 +242,7 @@ static class PredefinedBFBs
             EVENTS.Publish('Completed');
             ",
             handleInvalidScript: @$"
-            FB.LogTrace(""Invalid arguments X, Y"");
+            console.trace(""Invalid arguments X, Y"");
             EVENTS.Publish('Completed');
             ",
             invalidConditionScript: @$"
@@ -338,7 +338,7 @@ static class PredefinedBFBs
             OUT[""Result""].Write(result);
             ",
             handleInvalidScript: @$"
-            FB.LogTrace(""Invalid arguments X, Y"");
+            CONSOLE.Trace(""Invalid arguments X, Y"");
             EVENTS.Publish(""Completed"");
             ",
             invalidConditionScript: @$"
@@ -360,7 +360,7 @@ static class PredefinedBFBs
             OUT[""Result""].Write(result);
             "),
             handleInvalidScript: BaseCompiledFunction<AppFunctionFramework>.WrapScript(@$"
-            FB.LogTrace(""Invalid arguments X, Y"");
+            CONSOLE.Trace(""Invalid arguments X, Y"");
             EVENTS.Publish(""Completed"");
             "),
             invalidConditionScript: BaseCompiledFunction<bool, AppFunctionFramework>.WrapScript(@$"
@@ -845,7 +845,7 @@ let b = 5;"
         return CreateBlockSimple(id: "LogInput", name: "Log input",
             content: @"
             const json = JSON.stringify(Data);
-            FB.Log(json, Data.X, Data.Y, Data.Z);",
+            console.log(json, Data.X, Data.Y, Data.Z);",
             variables: new Variable("Data", EDataType.Any, EVariableType.InOut));
     }
 
@@ -853,7 +853,7 @@ let b = 5;"
     {
         return CreateBlockSimple(id: "PrependEntry", name: "Prepend entry with other",
             content: @"
-            FB.Log(InputEntry.EntryKey);
+            console.log(InputEntry.EntryKey);
             Result = InputEntry.Prepend(OtherName);", imports: null, importBlockIds: null,
             signature: "PrependEntry", exported: true,
             new Variable("InputEntry", EDataType.Reference, EVariableType.Input, objectType: nameof(ReadEntryBinding)),
@@ -867,7 +867,7 @@ let b = 5;"
             content: @"
             const series = await InputMetric.LastSeriesBefore(BeforeTime);
             const { Metric, Value, Timestamp } = series;
-            FB.Log(Metric, '|', Value, '|', Timestamp);
+            console.log(Metric, '|', Value, '|', Timestamp);
             Result = series;
             ", imports: null, importBlockIds: null,
             signature: "LastSeriesBefore", exported: true,

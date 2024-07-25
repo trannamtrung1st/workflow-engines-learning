@@ -478,7 +478,7 @@ static class TestFunctionBlocks
 
         var bReservedInputsDef = PredefinedBFBs.CreateBlockSimple(
             id: "ReservedInputs", name: "Sample reserved inputs",
-            content: "FB.Log('This is a reserved input (StartTimeUtc):', StartTimeUtc)");
+            content: "console.log('This is a reserved input (StartTimeUtc):', StartTimeUtc)");
         await RunBlockReservedInputs(
             blockRunner, CreateControl: () => CreateBasicControl(blockDef: bReservedInputsDef),
             runTokens: tokensProvider());

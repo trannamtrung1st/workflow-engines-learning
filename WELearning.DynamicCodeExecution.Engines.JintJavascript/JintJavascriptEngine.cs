@@ -171,7 +171,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                 {
                     var arguments = GetArgumentValues(engine: engineWrap.Engine, inputs: executeRequest.Inputs, outputs: executeRequest.Outputs);
                     result = compileRequest.IsScriptOnly
-                        ? await ExecuteScript(executeRequest, engineWrap, arguments, userContentInfo)
+                        ? await ExecuteScript(executeRequest, engineWrap, userContentInfo)
                         : await ExecuteModule(executeRequest, engineWrap, arguments, userContentInfo);
                 }
                 else
@@ -253,7 +253,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         return result;
     }
 
-    private async Task<JsValue> ExecuteScript<TArg>(ExecuteCodeRequest<TArg> request, EngineWrap engineWrap, JsValue[] arguments, UserContentInfo contentInfo)
+    private async Task<JsValue> ExecuteScript<TArg>(ExecuteCodeRequest<TArg> request, EngineWrap engineWrap, UserContentInfo contentInfo)
     {
         JsValue result = default;
         var preparedScript = GetPreparedScript(key: request.ContentId, () => contentInfo.Content);
