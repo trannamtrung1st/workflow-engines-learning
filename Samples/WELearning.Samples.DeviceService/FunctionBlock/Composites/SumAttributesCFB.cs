@@ -1,9 +1,9 @@
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.Constants;
-using WELearning.Core.FunctionBlocks;
 using WELearning.DynamicCodeExecution.Constants;
 using WELearning.Samples.DeviceService.FunctionBlock.Constants;
+using WELearning.Core.FunctionBlocks.Helpers;
 
 namespace WELearning.Samples.DeviceService.FunctionBlock.Composites;
 
@@ -31,7 +31,7 @@ public static class SumAttributesCFB
         cfb.DefaultTriggerEvent = eTrigger.Name;
 
         var bAddDef = PredefinedBFBs.AddJs;
-        bSumDef = PredefinedBFBs.CreateBlockSimple(
+        bSumDef = BlockHelper.CreateBlockSimple(
             id: $"{IOBoundId}_Sum",
             name: "Sum",
             content:
@@ -41,7 +41,7 @@ public static class SumAttributesCFB
             }}
             AttrSum = Attr1.Value + Attr2.Value;
             ",
-            imports: null, importBlockIds: null, signature: null, exported: false,
+            runtime: ERuntime.Javascript, imports: null, importBlockIds: null, signature: null, exported: false,
             new Variable("Attr1", EDataType.Reference, EVariableType.Input, objectType: attrType),
             new Variable("Attr2", EDataType.Reference, EVariableType.Input, objectType: attrType),
             new Variable("AttrSum", EDataType.Reference, EVariableType.Output, objectType: attrType)
@@ -52,13 +52,13 @@ public static class SumAttributesCFB
         var bLastSeries2 = new BlockInstance(bLastSeriesBeforeId, id: $"LastSeries2-{Guid.NewGuid()}");
         var bAdd = new BlockInstance(bAddId, id: $"Add-{Guid.NewGuid()}");
 
-        bInputsDef = PredefinedBFBs.CreateInOutBlock(
+        bInputsDef = BlockHelper.CreateInOutBlock(
             new Variable(name: "Attr1", dataType: EDataType.Reference, variableType: EVariableType.InOut, objectType: attrType),
             new Variable(name: "Attr2", dataType: EDataType.Reference, variableType: EVariableType.InOut, objectType: attrType)
         );
         var bInputs = new BlockInstance(definitionId: bInputsDef.Id, id: $"Inputs-{Guid.NewGuid()}");
 
-        bOutputsDef = PredefinedBFBs.CreateInOutBlock(
+        bOutputsDef = BlockHelper.CreateInOutBlock(
             new Variable(name: "AttrSum", dataType: EDataType.Reference, variableType: EVariableType.InOut, objectType: attrType),
             new Variable(name: "AttrPrevSum", dataType: EDataType.Reference, variableType: EVariableType.InOut, objectType: attrType)
         );
@@ -232,7 +232,7 @@ public static class SumAttributesCFB
         cfb.Events = new[] { eTrigger, eCompleted };
         cfb.DefaultTriggerEvent = eTrigger.Name;
 
-        bMainDef = PredefinedBFBs.CreateBlockSimple(
+        bMainDef = BlockHelper.CreateBlockSimple(
             id: $"{CpuBoundId}_Main",
             name: "Main function",
             content:
@@ -242,7 +242,7 @@ public static class SumAttributesCFB
 
 AttrPrevSum = AttrSum.Value;
 AttrSum = Attr1.Value + Attr2.Value;",
-            imports: null, importBlockIds: null, signature: null, exported: false,
+            runtime: ERuntime.Javascript, imports: null, importBlockIds: null, signature: null, exported: false,
             new Variable("Attr1", EDataType.Reference, EVariableType.Input, objectType: attrType),
             new Variable("Attr2", EDataType.Reference, EVariableType.Input, objectType: attrType),
             new Variable("AttrSum", EDataType.Reference, EVariableType.Output, objectType: attrType),
@@ -250,13 +250,13 @@ AttrSum = Attr1.Value + Attr2.Value;",
         );
         var bMain = new BlockInstance(bMainDef.Id, id: $"Main-{Guid.NewGuid()}");
 
-        bInputsDef = PredefinedBFBs.CreateInOutBlock(
+        bInputsDef = BlockHelper.CreateInOutBlock(
             new Variable(name: "Attr1", dataType: EDataType.Reference, variableType: EVariableType.InOut, objectType: attrType),
             new Variable(name: "Attr2", dataType: EDataType.Reference, variableType: EVariableType.InOut, objectType: attrType)
         );
         var bInputs = new BlockInstance(definitionId: bInputsDef.Id, id: $"Inputs-{Guid.NewGuid()}");
 
-        bOutputsDef = PredefinedBFBs.CreateInOutBlock(
+        bOutputsDef = BlockHelper.CreateInOutBlock(
             new Variable(name: "AttrSum", dataType: EDataType.Reference, variableType: EVariableType.InOut, objectType: attrType),
             new Variable(name: "AttrPrevSum", dataType: EDataType.Reference, variableType: EVariableType.InOut, objectType: attrType)
         );

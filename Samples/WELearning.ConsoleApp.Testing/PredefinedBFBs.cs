@@ -6,6 +6,7 @@ using WELearning.Core.FunctionBlocks.Framework;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.ConsoleApp.Testing.Framework;
 using WELearning.ConsoleApp.Testing.Framework.Bindings;
+using WELearning.Core.FunctionBlocks.Helpers;
 
 static class PredefinedBFBs
 {
@@ -83,108 +84,6 @@ static class PredefinedBFBs
     public static readonly BasicBlockDef LogInputJs;
     public static readonly BasicBlockDef PrependEntryJs;
     public static readonly BasicBlockDef LastSeriesBeforeJs;
-
-    public static BasicBlockDef CreateInOutBlock(params Variable[] variables)
-    {
-        if (variables.Any(v => v.VariableType != EVariableType.InOut))
-            throw new ArgumentException("Invalid binding type!");
-        var bInOut = new BasicBlockDef(id: $"InOut-{Guid.NewGuid()}", name: "InOut block");
-        bInOut.Variables = variables;
-        var eTrigger = new BlockEvent(isInput: true, name: "Trigger", variableNames: variables.Select(v => v.Name).ToArray());
-        var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: variables.Select(v => v.Name).ToArray());
-        bInOut.Events = new[] { eTrigger, eCompleted };
-        bInOut.DefaultTriggerEvent = eTrigger.Name;
-
-        {
-            var execControl = new BlockECC();
-
-            var sInit = new BlockState("Init");
-            var sTriggered = new BlockState("Triggered");
-            var states = new[] { sInit, sTriggered };
-
-            var transitions = new List<BlockStateTransition>();
-            {
-                var tInit2Triggered = new BlockStateTransition(fromState: sInit.Name, toState: sTriggered.Name, triggerEventName: eTrigger.Name)
-                {
-                    DefaultOutputEvents = new[] { eCompleted.Name }
-                };
-                var tTriggered2Triggered = new BlockStateTransition(fromState: sTriggered.Name, toState: sTriggered.Name, triggerEventName: eTrigger.Name)
-                {
-                    DefaultOutputEvents = new[] { eCompleted.Name }
-                };
-                transitions.Add(tInit2Triggered);
-                transitions.Add(tTriggered2Triggered);
-            }
-
-            execControl.States = states;
-            execControl.StateTransitions = transitions;
-            execControl.InitialState = sInit.Name;
-            bInOut.ExecutionControlChart = execControl;
-        }
-
-        return bInOut;
-    }
-
-    public static BasicBlockDef CreatePassThroughBlock(params (Variable In, Variable Out)[] passThroughVars)
-    {
-        var bPassThrough = new BasicBlockDef(id: $"PassThrough-{Guid.NewGuid()}", name: "Pass through block");
-        var inVariables = new List<string>();
-        var outVariables = new List<string>();
-        var allVariables = new List<Variable>();
-        foreach (var var in passThroughVars)
-        {
-            allVariables.Add(var.In);
-            allVariables.Add(var.Out);
-            inVariables.Add(var.In.Name);
-            outVariables.Add(var.Out.Name);
-        }
-        bPassThrough.Variables = allVariables;
-        var eTrigger = new BlockEvent(isInput: true, name: "Trigger", variableNames: inVariables);
-        var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: outVariables);
-        bPassThrough.Events = new[] { eTrigger, eCompleted };
-        bPassThrough.DefaultTriggerEvent = eTrigger.Name;
-
-        var fRun = new Function(
-            id: Guid.NewGuid().ToString(),
-            name: "Run",
-            content: string.Join(
-                separator: Environment.NewLine,
-                values: passThroughVars.Select(p => @$"OUT[""{p.Out.Name}""].Write({p.In.Name});")),
-            runtime: ERuntime.Javascript,
-            imports: null, assemblies: null, types: null);
-        bPassThrough.Functions = new[] { fRun };
-
-        {
-            var execControl = new BlockECC();
-
-            var sInit = new BlockState("Init");
-            var sTriggered = new BlockState("Triggered");
-            var states = new[] { sInit, sTriggered };
-
-            var transitions = new List<BlockStateTransition>();
-            {
-                var tInit2Triggered = new BlockStateTransition(fromState: sInit.Name, toState: sTriggered.Name, triggerEventName: eTrigger.Name)
-                {
-                    DefaultOutputEvents = new[] { eCompleted.Name },
-                    ActionFunctionIds = new[] { fRun.Id }
-                };
-                var tTriggered2Triggered = new BlockStateTransition(fromState: sTriggered.Name, toState: sTriggered.Name, triggerEventName: eTrigger.Name)
-                {
-                    DefaultOutputEvents = new[] { eCompleted.Name },
-                    ActionFunctionIds = new[] { fRun.Id }
-                };
-                transitions.Add(tInit2Triggered);
-                transitions.Add(tTriggered2Triggered);
-            }
-
-            execControl.States = states;
-            execControl.StateTransitions = transitions;
-            execControl.InitialState = sInit.Name;
-            bPassThrough.ExecutionControlChart = execControl;
-        }
-
-        return bPassThrough;
-    }
 
     #region Multiply
     private static BasicBlockDef CreateBlockMultiplyCsScript()
@@ -805,7 +704,7 @@ static class PredefinedBFBs
     #region Errors
     private static BasicBlockDef CreateCompilationError()
     {
-        return CreateBlockSimple(
+        return BlockHelper.CreateBlockSimple(
             id: "CompilationError", name: "Compilation error",
             content:
 @"const a = 2; 
@@ -816,7 +715,7 @@ let a = 5;"
 
     private static BasicBlockDef CreateRuntimeExceptionJs()
     {
-        return CreateBlockSimple(
+        return BlockHelper.CreateBlockSimple(
             id: "RuntimeExceptionJs", name: "Runtime exception (JS)",
             content:
 @"const a = 2; 
@@ -830,7 +729,7 @@ c = 0;"
 
     private static BasicBlockDef CreateRuntimeExceptionJsFromCs()
     {
-        return CreateBlockSimple(
+        return BlockHelper.CreateBlockSimple(
             id: "RuntimeExceptionCs", name: "Runtime exception (C#)",
             content:
 @"const a = 2; 
@@ -842,7 +741,7 @@ let b = 5;"
 
     private static BasicBlockDef CreateBlockLogInput()
     {
-        return CreateBlockSimple(id: "LogInput", name: "Log input",
+        return BlockHelper.CreateBlockSimple(id: "LogInput", name: "Log input",
             content: @"
             const json = JSON.stringify(Data);
             console.log(json, Data.X, Data.Y, Data.Z);",
@@ -851,10 +750,10 @@ let b = 5;"
 
     private static BasicBlockDef CreateBlockPrependEntry()
     {
-        return CreateBlockSimple(id: "PrependEntry", name: "Prepend entry with other",
+        return BlockHelper.CreateBlockSimple(id: "PrependEntry", name: "Prepend entry with other",
             content: @"
             console.log(InputEntry.EntryKey);
-            Result = InputEntry.Prepend(OtherName);", imports: null, importBlockIds: null,
+            Result = InputEntry.Prepend(OtherName);", runtime: ERuntime.Javascript, imports: null, importBlockIds: null,
             signature: "PrependEntry", exported: true,
             new Variable("InputEntry", EDataType.Reference, EVariableType.Input, objectType: nameof(ReadEntryBinding)),
             new Variable("OtherName", EDataType.String, EVariableType.Input),
@@ -863,69 +762,16 @@ let b = 5;"
 
     private static BasicBlockDef CreateBlockLastSeriesBefore()
     {
-        return CreateBlockSimple(id: "LastSeriesBefore", name: "Last metric value (sample for using reference binding method and reusing functions)",
+        return BlockHelper.CreateBlockSimple(id: "LastSeriesBefore", name: "Last metric value (sample for using reference binding method and reusing functions)",
             content: @"
             const series = await InputMetric.LastSeriesBefore(BeforeTime);
             const { Metric, Value, Timestamp } = series;
             console.log(Metric, '|', Value, '|', Timestamp);
             Result = series;
-            ", imports: null, importBlockIds: null,
+            ", runtime: ERuntime.Javascript, imports: null, importBlockIds: null,
             signature: "LastSeriesBefore", exported: true,
             new Variable("InputMetric", EDataType.Reference, EVariableType.Input, objectType: nameof(ReadMetricBinding)),
             new Variable("BeforeTime", EDataType.DateTime, EVariableType.Input),
             new Variable("Result", EDataType.Object, EVariableType.Output));
-    }
-
-    public static BasicBlockDef CreateBlockSimple(
-        string id, string name, string content,
-        IEnumerable<string> imports = null,
-        IEnumerable<string> importBlockIds = null,
-        string signature = null, bool exported = false,
-        params Variable[] variables)
-    {
-        var bSimple = new BasicBlockDef(id: id, name: name);
-        bSimple.ImportBlockIds = importBlockIds;
-        bSimple.Variables = variables;
-        var inVars = variables.Where(v => v.CanInput()).Select(v => v.Name);
-        var outVars = variables.Where(v => v.CanOutput()).Select(v => v.Name);
-        var eTrigger = new BlockEvent(isInput: true, name: "Trigger", variableNames: inVars);
-        var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: outVars);
-        bSimple.Events = new[] { eTrigger, eCompleted };
-        bSimple.DefaultTriggerEvent = eTrigger.Name;
-
-        var fRun = new Function(
-            id: Guid.NewGuid().ToString(),
-            name: "Run",
-            content: content,
-            runtime: ERuntime.Javascript,
-            imports: imports, assemblies: null, types: null,
-            signature: signature, exported: exported);
-        var functions = new[] { fRun };
-        bSimple.Functions = functions;
-
-        {
-            var execControl = new BlockECC();
-
-            var sIdle = new BlockState("Idle");
-            var sRunning = new BlockState("Running");
-            var states = new[] { sIdle, sRunning };
-
-            var transitions = new List<BlockStateTransition>();
-            {
-                var tIdle2Running = new BlockStateTransition(fromState: sIdle.Name, toState: sRunning.Name, triggerEventName: eTrigger.Name);
-                tIdle2Running.ActionFunctionIds = new[] { fRun.Id };
-                tIdle2Running.DefaultOutputEvents = new[] { eCompleted.Name };
-
-                transitions.Add(tIdle2Running);
-                transitions.Add(new(fromState: sRunning.Name, toState: sIdle.Name));
-            }
-
-            execControl.States = states;
-            execControl.StateTransitions = transitions;
-            execControl.InitialState = sIdle.Name;
-            bSimple.ExecutionControlChart = execControl;
-        }
-
-        return bSimple;
     }
 }

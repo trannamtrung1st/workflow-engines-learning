@@ -5,6 +5,7 @@ using WELearning.Core.FunctionBlocks;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Samples.DeviceService.Configurations;
 using WELearning.Samples.DeviceService.Entities;
+using WELearning.Samples.DeviceService.FunctionBlock;
 using WELearning.Samples.DeviceService.FunctionBlock.Basics;
 using WELearning.Samples.DeviceService.FunctionBlock.Composites;
 

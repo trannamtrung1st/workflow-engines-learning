@@ -24,6 +24,7 @@ using TNT.Boilerplates.Concurrency;
 using TNT.Boilerplates.Concurrency.Abstracts;
 using TNT.Boilerplates.Concurrency.Configurations;
 using TNT.Boilerplates.Concurrency.Extensions;
+using WELearning.Core.FunctionBlocks.Helpers;
 
 const int minThreads = 512;
 ThreadPool.SetMinThreads(workerThreads: minThreads, completionPortThreads: minThreads);
@@ -476,7 +477,7 @@ static class TestFunctionBlocks
 
         await RunLogAndDebug(blockRunner, CreateControl: CreateCompositeControl, tokensProvider);
 
-        var bReservedInputsDef = PredefinedBFBs.CreateBlockSimple(
+        var bReservedInputsDef = BlockHelper.CreateBlockSimple(
             id: "ReservedInputs", name: "Sample reserved inputs",
             content: "console.log('This is a reserved input (StartTimeUtc):', StartTimeUtc)");
         await RunBlockReservedInputs(

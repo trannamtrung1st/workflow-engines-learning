@@ -1,6 +1,8 @@
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.Constants;
+using WELearning.Core.FunctionBlocks.Helpers;
+using WELearning.DynamicCodeExecution.Constants;
 
 namespace WELearning.ConsoleApp.Testing.CompositeBlocks;
 
@@ -21,26 +23,26 @@ public static class ObjectAndFunctionsCFB
 
         var bAddDef = PredefinedBFBs.AddJs;
         var bRandomDef = PredefinedBFBs.RandomJs;
-        var bCustomAddDef = PredefinedBFBs.CreateBlockSimple(
+        var bCustomAddDef = BlockHelper.CreateBlockSimple(
             id: "CustomAdd",
             name: "A custom add that reuses functions from other BFBs",
             content:
 @$"const addResult = Add2Numbers({{ X: Input.X, Y: Input.Y }}, {{ Result: null }});
 const randomResult = Random(null, {{ Result: null }});
 Result = addResult.Result + randomResult.Result;",
-            imports: new[] { $"import {{ Add2Numbers, Random }} from '{FunctionDefaults.ModuleFunctions}'" },
+            runtime: ERuntime.Javascript, imports: new[] { $"import {{ Add2Numbers, Random }} from '{FunctionDefaults.ModuleFunctions}'" },
             importBlockIds: new[] { bAddDef.Id, bRandomDef.Id }, signature: null, exported: false,
             new Variable("Input", dataType: EDataType.Object, variableType: EVariableType.Input),
             new Variable("Result", dataType: EDataType.Numeric, variableType: EVariableType.Output)
         );
         var bCustomAdd = new BlockInstance(definitionId: bCustomAddDef.Id);
 
-        var bInputsDef = PredefinedBFBs.CreateInOutBlock(
+        var bInputsDef = BlockHelper.CreateInOutBlock(
             new Variable(name: "Input", dataType: EDataType.Object, variableType: EVariableType.InOut)
         );
         var bInputs = new BlockInstance(definitionId: bInputsDef.Id, id: "Inputs");
 
-        var bOutputsDef = PredefinedBFBs.CreateInOutBlock(
+        var bOutputsDef = BlockHelper.CreateInOutBlock(
             new Variable(name: "Output", dataType: EDataType.String, variableType: EVariableType.InOut)
         );
         var bOutputs = new BlockInstance(definitionId: bOutputsDef.Id, id: "Outputs");

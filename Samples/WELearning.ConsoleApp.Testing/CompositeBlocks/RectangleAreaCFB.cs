@@ -1,6 +1,7 @@
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.Constants;
+using WELearning.Core.FunctionBlocks.Helpers;
 
 namespace WELearning.ConsoleApp.Testing.CompositeBlocks;
 
@@ -22,13 +23,13 @@ public static class RectangleAreaCFB
 
         var bMultiply = new BlockInstance(bMultiplyDef.Id);
 
-        var bInputsDef = PredefinedBFBs.CreateInOutBlock(
+        var bInputsDef = BlockHelper.CreateInOutBlock(
             new Variable(name: "Length", dataType: EDataType.Numeric, variableType: EVariableType.InOut),
             new Variable(name: "Width", dataType: EDataType.Numeric, variableType: EVariableType.InOut)
         );
         var bInputs = new BlockInstance(definitionId: bInputsDef.Id, id: "Inputs");
 
-        var bOutputsDef = PredefinedBFBs.CreateInOutBlock(
+        var bOutputsDef = BlockHelper.CreateInOutBlock(
             new Variable(name: "Result", dataType: EDataType.Numeric, variableType: EVariableType.InOut)
         );
         var bOutputs = new BlockInstance(definitionId: bOutputsDef.Id, id: "Outputs");

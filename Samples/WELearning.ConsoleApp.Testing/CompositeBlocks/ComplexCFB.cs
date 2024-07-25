@@ -1,6 +1,7 @@
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.Constants;
+using WELearning.Core.FunctionBlocks.Helpers;
 
 namespace WELearning.ConsoleApp.Testing.CompositeBlocks;
 
@@ -29,7 +30,7 @@ public static class ComplexCFB
         var bRandom = new BlockInstance(bRandomDef.Id, id: "Random");
         var bAdd2 = new BlockInstance(bAddDef.Id, id: "Add2");
 
-        var bInputsDef = PredefinedBFBs.CreateInOutBlock(
+        var bInputsDef = BlockHelper.CreateInOutBlock(
             new Variable(name: "Add1X", dataType: EDataType.Numeric, variableType: EVariableType.InOut),
             new Variable(name: "Add1Y", dataType: EDataType.Numeric, variableType: EVariableType.InOut),
             new Variable(name: "MulY", dataType: EDataType.Int, variableType: EVariableType.InOut, defaultValue: 2),
@@ -37,7 +38,7 @@ public static class ComplexCFB
         );
         var bInputs = new BlockInstance(bInputsDef.Id, id: "Inputs");
 
-        var bOutputsDef = PredefinedBFBs.CreateInOutBlock(
+        var bOutputsDef = BlockHelper.CreateInOutBlock(
             new Variable(name: "Result", dataType: EDataType.Int, variableType: EVariableType.InOut)
         );
         var bOutputs = new BlockInstance(bOutputsDef.Id, id: "Outputs");

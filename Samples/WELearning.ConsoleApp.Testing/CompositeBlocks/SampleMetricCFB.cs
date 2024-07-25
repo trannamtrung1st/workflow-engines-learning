@@ -2,6 +2,8 @@ using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.Constants;
 using WELearning.ConsoleApp.Testing.Framework.Bindings;
+using WELearning.Core.FunctionBlocks.Helpers;
+using WELearning.DynamicCodeExecution.Constants;
 
 namespace WELearning.ConsoleApp.Testing.CompositeBlocks;
 
@@ -23,7 +25,7 @@ public static class SampleMetricCFB
         cfb.DefaultTriggerEvent = eTrigger.Name;
 
         var bLastSeriesBeforeDef = PredefinedBFBs.LastSeriesBeforeJs;
-        var bMainDef = PredefinedBFBs.CreateBlockSimple(
+        var bMainDef = BlockHelper.CreateBlockSimple(
             id: "SampleMetricMain",
             name: "Sample metric main function",
             content:
@@ -32,7 +34,7 @@ public static class SampleMetricCFB
             const {{ Result: prevSeries }} = await LastSeriesBefore({{ InputMetric: Metric, BeforeTime: Timestamp }}, {{ Result: null }});
             Snapshot = Value;
             Previous = prevSeries.Value;",
-            imports: new[] { $"import {{ LastSeriesBefore }} from '{FunctionDefaults.ModuleFunctions}'" },
+            runtime: ERuntime.Javascript, imports: new[] { $"import {{ LastSeriesBefore }} from '{FunctionDefaults.ModuleFunctions}'" },
             importBlockIds: new[] { bLastSeriesBeforeDef.Id }, signature: null, exported: false,
             new Variable("Metric", EDataType.Reference, EVariableType.Input, objectType: metricType),
             new Variable("Snapshot", EDataType.Double, EVariableType.Output),
@@ -40,12 +42,12 @@ public static class SampleMetricCFB
         );
         var bMain = new BlockInstance(bMainDef.Id, id: "Main");
 
-        var bInputsDef = PredefinedBFBs.CreateInOutBlock(
+        var bInputsDef = BlockHelper.CreateInOutBlock(
             new Variable(name: "Metric", dataType: EDataType.Reference, variableType: EVariableType.InOut, objectType: metricType)
         );
         var bInputs = new BlockInstance(definitionId: bInputsDef.Id, id: "Inputs");
 
-        var bOutputsDef = PredefinedBFBs.CreateInOutBlock(
+        var bOutputsDef = BlockHelper.CreateInOutBlock(
             new Variable(name: "Snapshot", dataType: EDataType.Double, variableType: EVariableType.InOut),
             new Variable(name: "Previous", dataType: EDataType.Double, variableType: EVariableType.InOut)
         );

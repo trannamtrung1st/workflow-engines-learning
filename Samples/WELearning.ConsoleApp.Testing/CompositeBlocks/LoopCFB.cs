@@ -2,6 +2,7 @@ using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.Constants;
 using WELearning.DynamicCodeExecution.Constants;
+using WELearning.Core.FunctionBlocks.Helpers;
 
 namespace WELearning.ConsoleApp.Testing.CompositeBlocks;
 
@@ -25,13 +26,13 @@ public static class LoopCFB
         var bLoopControllerDef = CreateLoopControllerBlock();
         var bLoopController = new BlockInstance(definitionId: bLoopControllerDef.Id);
 
-        var bInputsDef = PredefinedBFBs.CreateInOutBlock(
+        var bInputsDef = BlockHelper.CreateInOutBlock(
             new Variable(name: "N", dataType: EDataType.Int, variableType: EVariableType.InOut),
             new Variable(name: "Inc", dataType: EDataType.Int, variableType: EVariableType.InOut, defaultValue: 1)
         );
         var bInputs = new BlockInstance(definitionId: bInputsDef.Id, id: "Inputs");
 
-        var bOutputsDef = PredefinedBFBs.CreateInOutBlock(
+        var bOutputsDef = BlockHelper.CreateInOutBlock(
             new Variable(name: "Result", dataType: EDataType.Int, variableType: EVariableType.InOut)
         );
         var bOutputs = new BlockInstance(definitionId: bOutputsDef.Id, id: "Outputs");

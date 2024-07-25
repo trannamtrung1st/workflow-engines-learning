@@ -1,6 +1,7 @@
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.Constants;
+using WELearning.Core.FunctionBlocks.Helpers;
 
 namespace WELearning.ConsoleApp.Testing.CompositeBlocks;
 
@@ -28,7 +29,7 @@ public static class DependencyWaitCFB
         var bAdd2 = new BlockInstance(PredefinedBFBs.AddCsScript.Id, id: "Add2", displayName: "Add 2");
         var bAdd3 = new BlockInstance(PredefinedBFBs.AddJs.Id, id: "Add3", displayName: "Add 3");
         var bDelay = new BlockInstance(PredefinedBFBs.DelayCsScript.Id);
-        var bInputsDef = PredefinedBFBs.CreateInOutBlock(
+        var bInputsDef = BlockHelper.CreateInOutBlock(
             new Variable(name: "DelayMs", dataType: EDataType.Numeric, variableType: EVariableType.InOut),
             new Variable(name: "Add1X", dataType: EDataType.Numeric, variableType: EVariableType.InOut),
             new Variable(name: "Add1Y", dataType: EDataType.Numeric, variableType: EVariableType.InOut),
@@ -37,7 +38,7 @@ public static class DependencyWaitCFB
         );
         var bInputs = new BlockInstance(definitionId: bInputsDef.Id, id: "Inputs");
 
-        var bOutputsDef = PredefinedBFBs.CreateInOutBlock(
+        var bOutputsDef = BlockHelper.CreateInOutBlock(
             new Variable(name: "Result", dataType: EDataType.Numeric, variableType: EVariableType.InOut)
         );
         var bOutputs = new BlockInstance(definitionId: bOutputsDef.Id, id: "Outputs");

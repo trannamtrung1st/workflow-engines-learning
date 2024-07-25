@@ -2,6 +2,8 @@ using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.Constants;
 using WELearning.ConsoleApp.Testing.Framework.Bindings;
+using WELearning.Core.FunctionBlocks.Helpers;
+using WELearning.DynamicCodeExecution.Constants;
 
 namespace WELearning.ConsoleApp.Testing.CompositeBlocks;
 
@@ -26,13 +28,13 @@ public static class EntryReportCFB
 
         var bPrependDef = PredefinedBFBs.PrependEntryJs;
         var bConcatDef = PredefinedBFBs.ConcatTwoStringsJs;
-        var bCustomConcatDef = PredefinedBFBs.CreateBlockSimple(
+        var bCustomConcatDef = BlockHelper.CreateBlockSimple(
             id: "CustomConcat",
             name: "Sample using reference binding method",
             content: @$"
             const prependResult = PrependEntry({{ InputEntry: Entry, OtherName: OtherEntryName }}, {{ Result }})
             Result = prependResult.Result",
-            imports: new[] { $"import {{ PrependEntry }} from '{FunctionDefaults.ModuleFunctions}'" },
+            runtime: ERuntime.Javascript, imports: new[] { $"import {{ PrependEntry }} from '{FunctionDefaults.ModuleFunctions}'" },
             importBlockIds: new[] { bPrependDef.Id }, signature: null, exported: false,
             new Variable("Entry", EDataType.Reference, EVariableType.Input, objectType: entryType),
             new Variable("OtherEntryName", EDataType.String, EVariableType.Input),
@@ -41,7 +43,7 @@ public static class EntryReportCFB
         var bConcat1 = new BlockInstance(bConcatDef.Id, id: "Concat1");
         var bConcat2 = new BlockInstance(bCustomConcatDef.Id, id: "Concat2");
 
-        var bInputsDef = PredefinedBFBs.CreateInOutBlock(
+        var bInputsDef = BlockHelper.CreateInOutBlock(
             new Variable(name: "Temperature", dataType: EDataType.Reference, variableType: EVariableType.InOut, objectType: entryType),
             new Variable(name: "Humidity", dataType: EDataType.Reference, variableType: EVariableType.InOut, objectType: entryType),
             new Variable(name: "Report", dataType: EDataType.Reference, variableType: EVariableType.InOut, objectType: entryType),
@@ -50,10 +52,10 @@ public static class EntryReportCFB
         );
         var bInputs = new BlockInstance(definitionId: bInputsDef.Id, id: "Inputs");
 
-        var bReportDef = PredefinedBFBs.CreateInOutBlock(
+        var bReportDef = BlockHelper.CreateInOutBlock(
             new Variable(name: "Report", dataType: EDataType.Reference, variableType: EVariableType.InOut, objectType: entryType)
         );
-        var bOutputsDef = PredefinedBFBs.CreateInOutBlock(
+        var bOutputsDef = BlockHelper.CreateInOutBlock(
             new Variable(name: "FinalReport", dataType: EDataType.Reference, variableType: EVariableType.InOut, objectType: entryType)
         );
         var bReport = new BlockInstance(definitionId: bReportDef.Id, id: "ReportEntry");
