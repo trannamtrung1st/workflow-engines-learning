@@ -17,8 +17,8 @@ public class BlockRunner : IBlockRunner
         var bDef = request.BlockDefinition;
         if (bDef.Functions?.Any() != true)
             return;
-        var optimizationScopes = new HashSet<IDisposable>();
         var (inputs, outputs) = bDef.GetVariableNames();
+        var optimizationScopes = request.OptimizationScopes ?? new HashSet<IDisposable>();
 
         try
         {
@@ -31,8 +31,9 @@ public class BlockRunner : IBlockRunner
         }
         finally
         {
-            foreach (var optimizationScope in optimizationScopes)
-                optimizationScope.Dispose();
+            if (request.OptimizationScopes is null)
+                foreach (var optimizationScope in optimizationScopes)
+                    optimizationScope.Dispose();
         }
     }
 

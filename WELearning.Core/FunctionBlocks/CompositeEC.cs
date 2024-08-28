@@ -152,7 +152,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                         var execControl = GetOrInitExecutionControl(block);
                         var triggerEvent = trigger.TriggerEvent ?? Definition.GetDefinition(block.DefinitionId).DefaultTriggerEvent;
                         var reservedInputs = CurrentRunRequest.ReservedInputs;
-                        var blockBindings = await PrepareBindings(triggerEvent, block, onDelayed: EnqueueTriggerBlock, reservedInputs, tokens);
+                        var blockBindings = await PrepareBindings(triggerEvent, block, onDelayed: EnqueueTriggerBlock, reservedInputs, tokens, optimizationScopeId);
                         var runRequest = new RunBlockRequest(
                             runId: CurrentRunRequest.RunId, blockBindings,
                             tokens: CurrentRunRequest.Tokens,
@@ -179,7 +179,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         }
     }
 
-    protected virtual async Task<IEnumerable<VariableBinding>> PrepareBindings(string triggerEvent, BlockInstance block, Func<Task> onDelayed, IReadOnlyDictionary<string, object> reservedInputs, RunTokens tokens)
+    protected virtual async Task<IEnumerable<VariableBinding>> PrepareBindings(string triggerEvent, BlockInstance block, Func<Task> onDelayed, IReadOnlyDictionary<string, object> reservedInputs, RunTokens tokens, Guid? optimizationScopeId)
     {
         // [OPT] force set snapshot value before each BFB run to prevent concurrent modification of underlying reference object while BFB running
         var bindings = new List<VariableBinding>();
@@ -225,10 +225,10 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
             }
         }
 
-        var optimizationScopes = new HashSet<IDisposable>();
+        optimizationScopeId ??= Guid.NewGuid();
+        var optimizationScopes = CurrentRunRequest.OptimizationScopes ?? new HashSet<IDisposable>();
         try
         {
-            var optimizationScopeId = Guid.NewGuid();
             var inputDataConnections = Definition.DataConnections
                 .Where(c => c.BindingType == EBindingType.Input && c.BlockId == block.Id && inputEvent.VariableNames.Contains(c.VariableName))
                 .ToArray();
@@ -302,7 +302,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         }
         finally
         {
-            if (optimizationScopes != null)
+            if (CurrentRunRequest.OptimizationScopes is null)
                 foreach (var optimizationScope in optimizationScopes)
                     optimizationScope.Dispose();
         }
