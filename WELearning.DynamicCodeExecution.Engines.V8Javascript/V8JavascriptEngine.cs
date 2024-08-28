@@ -213,5 +213,10 @@ public class V8JavascriptEngine : IRuntimeEngine, IDisposable
             Engine.Dispose();
             RemoveCache(Id);
         }
+
+        public bool TryDispose()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

@@ -99,24 +99,30 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 
         EngineWrap engine = null; OptimizationScope scope = null;
         var scopeId = request.OptimizationScopeId.Value;
+        void CreateScope()
+        {
+            _engineCache.RequestSlot(request.Tokens.Combined);
+            try
+            {
+                engine = CreateNewEngine();
+                scope = new OptimizationScope(engine, scopeId, ReleaseSlot: _engineCache.ReleaseSlot);
+                scope.Activate();
+                _engineCache.SetSlot(scopeId, scope);
+            }
+            catch
+            {
+                _engineCache.ReleaseSlot(scopeId);
+                throw;
+            }
+        }
+
         _lockManager.MutexAccess(key: $"ENGINES.{scopeId}", () =>
         {
             if (!_engineCache.TryGetValue(scopeId, out scope))
-            {
-                _engineCache.RequestSlot(request.Tokens.Combined);
-                try
-                {
-                    engine = CreateNewEngine();
-                    scope = new OptimizationScope(engine, scopeId, ReleaseSlot: _engineCache.ReleaseSlot);
-                    _engineCache.SetSlot(scopeId, scope);
-                }
-                catch
-                {
-                    _engineCache.ReleaseSlot(scopeId);
-                    throw;
-                }
-            }
-            else engine = scope.Engine;
+                CreateScope();
+            else if (!scope.Activate())
+                CreateScope();
+            engine = scope.Engine;
         });
         return (engine, scope);
     }
@@ -237,6 +243,10 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         {
             DisposeEngine();
             throw;
+        }
+        finally
+        {
+            optimizationScope?.Deactivate();
         }
     }
 
@@ -465,13 +475,13 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     {
         private const long DefaultMaxEngineCacheCount = 3_000;
         private readonly ManualResetEventSlim _engineCacheWait;
-        private readonly ConcurrentDictionary<Guid, OptimizationScope> _engineCache;
+        private readonly ConcurrentDictionary<Guid, OptimizationScope> _scopeCache;
         private int _slotCount;
 
         public EngineCache()
         {
             _slotCount = 0;
-            _engineCache = new();
+            _scopeCache = new();
             _engineCacheWait = new(initialState: true);
         }
 
@@ -496,7 +506,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 
         public void ReleaseSlot(Guid id)
         {
-            if (_engineCache.Remove(id, out _))
+            if (_scopeCache.Remove(id, out _))
             {
                 lock (_engineCacheWait)
                 {
@@ -506,15 +516,15 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             }
         }
 
-        public void SetSlot(Guid id, OptimizationScope scope) => _engineCache[id] = scope;
+        public void SetSlot(Guid id, OptimizationScope scope) => _scopeCache[id] = scope;
 
-        public bool TryGetValue(Guid id, out OptimizationScope scope) => _engineCache.TryGetValue(id, out scope);
+        public bool TryGetValue(Guid id, out OptimizationScope scope) => _scopeCache.TryGetValue(id, out scope);
 
         public void Dispose()
         {
             _engineCacheWait.Dispose();
-            foreach (var engine in _engineCache.Values)
-                engine.Dispose();
+            foreach (var scope in _scopeCache.Values)
+                scope.Dispose();
         }
     }
 
@@ -636,6 +646,8 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     class OptimizationScope : IOptimizationScope
     {
         private readonly Action<Guid> ReleaseSlot;
+        private int _activeCount = 0;
+        private bool _disposed = false;
         public OptimizationScope(
             EngineWrap engine, Guid scopeId,
             Action<Guid> ReleaseSlot)
@@ -648,10 +660,40 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         public Guid Id { get; }
         public EngineWrap Engine { get; }
 
+        public bool Activate()
+        {
+            lock (this)
+            {
+                if (_disposed)
+                    return false;
+                _activeCount++;
+                return true;
+            }
+        }
+
+        public void Deactivate()
+        {
+            lock (this) { _activeCount--; }
+        }
+
         public void Dispose()
         {
+            _disposed = true;
             Engine.Dispose();
             ReleaseSlot(Id);
+        }
+
+        public bool TryDispose()
+        {
+            lock (this)
+            {
+                if (_activeCount <= 0)
+                {
+                    Dispose();
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }
