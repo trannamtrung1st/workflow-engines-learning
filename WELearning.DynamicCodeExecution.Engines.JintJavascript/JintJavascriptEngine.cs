@@ -18,6 +18,7 @@ using WELearning.DynamicCodeExecution.Extensions;
 using WELearning.DynamicCodeExecution.Helpers;
 using WELearning.DynamicCodeExecution.Models;
 using TNT.Boilerplates.Concurrency.Abstracts;
+using Acornima;
 
 namespace WELearning.DynamicCodeExecution.Engines;
 
@@ -181,9 +182,13 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                     else await CompileModule(compileRequest, engineWrap, content: userContentInfo.Content);
                 }
             }
-            catch (Acornima.ParseErrorException ex)
+            catch (ParseErrorException ex)
             {
                 throw new JintCompilationError(parserException: ex, contentInfo: userContentInfo);
+            }
+            catch (ScriptPreparationException ex) when (ex.InnerException is ParseErrorException parseEx)
+            {
+                throw new JintCompilationError(parserException: parseEx, contentInfo: userContentInfo);
             }
             catch (PromiseRejectedException ex)
             {

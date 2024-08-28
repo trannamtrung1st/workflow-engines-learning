@@ -1,13 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference
-      Include="..\WELearning.DynamicCodeExecution\WELearning.DynamicCodeExecution.csproj" />
-    <ProjectReference Include="..\Jint\Jint\Jint.csproj" />
+    <ProjectReference Include="..\WELearning.DynamicCodeExecution\WELearning.DynamicCodeExecution.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Acornima" Version="1.0.0" />
+    <PackageReference Include="Jint" Version="4.0.2" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
     <PackageReference Include="TNT.Boilerplates.Concurrency" Version="1.0.2" />
