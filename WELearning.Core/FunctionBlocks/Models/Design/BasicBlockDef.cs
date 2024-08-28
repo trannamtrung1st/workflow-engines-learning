@@ -4,7 +4,7 @@ namespace WELearning.Core.FunctionBlocks.Models.Design;
 
 public class BasicBlockDef : BaseBlockDef
 {
-    public BasicBlockDef(string id, string name) : base(id, name)
+    public BasicBlockDef(string id, string name, Dictionary<string, object> customData = null) : base(id, name, customData)
     {
     }
 
@@ -29,7 +29,8 @@ public class BasicBlockDef : BaseBlockDef
     private IEnumerable<ModuleFunction> _moduleFunctions;
     public IEnumerable<ModuleFunction> GetModuleFunctions()
     {
-        if (_moduleFunctions != null) return _moduleFunctions;
+        if (_moduleFunctions != null)
+            return _moduleFunctions;
         var functions = new List<ModuleFunction>();
         var exportedFunctions = Functions.Where(f => f.Exported);
         var inputs = new List<string>();
@@ -37,8 +38,10 @@ public class BasicBlockDef : BaseBlockDef
 
         foreach (var variable in Variables)
         {
-            if (variable.CanInput()) inputs.Add(variable.Name);
-            if (variable.CanOutput()) outputs.Add(variable.Name);
+            if (variable.CanInput())
+                inputs.Add(variable.Name);
+            if (variable.CanOutput())
+                outputs.Add(variable.Name);
         }
 
         foreach (var function in exportedFunctions)
