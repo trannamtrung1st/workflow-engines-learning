@@ -7,7 +7,7 @@ public abstract class BaseBlockDef
         CustomData = [];
     }
 
-    public BaseBlockDef(string id, string name, Dictionary<string, object> customData)
+    public BaseBlockDef(string id, string name, Dictionary<string, object> customData) : this()
     {
         Id = id;
         Name = name;
