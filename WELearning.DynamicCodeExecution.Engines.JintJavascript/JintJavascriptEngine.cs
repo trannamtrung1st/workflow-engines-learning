@@ -418,8 +418,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             return moduleContent;
         });
 
-        engine.Modules.Add(module.ModuleName, builder =>
-            builder.AddModule(preparedModule));
+        engine.Modules.Add(module.ModuleName, b => b.AddModule(preparedModule));
     }
 
     private Prepared<Acornima.Ast.Module> GetPreparedModule(string key, Func<string> contentProvider)
@@ -535,13 +534,9 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         private readonly SemaphoreSlim _lock;
         public EngineWrap(Engine engine, int maxLoopCount)
         {
-            var cacheOption = new MemoryCacheOptions
-            {
-                SizeLimit = DefaultCacheSizeLimitInBytes
-            };
-            _moduleCache = new(cacheOption);
+            _moduleCache = new(new MemoryCacheOptions());
             _lock = new(1, 1);
-            _nodesCount = new();
+            _nodesCount = [];
             MaxLoopCount = maxLoopCount;
             Engine = engine;
             MaxStatementsConstraint = engine.Constraints.Find<MaxStatementsConstraint>();
@@ -634,8 +629,6 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         {
             return _moduleCache.GetOrCreate(moduleName, (entry) =>
             {
-                entry.SetSize(cacheSize);
-                entry.SetSlidingExpiration(ModuleSlidingExpiration);
                 Engine.Modules.Add(moduleName, b => b.AddModule(preparedModule));
                 var module = Engine.Modules.Import(moduleName);
                 return module;
