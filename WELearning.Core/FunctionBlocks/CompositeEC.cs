@@ -429,7 +429,11 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
 
     private void WaitForTasks(CancellationToken cancellationToken)
     {
-        try { _taskLoopEvent.Wait(cancellationToken: cancellationToken); }
+        try
+        {
+            if (!cancellationToken.IsCancellationRequested)
+                _taskLoopEvent.Wait(cancellationToken: cancellationToken);
+        }
         catch { }
     }
 
