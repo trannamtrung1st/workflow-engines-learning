@@ -158,7 +158,8 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                             runId: CurrentRunRequest.RunId, blockBindings,
                             tokens: CurrentRunRequest.Tokens,
                             triggerEvent: triggerEvent,
-                            reservedInputs: reservedInputs);
+                            reservedInputs: reservedInputs,
+                            optimizationScopes: CurrentRunRequest.OptimizationScopes);
                         await _blockRunner.Run(runRequest, execControl, optimizationScopeId);
                         var nextBlockTriggers = Definition.FindNextBlocks(block.Id, outputEvents: execControl.Result.OutputEvents);
                         EnqueueTask((taskScope) => TriggerBlocks(nextBlockTriggers, optimizationScopeId, taskScope, tokens));
