@@ -23,7 +23,7 @@ public class FunctionRunner : IFunctionRunner
         _typeProvider = typeProvider;
     }
 
-    public async Task<(TReturn Result, IDisposable OptimizationScope)> Run<TReturn, TFunctionFramework>(
+    public async Task<(TReturn Result, IOptimizationScope OptimizationScope)> Run<TReturn, TFunctionFramework>(
         Function function, CodeExecutionTracker tracker, BlockGlobalObject<TFunctionFramework> globalObject,
         IDictionary<string, object> inputs, IDictionary<string, object> outputs,
         IEnumerable<ImportModule> modules, Guid? optimizationScopeId, RunTokens tokens)
@@ -48,7 +48,7 @@ public class FunctionRunner : IFunctionRunner
         return result;
     }
 
-    public async Task<IDisposable> Run<TFunctionFramework>(
+    public async Task<IOptimizationScope> Run<TFunctionFramework>(
         Function function, CodeExecutionTracker tracker, IBlockFramework blockFramework, BlockGlobalObject<TFunctionFramework> globalObject,
         IDictionary<string, object> inputs, IDictionary<string, object> outputs,
         IEnumerable<ImportModule> modules, Guid? optimizationScopeId, RunTokens tokens)
@@ -75,7 +75,7 @@ public class FunctionRunner : IFunctionRunner
         return scope;
     }
 
-    public async Task<(TReturn Result, IDisposable OptimizationScope)> Evaluate<TReturn, TArg>(
+    public async Task<(TReturn Result, IOptimizationScope OptimizationScope)> Evaluate<TReturn, TArg>(
         Function function, CodeExecutionTracker tracker, TArg arguments, Guid? optimizationScopeId, RunTokens tokens)
     {
         var (engine, assemblies, types) = PrepareInputs(function);
@@ -106,7 +106,7 @@ public class FunctionRunner : IFunctionRunner
         return (engine, assemblies, types);
     }
 
-    public async Task<IDisposable> Compile(Function function, IEnumerable<string> inputs, IEnumerable<string> outputs, IEnumerable<ImportModule> modules, Guid? optimizationScopeId, RunTokens tokens)
+    public async Task<IOptimizationScope> Compile(Function function, IEnumerable<string> inputs, IEnumerable<string> outputs, IEnumerable<ImportModule> modules, Guid? optimizationScopeId, RunTokens tokens)
     {
         var (engine, assemblies, types) = PrepareInputs(function);
         var scope = await engine.Compile(

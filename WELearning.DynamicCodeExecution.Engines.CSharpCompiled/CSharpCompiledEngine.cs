@@ -30,7 +30,7 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.CSharpCompiled;
 
-    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request)
+    public async Task<(TReturn Result, IOptimizationScope OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request)
     {
         var assemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types);
         var assembly = await LoadOrCompile(request.Content, request.Imports, assemblies, cancellationToken: request.Tokens.Combined);
@@ -41,7 +41,7 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
         return (result, default);
     }
 
-    public async Task<IDisposable> Execute<TArg>(ExecuteCodeRequest<TArg> request)
+    public async Task<IOptimizationScope> Execute<TArg>(ExecuteCodeRequest<TArg> request)
     {
         var assemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types);
         var assembly = await LoadOrCompile(request.Content, request.Imports, assemblies, cancellationToken: request.Tokens.Combined);
@@ -124,7 +124,7 @@ public class CSharpCompiledEngine : IRuntimeEngine, IDisposable
         _assemblyCache.Dispose();
     }
 
-    public Task<IDisposable> Compile(CompileCodeRequest request)
+    public Task<IOptimizationScope> Compile(CompileCodeRequest request)
     {
         throw new NotImplementedException();
     }

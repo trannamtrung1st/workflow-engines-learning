@@ -3,6 +3,7 @@ using WELearning.Core.FunctionBlocks.Exceptions;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
+using WELearning.DynamicCodeExecution.Abstracts;
 using WELearning.DynamicCodeExecution.Exceptions;
 using WELearning.DynamicCodeExecution.Models;
 
@@ -58,7 +59,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
     public override async Task Execute(RunBlockRequest request, Guid? optimizationScopeId)
     {
         EnterOrThrow();
-        var optimizationScopes = request.OptimizationScopes ?? new HashSet<IDisposable>();
+        var optimizationScopes = request.OptimizationScopes ?? new Dictionary<Guid, IOptimizationScope>();
         try
         {
             IEnumerable<string> outputEvents = Array.Empty<string>();
@@ -86,14 +87,14 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
         {
             SetIdle();
             if (request.OptimizationScopes is null)
-                foreach (var optimizationScope in optimizationScopes)
+                foreach (var optimizationScope in optimizationScopes.Values)
                     optimizationScope.Dispose();
         }
     }
 
     protected virtual async Task<IEnumerable<string>> TriggerStateMachine(
         string triggerEvent, IReadOnlyDictionary<string, object> reservedInputs,
-        ISet<IDisposable> optimizationScopes, Guid optimizationScopeId)
+        IDictionary<Guid, IOptimizationScope> optimizationScopes, Guid optimizationScopeId)
     {
         var outputEvents = new HashSet<string>();
         var blockFramework = _blockFrameworkFactory.Create(this);
@@ -111,7 +112,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
                     modules: _importModules, optimizationScopeId, tokens: CurrentRunRequest.Tokens);
                 RunningFunction = null;
                 if (optimizationScope != null)
-                    optimizationScopes.Add(optimizationScope);
+                    optimizationScopes[optimizationScope.Id] = optimizationScope;
                 return result;
             }
             catch (CompilationError ex) { throw new FunctionCompilationError(ex, condition); }
@@ -128,7 +129,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
                     modules: _importModules, optimizationScopeId, tokens: CurrentRunRequest.Tokens);
                 RunningFunction = null;
                 if (optimizationScope != null)
-                    optimizationScopes.Add(optimizationScope);
+                    optimizationScopes[optimizationScope.Id] = optimizationScope;
             }
             catch (CompilationError ex) { throw new FunctionCompilationError(ex, actionFunction); }
             catch (RuntimeException ex) { throw new FunctionRuntimeException(ex, actionFunction); }

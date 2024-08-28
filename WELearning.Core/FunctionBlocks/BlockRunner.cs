@@ -1,5 +1,6 @@
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
+using WELearning.DynamicCodeExecution.Abstracts;
 
 namespace WELearning.Core.FunctionBlocks;
 
@@ -18,7 +19,7 @@ public class BlockRunner : IBlockRunner
         if (bDef.Functions?.Any() != true)
             return;
         var (inputs, outputs) = bDef.GetVariableNames();
-        var optimizationScopes = request.OptimizationScopes ?? new HashSet<IDisposable>();
+        var optimizationScopes = request.OptimizationScopes ?? new Dictionary<Guid, IOptimizationScope>();
 
         try
         {
@@ -26,13 +27,13 @@ public class BlockRunner : IBlockRunner
             {
                 var scope = await _functionRunner.Compile(function, inputs, outputs, modules: null, optimizationScopeId, tokens: request.Tokens);
                 if (scope != null)
-                    optimizationScopes.Add(scope);
+                    optimizationScopes[scope.Id] = scope;
             }
         }
         finally
         {
             if (request.OptimizationScopes is null)
-                foreach (var optimizationScope in optimizationScopes)
+                foreach (var optimizationScope in optimizationScopes.Values)
                     optimizationScope.Dispose();
         }
     }

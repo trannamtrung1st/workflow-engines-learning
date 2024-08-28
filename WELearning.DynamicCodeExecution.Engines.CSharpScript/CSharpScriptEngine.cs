@@ -30,7 +30,7 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
 
     public bool CanRun(ERuntime runtime) => runtime == ERuntime.CSharpScript;
 
-    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request)
+    public async Task<(TReturn Result, IOptimizationScope OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request)
     {
         var assemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types);
         var (CacheKey, CacheSize) = await GetScriptCacheEntry(request.Content, request.Imports, assemblies, cancellationToken: request.Tokens.Combined);
@@ -49,7 +49,7 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
         return (result.ReturnValue, default);
     }
 
-    public async Task<IDisposable> Execute<TArg>(ExecuteCodeRequest<TArg> request)
+    public async Task<IOptimizationScope> Execute<TArg>(ExecuteCodeRequest<TArg> request)
     {
         var assemblies = ReflectionHelper.CombineAssemblies(request.Assemblies, request.Types);
         var (CacheKey, CacheSize) = await GetScriptCacheEntry(request.Content, request.Imports, assemblies, cancellationToken: request.Tokens.Combined);
@@ -104,7 +104,7 @@ public class CSharpScriptEngine : IRuntimeEngine, IDisposable
         _scriptCache.Dispose();
     }
 
-    public Task<IDisposable> Compile(CompileCodeRequest request)
+    public Task<IOptimizationScope> Compile(CompileCodeRequest request)
     {
         throw new NotImplementedException();
     }

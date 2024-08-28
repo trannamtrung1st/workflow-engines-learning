@@ -160,7 +160,7 @@ public class V8JavascriptEngine : IRuntimeEngine, IDisposable
             item.Dispose();
     }
 
-    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request)
+    public async Task<(TReturn Result, IOptimizationScope OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request)
     {
         var combinedTypes = ReflectionHelper.CombineTypes(request.Assemblies, request.Types);
         var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, request.OptimizationScopeId, cancellationToken: request.Tokens.Combined);
@@ -175,7 +175,7 @@ public class V8JavascriptEngine : IRuntimeEngine, IDisposable
         return (result, optimizationScope);
     }
 
-    public async Task<IDisposable> Execute<TArg>(ExecuteCodeRequest<TArg> request)
+    public async Task<IOptimizationScope> Execute<TArg>(ExecuteCodeRequest<TArg> request)
     {
         var combinedTypes = ReflectionHelper.CombineTypes(request.Assemblies, request.Types);
         var (engine, optimizationScope) = PrepareV8Engine(combinedTypes, request.OptimizationScopeId, cancellationToken: request.Tokens.Combined);
@@ -186,12 +186,12 @@ public class V8JavascriptEngine : IRuntimeEngine, IDisposable
         return optimizationScope;
     }
 
-    public Task<IDisposable> Compile(CompileCodeRequest request)
+    public Task<IOptimizationScope> Compile(CompileCodeRequest request)
     {
         throw new NotImplementedException();
     }
 
-    class OptimizationScope : IDisposable
+    class OptimizationScope : IOptimizationScope
     {
         private readonly Action<Guid> RemoveCache;
         public OptimizationScope(

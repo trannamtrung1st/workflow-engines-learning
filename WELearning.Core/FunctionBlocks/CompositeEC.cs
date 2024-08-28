@@ -10,6 +10,7 @@ using WELearning.Core.FunctionBlocks.Models.Runtime;
 using WELearning.DynamicCodeExecution.Models;
 using TNT.Boilerplates.Concurrency.Abstracts;
 using TNT.Boilerplates.Common.Disposable;
+using WELearning.DynamicCodeExecution.Abstracts;
 
 namespace WELearning.Core.FunctionBlocks;
 
@@ -226,7 +227,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         }
 
         optimizationScopeId ??= Guid.NewGuid();
-        var optimizationScopes = CurrentRunRequest.OptimizationScopes ?? new HashSet<IDisposable>();
+        var optimizationScopes = CurrentRunRequest.OptimizationScopes ?? new Dictionary<Guid, IOptimizationScope>();
         try
         {
             var inputDataConnections = Definition.DataConnections
@@ -289,7 +290,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                                 [BuiltInVariables.THIS] = value
                             }, optimizationScopeId, tokens);
                         value = result;
-                        optimizationScopes.Add(scope);
+                        optimizationScopes[scope.Id] = scope;
                     }
                 }
 
@@ -303,7 +304,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         finally
         {
             if (CurrentRunRequest.OptimizationScopes is null)
-                foreach (var optimizationScope in optimizationScopes)
+                foreach (var optimizationScope in optimizationScopes.Values)
                     optimizationScope.Dispose();
         }
 

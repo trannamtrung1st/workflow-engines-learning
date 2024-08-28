@@ -186,7 +186,7 @@ static class TestEngines
 
     public static async Task LoopJavascript(int n, IRuntimeEngine runtimeEngine, Func<RunTokens> tokensProvider)
     {
-        IDisposable scope = null;
+        IOptimizationScope scope = null;
         Guid optimizationScopeId = Guid.NewGuid();
         string contentId = Guid.NewGuid().ToString();
         try

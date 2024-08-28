@@ -137,20 +137,20 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         _engineCache.Dispose();
     }
 
-    public async Task<(TReturn Result, IDisposable OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request)
+    public async Task<(TReturn Result, IOptimizationScope OptimizationScope)> Execute<TReturn, TArg>(ExecuteCodeRequest<TArg> request)
     {
         var (result, scope) = await ExecuteCore(compileRequest: request, executeRequest: request);
         var castResult = Cast<TReturn>(result);
         return (castResult, scope);
     }
 
-    public async Task<IDisposable> Execute<TArg>(ExecuteCodeRequest<TArg> request)
+    public async Task<IOptimizationScope> Execute<TArg>(ExecuteCodeRequest<TArg> request)
     {
         var (_, scope) = await ExecuteCore(compileRequest: request, executeRequest: request);
         return scope;
     }
 
-    protected async Task<(JsValue Result, IDisposable Scope)> ExecuteCore<TArg>(CompileCodeRequest compileRequest, ExecuteCodeRequest<TArg> executeRequest)
+    protected async Task<(JsValue Result, IOptimizationScope Scope)> ExecuteCore<TArg>(CompileCodeRequest compileRequest, ExecuteCodeRequest<TArg> executeRequest)
     {
         var combinedAssemblies = ReflectionHelper.CombineAssemblies(compileRequest.Assemblies, compileRequest.Types)?.ToArray();
         var (engineWrap, optimizationScope) = PrepareEngine(compileRequest, combinedAssemblies);
@@ -455,7 +455,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         return (TReturn)value;
     }
 
-    public async Task<IDisposable> Compile(CompileCodeRequest request)
+    public async Task<IOptimizationScope> Compile(CompileCodeRequest request)
     {
         var (_, scope) = await ExecuteCore<object>(compileRequest: request, executeRequest: null);
         return scope;
@@ -633,7 +633,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         }
     }
 
-    class OptimizationScope : IDisposable
+    class OptimizationScope : IOptimizationScope
     {
         private readonly Action<Guid> ReleaseSlot;
         public OptimizationScope(
