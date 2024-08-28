@@ -540,7 +540,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                 SizeLimit = DefaultCacheSizeLimitInBytes
             };
             _moduleCache = new(cacheOption);
-            _lock = new(1);
+            _lock = new(1, 1);
             _nodesCount = new();
             MaxLoopCount = maxLoopCount;
             Engine = engine;

@@ -29,7 +29,7 @@ public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where
         _blockFrameworkFactory = blockFrameworkFactory;
         _valueMap = new();
         _idleWait = new(initialState: true);
-        _mutexLock = new(1);
+        _mutexLock = new(1, 1);
         Block = block;
         Definition = definition;
     }
