@@ -180,7 +180,6 @@ static void ConfigureLimiterManager(IConfiguration configuration, IServiceProvid
 {
     var taskLimiterConfig = configuration.GetSection("TaskLimiter");
     var taskLimiterOptions = taskLimiterConfig.Get<TaskLimiterOptions>();
-    var taskLimiterLogger = provider.GetRequiredService<ILogger<SyncAsyncTaskLimiter>>();
-    var taskLimiter = new SyncAsyncTaskLimiter(taskLimiterOptions, logger: taskLimiterLogger);
+    var taskLimiter = new SyncAsyncTaskLimiter(taskLimiterOptions);
     manager.AddLimiter(ConcurrencyConstants.LimiterNames.TaskLimiter, taskLimiter);
 }

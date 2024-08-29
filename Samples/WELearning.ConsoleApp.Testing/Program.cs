@@ -37,7 +37,6 @@ var serviceCollection = new ServiceCollection()
     .AddDefaultDistributedLockManager()
     .AddSingleton<ISyncAsyncTaskLimiter>(provider =>
     {
-        var logger = provider.GetRequiredService<ILogger<SyncAsyncTaskLimiter>>();
         var options = new TaskLimiterOptions
         {
             InitialLimit = minThreads,
@@ -46,7 +45,7 @@ var serviceCollection = new ServiceCollection()
             WaitTime = 4000,
             ServiceTime = 25
         };
-        return new SyncAsyncTaskLimiter(options, logger);
+        return new SyncAsyncTaskLimiter(options);
     })
     .AddSyncAsyncTaskRunner()
     .AddDefaultBlockRunner()
