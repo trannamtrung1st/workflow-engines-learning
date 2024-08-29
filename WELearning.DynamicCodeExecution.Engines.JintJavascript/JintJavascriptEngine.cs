@@ -32,7 +32,6 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     private const int DefaultMaxLoopCount = 10_000;
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
     private static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(5);
-    private static readonly TimeSpan ModuleSlidingExpiration = TimeSpan.FromSeconds(5);
     private readonly MemoryCache _preparedContentCache;
     private readonly MemoryCache _preprocessedContentCache;
     private readonly IOptions<JintOptions> _jintOptions;
@@ -106,7 +105,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             {
                 engine = CreateNewEngine();
                 scope = new OptimizationScope(engine, scopeId, ReleaseSlot: _engineCache.ReleaseSlot);
-                scope.Activate();
+                scope.Acquire();
                 _engineCache.SetSlot(scopeId, scope);
             }
             catch
@@ -120,7 +119,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         {
             if (!_engineCache.TryGetValue(scopeId, out scope))
                 CreateScope();
-            else if (!scope.Activate())
+            else if (!scope.Acquire())
                 CreateScope();
             engine = scope.Engine;
         });
@@ -246,7 +245,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         }
         finally
         {
-            optimizationScope?.Deactivate();
+            optimizationScope?.Release();
         }
     }
 
@@ -529,12 +528,12 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 
     class EngineWrap : IDisposable
     {
-        private readonly MemoryCache _moduleCache;
+        private readonly Dictionary<string, ObjectInstance> _moduleCache;
         private Dictionary<Acornima.Ast.Node, int> _nodesCount;
         private readonly SemaphoreSlim _lock;
         public EngineWrap(Engine engine, int maxLoopCount)
         {
-            _moduleCache = new(new MemoryCacheOptions());
+            _moduleCache = [];
             _lock = new(1, 1);
             _nodesCount = [];
             MaxLoopCount = maxLoopCount;
@@ -557,7 +556,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         public void Dispose()
         {
             _nodesCount = null;
-            _moduleCache?.Dispose();
+            _moduleCache.Clear();
             _lock.Dispose();
             Engine.Dispose();
         }
@@ -627,19 +626,20 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 
         public ObjectInstance GetModuleObject(Prepared<Acornima.Ast.Module> preparedModule, string moduleName, long cacheSize)
         {
-            return _moduleCache.GetOrCreate(moduleName, (entry) =>
+            if (!_moduleCache.TryGetValue(moduleName, out var module))
             {
                 Engine.Modules.Add(moduleName, b => b.AddModule(preparedModule));
-                var module = Engine.Modules.Import(moduleName);
-                return module;
-            });
+                module = Engine.Modules.Import(moduleName);
+                _moduleCache[moduleName] = module;
+            }
+            return module;
         }
     }
 
     class OptimizationScope : IOptimizationScope
     {
         private readonly Action<Guid> ReleaseSlot;
-        private int _activeCount = 0;
+        private int _acquiredCount = 0;
         private bool _disposed = false;
         public OptimizationScope(
             EngineWrap engine, Guid scopeId,
@@ -653,20 +653,20 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         public Guid Id { get; }
         public EngineWrap Engine { get; }
 
-        public bool Activate()
+        public bool Acquire()
         {
             lock (this)
             {
                 if (_disposed)
                     return false;
-                _activeCount++;
+                _acquiredCount++;
                 return true;
             }
         }
 
-        public void Deactivate()
+        public void Release()
         {
-            lock (this) { _activeCount--; }
+            lock (this) { _acquiredCount--; }
         }
 
         public void Dispose()
@@ -680,7 +680,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         {
             lock (this)
             {
-                if (_activeCount <= 0)
+                if (_acquiredCount <= 0)
                 {
                     Dispose();
                     return true;
