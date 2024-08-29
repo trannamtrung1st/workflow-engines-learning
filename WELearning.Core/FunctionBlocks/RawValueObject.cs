@@ -1,4 +1,4 @@
-using WELearning.Core.Constants;
+using WELearning.Core.Common.Extensions;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Models.Design;
 
@@ -17,7 +17,7 @@ public class RawValueObject : IValueObject, IDisposable
 
     public RawValueObject(Variable variable, object value) : this(variable)
     {
-        Value = value;
+        TrySetAndConvert(value);
     }
 
     public event EventHandler ValueSetEvent;
@@ -53,7 +53,7 @@ public class RawValueObject : IValueObject, IDisposable
     public virtual void TryCommit()
     {
         if (_tempValueSet)
-            Value = TempValue;
+            TrySetAndConvert(TempValue);
         else TrySetDefaultValue();
     }
 
@@ -77,25 +77,10 @@ public class RawValueObject : IValueObject, IDisposable
 
     public virtual bool IsRaw => true;
 
-    public virtual double AsDouble()
+    public virtual void TrySetAndConvert(object value)
     {
-        var value = Value?.ToString();
-        if (value == null) throw new ArgumentNullException();
-        return double.Parse(value);
-    }
-
-    public virtual int AsInt()
-    {
-        var value = Value?.ToString();
-        if (value == null) throw new ArgumentNullException();
-        return int.Parse(value);
-    }
-
-    public virtual bool AsBool()
-    {
-        var value = Value?.ToString();
-        if (value == null) throw new ArgumentNullException();
-        return bool.Parse(value);
+        try { Value = value.As(Variable.DataType); }
+        catch { Value = value; }
     }
 
     public override string ToString() => Value?.ToString();
@@ -104,21 +89,6 @@ public class RawValueObject : IValueObject, IDisposable
     {
         GC.SuppressFinalize(this);
         _valueSet.Dispose();
-    }
-
-    public virtual object As(EDataType dataType)
-    {
-        switch (dataType)
-        {
-            case EDataType.Bool: return AsBool();
-            case EDataType.Int: return AsInt();
-            case EDataType.DateTime: return (DateTime)Value;
-            case EDataType.Double: return AsDouble();
-            case EDataType.Numeric: return AsDouble();
-            case EDataType.Object: return Value;
-            case EDataType.String: return Value?.ToString();
-            default: throw new NotSupportedException($"Data type {dataType} is not supported for this value!");
-        }
     }
 
     public virtual IValueObject CloneFor(Variable variable) => new RawValueObject(variable, value: Value);
@@ -146,6 +116,6 @@ public class RawValueObject : IValueObject, IDisposable
     public virtual void TrySetDefaultValue()
     {
         if (!ValueSet && Variable.DefaultValue != null)
-            Value = Variable.DefaultValue;
+            TrySetAndConvert(Variable.DefaultValue);
     }
 }

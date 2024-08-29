@@ -77,7 +77,7 @@ public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where
     public virtual void SetValue(string name, EVariableType type, object value)
     {
         var valueObject = GetValueObject(name, type);
-        valueObject.Value = value;
+        valueObject.TrySetAndConvert(value);
     }
 
     public virtual Variable GetVariable(string key, EVariableType type)

@@ -1,3 +1,4 @@
+using WELearning.Core.Common.Extensions;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 using WELearning.Core.FunctionBlocks.Framework.Helpers;
@@ -25,8 +26,8 @@ public class ReadBinding : BlockBinding, IReadBinding
 
     public virtual object Value => _valueObject.Value;
     public virtual bool IsNumeric => _valueObject.IsNumeric;
-    public virtual double AsDouble() => _valueObject.AsDouble();
-    public virtual int AsInt() => _valueObject.AsInt();
+    public virtual double AsDouble() => _valueObject.Value.AsDouble().Value;
+    public virtual int AsInt() => _valueObject.Value.AsInt().Value;
 }
 
 public class WriteBinding : BlockBinding, IWriteBinding
@@ -68,5 +69,5 @@ public class InternalBinding : BlockBinding, IReadWriteBinding
     public virtual bool IsNumeric => _readBinding.IsNumeric;
     public virtual double AsDouble() => _readBinding.AsDouble();
     public virtual int AsInt() => _readBinding.AsInt();
-    public virtual void Write(object value) => _valueObject.Value = BindingHelper.GetValue(value);
+    public virtual void Write(object value) => _valueObject.TrySetAndConvert(value: BindingHelper.GetValue(value));
 }

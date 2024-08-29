@@ -1,4 +1,3 @@
-using WELearning.Core.Constants;
 using WELearning.Core.FunctionBlocks.Models.Design;
 
 namespace WELearning.Core.FunctionBlocks.Abstracts;
@@ -16,10 +15,7 @@ public interface IValueObject
     bool IsNumeric { get; }
     bool IsRaw { get; }
     object GetProperty(string name);
-    double AsDouble();
-    int AsInt();
-    bool AsBool();
-    object As(EDataType dataType);
+    void TrySetAndConvert(object value);
     void TryCommit();
     void WaitValueSet(CancellationToken cancellationToken);
     bool RegisterTempValueSet(Func<Task> callback);
