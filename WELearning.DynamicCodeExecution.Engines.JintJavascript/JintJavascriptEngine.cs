@@ -458,7 +458,17 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         {
             case Jint.Runtime.Types.Boolean: value = jsValue.AsBoolean(); break;
             case Jint.Runtime.Types.Number: value = jsValue.AsNumber(); break;
-            case Jint.Runtime.Types.Object: value = jsValue.ToObject(); break;
+            case Jint.Runtime.Types.Object:
+                {
+                    if (jsValue.IsDate())
+                    {
+                        var dValue = jsValue.AsDate();
+                        value = double.IsNaN(dValue.DateValue) ? dValue.DateValue : dValue.ToDateTime();
+                    }
+                    else
+                        value = jsValue.ToObject();
+                    break;
+                }
             case Jint.Runtime.Types.String: value = jsValue.AsString(); break;
             case Jint.Runtime.Types.Empty:
             case Jint.Runtime.Types.Undefined:

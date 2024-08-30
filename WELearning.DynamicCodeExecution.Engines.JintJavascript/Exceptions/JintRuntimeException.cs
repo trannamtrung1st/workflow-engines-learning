@@ -17,6 +17,8 @@ public class JintRuntimeException : RuntimeException
         var error = jsException.Error;
         var stack = error.Get("stack").AsString();
         var description = error.Get("message").AsString();
+        if (string.IsNullOrEmpty(description))
+            description = error.ToString();
         SetUserExceptionDetails(
             underlyingException: jsException,
             source: SourceUser,
