@@ -5,8 +5,11 @@ namespace WELearning.Core.FunctionBlocks.Models.Design;
 
 public class Variable
 {
-    public Variable(string name, EDataType dataType, EVariableType variableType, string objectType = null, object defaultValue = null)
+    public Variable(string id,
+        string name, EDataType dataType, EVariableType variableType,
+        string objectType = null, object defaultValue = null)
     {
+        Id = id;
         Name = name;
         DataType = dataType;
         VariableType = variableType;
@@ -14,6 +17,14 @@ public class Variable
         DefaultValue = defaultValue;
     }
 
+    public Variable(
+        string name, EDataType dataType, EVariableType variableType,
+        string objectType = null, object defaultValue = null)
+        : this(id: name, name, dataType, variableType, objectType, defaultValue)
+    {
+    }
+
+    public string Id { get; set; }
     public string Name { get; set; }
     public EDataType DataType { get; set; }
     public EVariableType VariableType { get; set; }
