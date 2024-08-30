@@ -304,6 +304,11 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             foreach (var kvp in argumentsObj.GetArguments())
                 engine.SetValue(kvp.Key, kvp.Value);
         }
+        else if (arguments is IEnumerable<KeyValuePair<string, object>> dict)
+        {
+            foreach (var kvp in dict)
+                engine.SetValue(kvp.Key, kvp.Value);
+        }
         else
         {
             var properties = arguments.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public);
