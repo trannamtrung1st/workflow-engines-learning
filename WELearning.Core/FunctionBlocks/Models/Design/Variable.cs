@@ -5,6 +5,8 @@ namespace WELearning.Core.FunctionBlocks.Models.Design;
 
 public class Variable
 {
+    public Variable() { }
+
     public Variable(string id,
         string name, EDataType dataType, EVariableType variableType,
         string objectType = null, object defaultValue = null)
