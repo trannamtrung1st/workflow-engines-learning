@@ -30,7 +30,7 @@ public interface IExecutionControl : IDisposable
     IValueObject GetValueObject(string name, EVariableType type);
     void SetReference(string name, EVariableType type, IValueObject reference);
     void SetValue(string name, EVariableType type, object value);
-    Task Execute(RunBlockRequest request, Guid? optimizationScopeId);
+    Task Execute(RunBlockRequest request, string optimizationScopeId);
     void WaitForIdle(CancellationToken cancellationToken);
     bool RegisterTempIdleCallback(Func<Task> callback);
     Task MutexAccess(Func<Task> task, CancellationToken cancellationToken);

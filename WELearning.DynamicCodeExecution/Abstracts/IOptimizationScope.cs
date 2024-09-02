@@ -2,6 +2,6 @@ namespace WELearning.DynamicCodeExecution.Abstracts;
 
 public interface IOptimizationScope : IDisposable
 {
-    Guid Id { get; }
+    string Id { get; }
     bool TryDispose();
 }

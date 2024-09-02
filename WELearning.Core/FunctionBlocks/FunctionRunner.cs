@@ -26,7 +26,7 @@ public class FunctionRunner : IFunctionRunner
     public async Task<(TReturn Result, IOptimizationScope OptimizationScope)> Run<TReturn, TFunctionFramework>(
         Function function, CodeExecutionTracker tracker, BlockGlobalObject<TFunctionFramework> globalObject,
         IDictionary<string, object> inputs, IDictionary<string, object> outputs,
-        IEnumerable<ImportModule> modules, Guid? optimizationScopeId, RunTokens tokens)
+        IEnumerable<ImportModule> modules, string optimizationScopeId, RunTokens tokens)
         where TFunctionFramework : IFunctionFramework
     {
         var (engine, assemblies, types) = PrepareInputs(function);
@@ -51,7 +51,7 @@ public class FunctionRunner : IFunctionRunner
     public async Task<IOptimizationScope> Run<TFunctionFramework>(
         Function function, CodeExecutionTracker tracker, IBlockFramework blockFramework, BlockGlobalObject<TFunctionFramework> globalObject,
         IDictionary<string, object> inputs, IDictionary<string, object> outputs,
-        IEnumerable<ImportModule> modules, Guid? optimizationScopeId, RunTokens tokens)
+        IEnumerable<ImportModule> modules, string optimizationScopeId, RunTokens tokens)
         where TFunctionFramework : IFunctionFramework
     {
         var (engine, assemblies, types) = PrepareInputs(function);
@@ -76,7 +76,7 @@ public class FunctionRunner : IFunctionRunner
     }
 
     public async Task<(TReturn Result, IOptimizationScope OptimizationScope)> Evaluate<TReturn, TArg>(
-        Function function, CodeExecutionTracker tracker, TArg arguments, Guid? optimizationScopeId, RunTokens tokens)
+        Function function, CodeExecutionTracker tracker, TArg arguments, string optimizationScopeId, RunTokens tokens)
     {
         var (engine, assemblies, types) = PrepareInputs(function);
         var result = await engine.Execute<TReturn, TArg>(
@@ -106,7 +106,7 @@ public class FunctionRunner : IFunctionRunner
         return (engine, assemblies, types);
     }
 
-    public async Task<IOptimizationScope> Compile(Function function, IEnumerable<string> inputs, IEnumerable<string> outputs, IEnumerable<ImportModule> modules, Guid? optimizationScopeId, RunTokens tokens)
+    public async Task<IOptimizationScope> Compile(Function function, IEnumerable<string> inputs, IEnumerable<string> outputs, IEnumerable<ImportModule> modules, string optimizationScopeId, RunTokens tokens)
     {
         var (engine, assemblies, types) = PrepareInputs(function);
         var scope = await engine.Compile(

@@ -97,7 +97,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             return (CreateNewEngine(), null);
 
         EngineWrap engine = null; OptimizationScope scope = null;
-        var scopeId = request.OptimizationScopeId.Value;
+        var scopeId = request.OptimizationScopeId;
         void CreateScope()
         {
             _engineCache.RequestSlot(request.Tokens.Combined);
@@ -488,7 +488,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     {
         private const long DefaultMaxEngineCacheCount = 3_000;
         private readonly ManualResetEventSlim _engineCacheWait;
-        private readonly ConcurrentDictionary<Guid, OptimizationScope> _scopeCache;
+        private readonly ConcurrentDictionary<string, OptimizationScope> _scopeCache;
         private int _slotCount;
 
         public EngineCache()
@@ -517,7 +517,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             }
         }
 
-        public void ReleaseSlot(Guid id)
+        public void ReleaseSlot(string id)
         {
             if (_scopeCache.Remove(id, out _))
             {
@@ -529,9 +529,9 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             }
         }
 
-        public void SetSlot(Guid id, OptimizationScope scope) => _scopeCache[id] = scope;
+        public void SetSlot(string id, OptimizationScope scope) => _scopeCache[id] = scope;
 
-        public bool TryGetValue(Guid id, out OptimizationScope scope) => _scopeCache.TryGetValue(id, out scope);
+        public bool TryGetValue(string id, out OptimizationScope scope) => _scopeCache.TryGetValue(id, out scope);
 
         public void Dispose()
         {
@@ -653,19 +653,19 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
 
     class OptimizationScope : IOptimizationScope
     {
-        private readonly Action<Guid> ReleaseSlot;
+        private readonly Action<string> ReleaseSlot;
         private int _acquiredCount = 0;
         private bool _disposed = false;
         public OptimizationScope(
-            EngineWrap engine, Guid scopeId,
-            Action<Guid> ReleaseSlot)
+            EngineWrap engine, string scopeId,
+            Action<string> ReleaseSlot)
         {
             Engine = engine;
             Id = scopeId;
             this.ReleaseSlot = ReleaseSlot;
         }
 
-        public Guid Id { get; }
+        public string Id { get; }
         public EngineWrap Engine { get; }
 
         public bool Acquire()

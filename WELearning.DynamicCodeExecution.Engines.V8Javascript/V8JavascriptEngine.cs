@@ -24,7 +24,7 @@ public class V8JavascriptEngine : IRuntimeEngine, IDisposable
     private static readonly TimeSpan DefaultSlidingExpiration = TimeSpan.FromMinutes(30);
     private readonly MemoryCache _scriptCache;
     private readonly ManualResetEventSlim _engineCacheWait;
-    private readonly ConcurrentDictionary<Guid, OptimizationScope> _engineCache;
+    private readonly ConcurrentDictionary<string, OptimizationScope> _engineCache;
     private readonly IOptions<V8Options> _v8Options;
     public V8JavascriptEngine(IOptions<V8Options> v8Options)
     {
@@ -99,7 +99,7 @@ public class V8JavascriptEngine : IRuntimeEngine, IDisposable
         return (moduleName, contentSizeInBytes);
     }
 
-    private (V8ScriptEngine Engine, OptimizationScope Scope) PrepareV8Engine(Type[] types, Guid? optimizationScopeId, CancellationToken cancellationToken)
+    private (V8ScriptEngine Engine, OptimizationScope Scope) PrepareV8Engine(Type[] types, string optimizationScopeId, CancellationToken cancellationToken)
     {
         V8ScriptEngine CreateNewEngine()
         {
@@ -120,10 +120,10 @@ public class V8JavascriptEngine : IRuntimeEngine, IDisposable
         lock (_engineCache)
         {
             V8ScriptEngine engine;
-            if (!_engineCache.TryGetValue(optimizationScopeId.Value, out var scope))
+            if (!_engineCache.TryGetValue(optimizationScopeId, out var scope))
             {
                 engine = CreateNewEngine();
-                scope = new OptimizationScope(engine, optimizationScopeId.Value, RemoveCache: (scopeId) =>
+                scope = new OptimizationScope(engine, optimizationScopeId, RemoveCache: (scopeId) =>
                 {
                     if (_engineCache.Remove(scopeId, out _))
                     {
@@ -134,7 +134,7 @@ public class V8JavascriptEngine : IRuntimeEngine, IDisposable
                         }
                     }
                 });
-                _engineCache[optimizationScopeId.Value] = scope;
+                _engineCache[optimizationScopeId] = scope;
                 if (_engineCache.Count >= DefaultMaxEngineCacheCount) _engineCacheWait.Reset();
             }
             else
@@ -193,10 +193,10 @@ public class V8JavascriptEngine : IRuntimeEngine, IDisposable
 
     class OptimizationScope : IOptimizationScope
     {
-        private readonly Action<Guid> RemoveCache;
+        private readonly Action<string> RemoveCache;
         public OptimizationScope(
-            V8ScriptEngine engine, Guid scopeId,
-            Action<Guid> RemoveCache)
+            V8ScriptEngine engine, string scopeId,
+            Action<string> RemoveCache)
         {
             Engine = engine;
             Id = scopeId;
@@ -204,7 +204,7 @@ public class V8JavascriptEngine : IRuntimeEngine, IDisposable
             ModuleLoaded = new HashSet<string>();
         }
 
-        public Guid Id { get; }
+        public string Id { get; }
         public V8ScriptEngine Engine { get; }
         public HashSet<string> ModuleLoaded { get; }
 

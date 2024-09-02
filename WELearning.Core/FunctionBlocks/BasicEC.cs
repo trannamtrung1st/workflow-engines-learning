@@ -56,10 +56,10 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
         return null;
     }
 
-    public override async Task Execute(RunBlockRequest request, Guid? optimizationScopeId)
+    public override async Task Execute(RunBlockRequest request, string optimizationScopeId)
     {
         EnterOrThrow();
-        var optimizationScopes = request.OptimizationScopes ?? new Dictionary<Guid, IOptimizationScope>();
+        var optimizationScopes = request.OptimizationScopes ?? new Dictionary<string, IOptimizationScope>();
         try
         {
             IEnumerable<string> outputEvents = Array.Empty<string>();
@@ -71,7 +71,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
                 var triggerEvent = GetTriggerOrDefault(request.TriggerEvent);
                 outputEvents = await TriggerStateMachine(
                     triggerEvent, reservedInputs: request.ReservedInputs,
-                    optimizationScopes, optimizationScopeId ?? Guid.NewGuid());
+                    optimizationScopes, optimizationScopeId);
             }
 
             var finalState = CurrentState;
@@ -94,8 +94,9 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
 
     protected virtual async Task<IEnumerable<string>> TriggerStateMachine(
         string triggerEvent, IReadOnlyDictionary<string, object> reservedInputs,
-        IDictionary<Guid, IOptimizationScope> optimizationScopes, Guid optimizationScopeId)
+        IDictionary<string, IOptimizationScope> optimizationScopes, string optimizationScopeId)
     {
+        optimizationScopeId ??= Guid.NewGuid().ToString();
         var outputEvents = new HashSet<string>();
         var blockFramework = _blockFrameworkFactory.Create(this);
         var publisher = blockFramework.CreateEventPublisher(outputEvents);

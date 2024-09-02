@@ -9,7 +9,7 @@ public class RunBlockRequest
     public RunBlockRequest(
         Guid runId, IEnumerable<VariableBinding> bindings, RunTokens tokens, string triggerEvent = null,
         IReadOnlyDictionary<string, object> reservedInputs = null,
-        IDictionary<Guid, IOptimizationScope> optimizationScopes = null)
+        IDictionary<string, IOptimizationScope> optimizationScopes = null)
     {
         RunId = runId;
         Bindings = bindings;
@@ -23,7 +23,7 @@ public class RunBlockRequest
     public RunBlockRequest(
         IEnumerable<VariableBinding> bindings, RunTokens tokens, string triggerEvent = null,
         IReadOnlyDictionary<string, object> reservedInputs = null,
-        IDictionary<Guid, IOptimizationScope> optimizationScopes = null)
+        IDictionary<string, IOptimizationScope> optimizationScopes = null)
         : this(runId: Guid.NewGuid(), bindings, tokens, triggerEvent, reservedInputs, optimizationScopes)
     {
     }
@@ -34,5 +34,5 @@ public class RunBlockRequest
     public string TriggerEvent { get; }
     public RunTokens Tokens { get; }
     public CodeExecutionTracker Tracker { get; }
-    public IDictionary<Guid, IOptimizationScope> OptimizationScopes { get; }
+    public IDictionary<string, IOptimizationScope> OptimizationScopes { get; }
 }

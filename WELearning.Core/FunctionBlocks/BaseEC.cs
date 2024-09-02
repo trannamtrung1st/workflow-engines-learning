@@ -210,7 +210,7 @@ public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where
         _idleWait.Dispose();
     }
 
-    public abstract Task Execute(RunBlockRequest request, Guid? optimizationScopeId);
+    public abstract Task Execute(RunBlockRequest request, string optimizationScopeId);
     protected abstract void RefreshOutputs();
 
     public virtual void LogFailure(Exception ex, ILogger logger = null)

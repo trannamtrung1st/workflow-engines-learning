@@ -13,13 +13,13 @@ public class BlockRunner : IBlockRunner
         _functionRunner = functionRunner;
     }
 
-    public async Task Compile(CompileBlockRequest request, Guid? optimizationScopeId)
+    public async Task Compile(CompileBlockRequest request, string optimizationScopeId)
     {
         var bDef = request.BlockDefinition;
         if (bDef.Functions?.Any() != true)
             return;
         var (inputs, outputs) = bDef.GetVariableNames();
-        var optimizationScopes = request.OptimizationScopes ?? new Dictionary<Guid, IOptimizationScope>();
+        var optimizationScopes = request.OptimizationScopes ?? new Dictionary<string, IOptimizationScope>();
 
         try
         {
@@ -38,7 +38,7 @@ public class BlockRunner : IBlockRunner
         }
     }
 
-    public async Task Run(RunBlockRequest request, IExecutionControl control, Guid? optimizationScopeId)
+    public async Task Run(RunBlockRequest request, IExecutionControl control, string optimizationScopeId)
     {
         bool started = false;
         while (!started)

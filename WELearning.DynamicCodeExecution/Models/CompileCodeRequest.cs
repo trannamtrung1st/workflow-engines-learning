@@ -9,7 +9,7 @@ public class CompileCodeRequest
         string content, string contentId, RunTokens tokens,
         IEnumerable<string> imports = null, IEnumerable<Assembly> assemblies = null, IEnumerable<Type> types = null, Type[] extensions = null,
         bool? async = null, IEnumerable<string> inputs = null, IEnumerable<string> outputs = null,
-        Guid? optimizationScopeId = default, bool useRawContent = false, bool isScriptOnly = false,
+        string optimizationScopeId = default, bool useRawContent = false, bool isScriptOnly = false,
         IEnumerable<ImportModule> modules = null)
     {
         Content = content;
@@ -36,7 +36,7 @@ public class CompileCodeRequest
     public IEnumerable<Assembly> Assemblies { get; }
     public IEnumerable<Type> Types { get; }
     public Type[] Extensions { get; }
-    public Guid? OptimizationScopeId { get; }
+    public string OptimizationScopeId { get; }
     public RunTokens Tokens { get; }
     public bool UseRawContent { get; }
     public bool IsScriptOnly { get; }

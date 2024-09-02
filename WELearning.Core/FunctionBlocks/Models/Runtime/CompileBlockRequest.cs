@@ -6,4 +6,4 @@ namespace WELearning.Core.FunctionBlocks.Models.Runtime;
 
 public record CompileBlockRequest(
     BasicBlockDef BlockDefinition, RunTokens Tokens,
-    IDictionary<Guid, IOptimizationScope> OptimizationScopes = null);
+    IDictionary<string, IOptimizationScope> OptimizationScopes = null);

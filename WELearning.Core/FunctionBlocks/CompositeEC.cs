@@ -56,7 +56,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         _tasks = new();
     }
 
-    public override async Task Execute(RunBlockRequest request, Guid? optimizationScopeId)
+    public override async Task Execute(RunBlockRequest request, string optimizationScopeId)
     {
         EnterOrThrow();
         try
@@ -135,7 +135,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         base.PrepareFailedStatus(ex, from);
     }
 
-    protected virtual async Task TriggerBlocks(IEnumerable<BlockTrigger> blockTriggers, Guid? optimizationScopeId, IDisposable taskScope, RunTokens tokens)
+    protected virtual async Task TriggerBlocks(IEnumerable<BlockTrigger> blockTriggers, string optimizationScopeId, IDisposable taskScope, RunTokens tokens)
     {
         using var _ = taskScope;
         foreach (var trigger in blockTriggers)
@@ -161,7 +161,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                             triggerEvent: triggerEvent,
                             reservedInputs: reservedInputs,
                             optimizationScopes: CurrentRunRequest.OptimizationScopes);
-                        await _blockRunner.Run(runRequest, execControl, optimizationScopeId);
+                        await RunBlock(runRequest, execControl, optimizationScopeId);
                         var nextBlockTriggers = Definition.FindNextBlocks(block.Id, outputEvents: execControl.Result.OutputEvents);
                         EnqueueTask((taskScope) => TriggerBlocks(nextBlockTriggers, optimizationScopeId, taskScope, tokens));
                     }
@@ -182,7 +182,10 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         }
     }
 
-    protected virtual async Task<IEnumerable<VariableBinding>> PrepareBindings(string triggerEvent, BlockInstance block, Func<Task> onDelayed, IReadOnlyDictionary<string, object> reservedInputs, RunTokens tokens, Guid? optimizationScopeId)
+    protected virtual async Task RunBlock(RunBlockRequest runRequest, IExecutionControl execControl, string optimizationScopeId)
+        => await _blockRunner.Run(runRequest, execControl, $"{optimizationScopeId}_{execControl.Block.Id}");
+
+    protected virtual async Task<IEnumerable<VariableBinding>> PrepareBindings(string triggerEvent, BlockInstance block, Func<Task> onDelayed, IReadOnlyDictionary<string, object> reservedInputs, RunTokens tokens, string optimizationScopeId)
     {
         // [OPT] force set snapshot value before each BFB run to prevent concurrent modification of underlying reference object while BFB running
         var bindings = new List<VariableBinding>();
@@ -228,8 +231,8 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
             }
         }
 
-        optimizationScopeId ??= Guid.NewGuid();
-        var optimizationScopes = CurrentRunRequest.OptimizationScopes ?? new Dictionary<Guid, IOptimizationScope>();
+        optimizationScopeId ??= Guid.NewGuid().ToString();
+        var optimizationScopes = CurrentRunRequest.OptimizationScopes ?? new Dictionary<string, IOptimizationScope>();
         try
         {
             var inputDataConnections = Definition.DataConnections

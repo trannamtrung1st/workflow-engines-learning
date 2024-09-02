@@ -8,7 +8,7 @@ public class ExecuteCodeRequest : CompileCodeRequest
         string content, string contentId, RunTokens tokens,
         IEnumerable<string> imports = null, IEnumerable<Assembly> assemblies = null, IEnumerable<Type> types = null, Type[] extensions = null,
         bool? async = null, IDictionary<string, object> inputs = null, IDictionary<string, object> outputs = null,
-        Guid? optimizationScopeId = default, bool useRawContent = false, bool isScriptOnly = false,
+        string optimizationScopeId = default, bool useRawContent = false, bool isScriptOnly = false,
         IEnumerable<ImportModule> modules = null, CodeExecutionTracker tracker = null)
         : base(content, contentId, tokens, imports, assemblies, types, extensions, async, inputs?.Keys, outputs?.Keys, optimizationScopeId, useRawContent, isScriptOnly, modules)
     {
@@ -28,7 +28,7 @@ public class ExecuteCodeRequest<TArg> : ExecuteCodeRequest
         string content, string contentId, TArg arguments, RunTokens tokens,
         IEnumerable<string> imports = null, IEnumerable<Assembly> assemblies = null, IEnumerable<Type> types = null, Type[] extensions = null,
         bool? async = null, IDictionary<string, object> inputs = null, IDictionary<string, object> outputs = null,
-        Guid? optimizationScopeId = default, bool useRawContent = false, bool isScriptOnly = false,
+        string optimizationScopeId = default, bool useRawContent = false, bool isScriptOnly = false,
         IEnumerable<ImportModule> modules = null, CodeExecutionTracker tracker = null)
         : base(content, contentId, tokens, imports, assemblies, types, extensions, async, inputs, outputs, optimizationScopeId, useRawContent, isScriptOnly, modules, tracker)
     {
