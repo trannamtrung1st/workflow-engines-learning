@@ -137,6 +137,9 @@ public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where
             PrepareFailedStatus(ex, from);
             PublishFailed(ex);
         }
+
+        if (!CurrentRunRequest.Tokens.ExceptionCts.IsCancellationRequested)
+            CurrentRunRequest.Tokens.ExceptionCts.Cancel();
     }
 
     protected virtual void HandleCompleted(bool force = false)
