@@ -446,8 +446,9 @@ static class TestFunctionBlocks
         bindings.Add(new(variableName: "Add1X", value: 5, type: EBindingType.Input));
         bindings.Add(new(variableName: "Add1Y", value: 10, type: EBindingType.Input));
         using var execControl = CreateControl();
+        var optimizationScopeId = Guid.NewGuid().ToString();
         var runRequest = new RunBlockRequest(bindings, runTokens);
-        await blockRunner.Run(runRequest, execControl, optimizationScopeId: default);
+        await blockRunner.Run(runRequest, execControl, optimizationScopeId);
 
         var finalResult = execControl.GetOutput("Result");
         return (double)finalResult.Value;
