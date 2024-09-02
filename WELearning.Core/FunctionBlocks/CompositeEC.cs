@@ -161,7 +161,8 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                             triggerEvent: triggerEvent,
                             reservedInputs: reservedInputs,
                             optimizationScopes: CurrentRunRequest.OptimizationScopes);
-                        await RunBlock(runRequest, execControl, optimizationScopeId);
+                        var controlScopeId = GetControlScopeId(optimizationScopeId, execControl);
+                        await RunBlock(runRequest, execControl, optimizationScopeId: controlScopeId);
                         var nextBlockTriggers = Definition.FindNextBlocks(block.Id, outputEvents: execControl.Result.OutputEvents);
                         EnqueueTask((taskScope) => TriggerBlocks(nextBlockTriggers, optimizationScopeId, taskScope, tokens));
                     }
@@ -182,8 +183,11 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         }
     }
 
+    protected virtual string GetControlScopeId(string optimizationScopeId, IExecutionControl execControl)
+        => $"{optimizationScopeId}_{execControl.Block.Id}";
+
     protected virtual async Task RunBlock(RunBlockRequest runRequest, IExecutionControl execControl, string optimizationScopeId)
-        => await _blockRunner.Run(runRequest, execControl, $"{optimizationScopeId}_{execControl.Block.Id}");
+        => await _blockRunner.Run(runRequest, execControl, optimizationScopeId);
 
     protected virtual async Task<IEnumerable<VariableBinding>> PrepareBindings(string triggerEvent, BlockInstance block, Func<Task> onDelayed, IReadOnlyDictionary<string, object> reservedInputs, RunTokens tokens, string optimizationScopeId)
     {
