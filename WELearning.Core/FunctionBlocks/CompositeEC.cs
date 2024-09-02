@@ -11,6 +11,7 @@ using WELearning.DynamicCodeExecution.Models;
 using TNT.Boilerplates.Concurrency.Abstracts;
 using TNT.Boilerplates.Common.Disposable;
 using WELearning.DynamicCodeExecution.Abstracts;
+using WELearning.Core.Common.Extensions;
 
 namespace WELearning.Core.FunctionBlocks;
 
@@ -281,6 +282,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                             : sourceValue.Value;
                     else
                         value = bindingVariable.DefaultValue;
+                    value.As(bindingVariable.DataType, out value);
 
                     if (connection.Preprocessing != null)
                     {

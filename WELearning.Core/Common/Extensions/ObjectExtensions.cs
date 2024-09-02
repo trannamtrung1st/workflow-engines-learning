@@ -32,7 +32,12 @@ public static class ObjectExtensions
         var value = raw?.ToString();
         if (value is null)
             return null;
-        return bool.Parse(value);
+        return value switch
+        {
+            "1" => true,
+            "0" => false,
+            _ => (bool?)bool.Parse(value),
+        };
     }
 
     public static DateTime? AsDateTime(this object raw)
@@ -43,6 +48,17 @@ public static class ObjectExtensions
         if (value is null)
             return null;
         return DateTime.Parse(value, provider: CultureInfo.InvariantCulture);
+    }
+
+    public static bool As(this object raw, EDataType dataType, out object result)
+    {
+        result = raw;
+        try
+        {
+            result = raw.As(dataType);
+            return true;
+        }
+        catch { return false; }
     }
 
     public static object As(this object raw, EDataType dataType)
