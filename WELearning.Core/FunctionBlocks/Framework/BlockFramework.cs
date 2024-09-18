@@ -36,21 +36,31 @@ public class BlockFramework : IBlockFramework
 
     public virtual void HandleDynamicResult(dynamic result)
     {
-        if (result is not ExpandoObject expObj) return;
+        if (result is not ExpandoObject expObj)
+            return;
         foreach (var kvp in expObj)
+            HandleResultKvp(kvp.Key, kvp.Value);
+    }
+
+    protected virtual void HandleResultKvp(string key, object value)
+    {
+        var variable = Control.GetVariable(key, Constants.EVariableType.Output)
+            ?? Control.GetVariable(key, Constants.EVariableType.InOut)
+            ?? Control.GetVariable(key, Constants.EVariableType.Internal);
+        IWriteBinding writeBinding = null;
+        switch (variable.VariableType)
         {
-            var variable = Control.GetVariable(kvp.Key, Constants.EVariableType.Output)
-                ?? Control.GetVariable(kvp.Key, Constants.EVariableType.InOut)
-                ?? Control.GetVariable(kvp.Key, Constants.EVariableType.Internal);
-            IWriteBinding writeBinding = null;
-            switch (variable.VariableType)
-            {
-                case EVariableType.Output: writeBinding = Out(kvp.Key); break;
-                case EVariableType.InOut: writeBinding = InOut(kvp.Key); break;
-                case EVariableType.Internal: writeBinding = Internal(kvp.Key); break;
-            }
-            writeBinding?.Write(kvp.Value);
+            case EVariableType.Output:
+                writeBinding = Out(key);
+                break;
+            case EVariableType.InOut:
+                writeBinding = InOut(key);
+                break;
+            case EVariableType.Internal:
+                writeBinding = Internal(key);
+                break;
         }
+        writeBinding?.Write(value);
     }
 
     protected virtual IReadBinding In(string name) => new ReadBinding(name, valueObject: Control.GetInput(name));
