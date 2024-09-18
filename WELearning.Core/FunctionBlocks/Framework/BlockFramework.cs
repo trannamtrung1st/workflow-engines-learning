@@ -2,6 +2,7 @@ using System.Dynamic;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
+using WELearning.Core.FunctionBlocks.Models.Design;
 
 namespace WELearning.Core.FunctionBlocks.Framework;
 
@@ -44,9 +45,7 @@ public class BlockFramework : IBlockFramework
 
     protected virtual void HandleResultKvp(string key, object value)
     {
-        var variable = Control.GetVariable(key, Constants.EVariableType.Output)
-            ?? Control.GetVariable(key, Constants.EVariableType.InOut)
-            ?? Control.GetVariable(key, Constants.EVariableType.Internal);
+        var variable = TryGetVariable(key);
         IWriteBinding writeBinding = null;
         switch (variable.VariableType)
         {
@@ -61,6 +60,14 @@ public class BlockFramework : IBlockFramework
                 break;
         }
         writeBinding?.Write(value);
+    }
+
+    protected virtual Variable TryGetVariable(string key)
+    {
+        var variable = Control.GetVariable(key, Constants.EVariableType.Output)
+            ?? Control.GetVariable(key, Constants.EVariableType.InOut)
+            ?? Control.GetVariable(key, Constants.EVariableType.Internal);
+        return variable;
     }
 
     protected virtual IReadBinding In(string name) => new ReadBinding(name, valueObject: Control.GetInput(name));
