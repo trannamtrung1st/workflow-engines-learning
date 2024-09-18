@@ -35,15 +35,15 @@ public class BlockFramework : IBlockFramework
         return GetBindingFor(valueObject);
     }
 
-    public virtual void HandleDynamicResult(dynamic result)
+    public virtual void HandleDynamicResult(dynamic result, Function function)
     {
         if (result is not ExpandoObject expObj)
             return;
         foreach (var kvp in expObj)
-            HandleResultKvp(kvp.Key, kvp.Value);
+            HandleResultKvp(kvp.Key, kvp.Value, function);
     }
 
-    protected virtual void HandleResultKvp(string key, object value)
+    protected virtual void HandleResultKvp(string key, object value, Function function)
     {
         var variable = TryGetWritableVariable(key);
         IWriteBinding writeBinding = null;

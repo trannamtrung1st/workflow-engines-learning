@@ -71,7 +71,7 @@ public class FunctionRunner : IFunctionRunner
                 tracker: tracker
             )
         );
-        blockFramework.HandleDynamicResult(result);
+        blockFramework.HandleDynamicResult(result, function);
         return scope;
     }
 
