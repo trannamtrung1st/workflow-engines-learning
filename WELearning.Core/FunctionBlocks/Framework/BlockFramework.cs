@@ -45,7 +45,7 @@ public class BlockFramework : IBlockFramework
 
     protected virtual void HandleResultKvp(string key, object value)
     {
-        var variable = TryGetVariable(key);
+        var variable = TryGetWritableVariable(key);
         IWriteBinding writeBinding = null;
         switch (variable.VariableType)
         {
@@ -62,7 +62,7 @@ public class BlockFramework : IBlockFramework
         writeBinding?.Write(value);
     }
 
-    protected virtual Variable TryGetVariable(string key)
+    protected virtual Variable TryGetWritableVariable(string key)
     {
         var variable = Control.GetVariable(key, Constants.EVariableType.Output)
             ?? Control.GetVariable(key, Constants.EVariableType.InOut)
