@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.FunctionBlocks.Exceptions;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 
@@ -13,8 +14,11 @@ public class FunctionFramework : IFunctionFramework
     }
 
     private readonly ILogger _logger;
-    public FunctionFramework(ILogger logger)
+    protected readonly IBlockFramework blockFramework;
+
+    public FunctionFramework(IBlockFramework blockFramework, ILogger logger)
     {
+        this.blockFramework = blockFramework;
         _logger = logger;
     }
 
@@ -31,4 +35,14 @@ public class FunctionFramework : IFunctionFramework
 
     private IFrameworkConsole _console;
     public virtual IFrameworkConsole GetFrameworkConsole() => _console ??= new FrameworkConsole(_logger);
+
+    public IReadBinding In(string name) => (IReadBinding)blockFramework.GetBindingFor(name, EVariableType.Input);
+
+    public IWriteBinding Out(string name) => (IWriteBinding)blockFramework.GetBindingFor(name, EVariableType.Output);
+
+    public IReadWriteBinding InOut(string name) => (IReadWriteBinding)blockFramework.GetBindingFor(name, EVariableType.InOut);
+
+    public IReadWriteBinding Internal(string name) => (IReadWriteBinding)blockFramework.GetBindingFor(name, EVariableType.Internal);
+
+    public T Get<T>(string name, EVariableType variableType) => (T)blockFramework.GetBindingFor(name, variableType);
 }

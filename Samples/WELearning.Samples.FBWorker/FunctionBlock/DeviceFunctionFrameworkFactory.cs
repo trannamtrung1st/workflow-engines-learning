@@ -1,4 +1,3 @@
-using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 
 namespace WELearning.Samples.FBWorker.FunctionBlock;
@@ -11,5 +10,5 @@ public class DeviceFunctionFrameworkFactory : IFunctionFrameworkFactory<DeviceFu
         _logger = logger;
     }
 
-    public DeviceFunctionFramework Create(IExecutionControl control) => new(control, _logger);
+    public DeviceFunctionFramework Create(IBlockFramework blockFramework) => new(blockFramework, _logger);
 }

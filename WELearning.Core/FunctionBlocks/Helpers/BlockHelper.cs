@@ -74,7 +74,7 @@ public static class BlockHelper
             name: "Run",
             content: string.Join(
                 separator: Environment.NewLine,
-                values: passThroughVars.Select(p => @$"OUT[""{p.Out.Name}""].Write({p.In.Name});")),
+                values: passThroughVars.Select(p => @$"FB.Out(""{p.Out.Name}"").Write({p.In.Name});")),
             runtime: ERuntime.Javascript,
             imports: null, assemblies: null, types: null);
         bPassThrough.Functions = new[] { fRun };

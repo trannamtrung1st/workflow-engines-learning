@@ -158,8 +158,8 @@ public static class LoopCFB
             id: Guid.NewGuid().ToString(),
             name: "Trigger",
             content: @$"
-            OUT[""Result""].Write(0.0);
-            var n = IN[""N""].AsInt();
+            FB.Out(""Result"").Write(0.0);
+            var n = FB.In(""N"").AsInt();
             CONSOLE.Log(""Loop: N is"", n);
             if (n > 0) 
                 EVENTS.Publish(""Loop"");
@@ -172,8 +172,8 @@ public static class LoopCFB
             id: Guid.NewGuid().ToString(),
             name: "Loop",
             content: @$"
-            var currentResult = IN[""Result""].AsInt();
-            var n = IN[""N""].AsInt();
+            var currentResult = FB.In(""Result"").AsInt();
+            var n = FB.In(""N"").AsInt();
             if (currentResult < n) 
                 EVENTS.Publish(""Loop"");
             else 
@@ -211,7 +211,7 @@ public static class LoopCFB
                         id: Guid.NewGuid().ToString(),
                         name: "Running to idle condition",
                         content: @$"
-                            var n = IN[""N""].AsInt();
+                            var n = FB.In(""N"").AsInt();
                             return n <= 0;
                         ",
                         runtime: ERuntime.CSharpScript,
@@ -225,8 +225,8 @@ public static class LoopCFB
                         id: Guid.NewGuid().ToString(),
                         name: "Looping to idle condition",
                         content: @$"
-                            var n = IN[""N""].AsInt();
-                            var result = IN[""Result""].AsDouble();
+                            var n = FB.In(""N"").AsInt();
+                            var result = FB.In(""Result"").AsDouble();
                             return result >= n;
                         ",
                         runtime: ERuntime.CSharpScript,

@@ -12,6 +12,7 @@ namespace WELearning.Core.FunctionBlocks;
 public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDisposable
     where TFunctionFramework : IFunctionFramework
 {
+    private readonly IBlockFramework _blockFramework;
     private readonly TFunctionFramework _functionFramework;
     private readonly IEnumerable<ImportModule> _importModules;
 
@@ -23,7 +24,8 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
         IBlockFrameworkFactory blockFrameworkFactory,
         IFunctionFrameworkFactory<TFunctionFramework> functionFrameworkFactory) : base(block, definition, functionRunner, blockFrameworkFactory)
     {
-        _functionFramework = functionFrameworkFactory.Create(this);
+        _blockFramework = _blockFrameworkFactory.Create(this);
+        _functionFramework = functionFrameworkFactory.Create(_blockFramework);
         CurrentState = Definition.ExecutionControlChart?.InitialState;
         _importModules = PrepareModules(importBlocksRequest);
     }
@@ -98,10 +100,9 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
     {
         optimizationScopeId ??= Guid.NewGuid().ToString();
         var outputEvents = new HashSet<string>();
-        var blockFramework = _blockFrameworkFactory.Create(this);
-        var publisher = blockFramework.CreateEventPublisher(outputEvents);
-        var (inputs, outputs) = PrepareArguments(blockFramework, reservedInputs);
-        var globalObject = new BlockGlobalObject<TFunctionFramework>(_functionFramework, blockFramework, publisher, reservedInputs);
+        var publisher = _blockFramework.CreateEventPublisher(outputEvents);
+        var (inputs, outputs) = PrepareArguments(_blockFramework, reservedInputs);
+        var globalObject = new BlockGlobalObject<TFunctionFramework>(_functionFramework, publisher, reservedInputs);
 
         async Task<bool> Evaluate(Function condition)
         {
@@ -126,7 +127,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
             {
                 RunningFunction = actionFunction;
                 var optimizationScope = await _functionRunner.Run(
-                    actionFunction, tracker: CurrentRunRequest.Tracker, blockFramework, globalObject, inputs, outputs,
+                    actionFunction, tracker: CurrentRunRequest.Tracker, _blockFramework, globalObject, inputs, outputs,
                     modules: _importModules, optimizationScopeId, tokens: CurrentRunRequest.Tokens);
                 RunningFunction = null;
                 if (optimizationScope != null)

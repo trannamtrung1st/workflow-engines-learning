@@ -18,10 +18,6 @@ public abstract class BaseCompiledFunction<TFunctionFramework> : IExecutable<obj
     public Task<object> Execute(BlockGlobalObject<TFunctionFramework> global, CancellationToken cancellationToken)
     {
         FB = global.FB;
-        IN = global.IN;
-        OUT = global.OUT;
-        INOUT = global.INOUT;
-        INTERNAL = global.INTERNAL;
         EVENTS = global.EVENTS;
         return Handle(cancellationToken);
     }
@@ -47,19 +43,11 @@ public abstract class BaseCompiledFunction<TReturn, TFunctionFramework> : IExecu
     where TFunctionFramework : IFunctionFramework
 {
     protected TFunctionFramework FB;
-    protected IReadOnlyDictionary<string, IReadBinding> IN;
-    protected IReadOnlyDictionary<string, IWriteBinding> OUT;
-    protected IReadOnlyDictionary<string, IReadWriteBinding> INOUT;
-    protected IReadOnlyDictionary<string, IReadWriteBinding> INTERNAL;
     protected IOutputEventPublisher EVENTS;
 
     public Task<TReturn> Execute(BlockGlobalObject<TFunctionFramework> global, CancellationToken cancellationToken)
     {
         FB = global.FB;
-        IN = global.IN;
-        OUT = global.OUT;
-        INOUT = global.INOUT;
-        INTERNAL = global.INTERNAL;
         EVENTS = global.EVENTS;
         return Handle(cancellationToken);
     }

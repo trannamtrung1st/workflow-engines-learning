@@ -30,7 +30,7 @@ public static class PredefinedBFBs
             EVENTS.Publish('Completed');
             ",
             invalidConditionScript: @$"
-            const x = IN.X; const y = IN.Y;
+            const x = FB.In(""X""); const y = FB.In(""Y"");
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
             ",
             imports: null, assemblies: null
@@ -122,7 +122,7 @@ public static class PredefinedBFBs
             throw new Error('Invalid arguments');
             ",
             invalidConditionScript: @$"
-            const x = IN.X; const y = IN.Y;
+            const x = FB.In(""X""); const y = FB.In(""Y"");
             return !x.ValueSet || !y.ValueSet || !x.IsNumeric || !y.IsNumeric;
             ",
             imports: null, assemblies: null

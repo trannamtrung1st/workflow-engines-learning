@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Framework;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 
@@ -7,12 +6,10 @@ namespace WELearning.ConsoleApp.Testing.Framework;
 
 public class AppFunctionFramework : FunctionFramework
 {
-    private readonly IExecutionControl _control;
     private readonly ILogger<AppFunctionFramework> _logger;
 
-    public AppFunctionFramework(IExecutionControl control, ILogger<AppFunctionFramework> logger) : base(logger)
+    public AppFunctionFramework(IBlockFramework blockFramework, ILogger<AppFunctionFramework> logger) : base(blockFramework, logger)
     {
-        _control = control;
         _logger = logger;
     }
 
@@ -20,5 +17,5 @@ public class AppFunctionFramework : FunctionFramework
     public void DemoException() => throw new Exception("This is a sample .NET code exception!");
 
     private IFrameworkConsole _console;
-    public override IFrameworkConsole GetFrameworkConsole() => _console ??= new AppFrameworkConsole(_logger, _control);
+    public override IFrameworkConsole GetFrameworkConsole() => _console ??= new AppFrameworkConsole(_logger, control: blockFramework.Control);
 }

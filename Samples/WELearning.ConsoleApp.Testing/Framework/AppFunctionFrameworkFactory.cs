@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 
 namespace WELearning.ConsoleApp.Testing.Framework;
@@ -13,5 +12,5 @@ public class AppFunctionFrameworkFactory : IFunctionFrameworkFactory<AppFunction
         _logger = logger;
     }
 
-    public AppFunctionFramework Create(IExecutionControl control) => new(control, _logger);
+    public AppFunctionFramework Create(IBlockFramework blockFramework) => new(blockFramework, _logger);
 }

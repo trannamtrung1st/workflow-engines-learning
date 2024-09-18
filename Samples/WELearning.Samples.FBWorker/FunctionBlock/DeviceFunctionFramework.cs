@@ -1,16 +1,11 @@
-using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Framework;
+using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 
 namespace WELearning.Samples.FBWorker.FunctionBlock;
 
 public class DeviceFunctionFramework : FunctionFramework
 {
-    private readonly IExecutionControl _control;
-    private readonly ILogger<DeviceFunctionFramework> _logger;
-
-    public DeviceFunctionFramework(IExecutionControl control, ILogger<DeviceFunctionFramework> logger) : base(logger)
+    public DeviceFunctionFramework(IBlockFramework blockFramework, ILogger<DeviceFunctionFramework> logger) : base(blockFramework, logger)
     {
-        _logger = logger;
-        _control = control;
     }
 }

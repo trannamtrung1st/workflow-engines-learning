@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Dynamic;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
@@ -8,29 +7,12 @@ namespace WELearning.Core.FunctionBlocks.Framework;
 
 public class BlockFramework : IBlockFramework
 {
-    protected readonly IExecutionControl _control;
-    protected readonly ConcurrentDictionary<string, IReadBinding> _inputBindings;
-    protected readonly ConcurrentDictionary<string, IWriteBinding> _outputBindings;
-    protected readonly ConcurrentDictionary<string, IReadWriteBinding> _inOutBindings;
-    protected readonly ConcurrentDictionary<string, IReadWriteBinding> _internalBindings;
-
     public BlockFramework(IExecutionControl control)
     {
-        _control = control;
-        _inputBindings = new();
-        _outputBindings = new();
-        _inOutBindings = new();
-        _internalBindings = new();
-        _outputEvents = new();
+        Control = control;
     }
 
-    private readonly HashSet<string> _outputEvents;
-    public virtual IEnumerable<string> OutputEvents => _outputEvents;
-
-    public virtual IReadOnlyDictionary<string, IReadBinding> InputBindings => _inputBindings;
-    public virtual IReadOnlyDictionary<string, IWriteBinding> OutputBindings => _outputBindings;
-    public virtual IReadOnlyDictionary<string, IReadWriteBinding> InOutBindings => _inOutBindings;
-    public virtual IReadOnlyDictionary<string, IReadWriteBinding> InternalBindings => _internalBindings;
+    public IExecutionControl Control { get; }
 
     public virtual object GetBindingFor(IValueObject valueObject)
     {
@@ -40,16 +22,16 @@ public class BlockFramework : IBlockFramework
         {
             case EVariableType.Input: return In(name);
             case EVariableType.Output: return Out(name);
-            case EVariableType.InOut:
-                {
-                    var binding = InOut(name);
-                    _inputBindings[name] = binding;
-                    _outputBindings[name] = binding;
-                    return binding;
-                }
+            case EVariableType.InOut: return InOut(name);
             case EVariableType.Internal: return Internal(name);
             default: throw new NotSupportedException($"Variable type {variable.VariableType} not supported!");
         }
+    }
+
+    public virtual object GetBindingFor(string name, EVariableType variableType)
+    {
+        var valueObject = Control.GetValueObject(name, variableType);
+        return GetBindingFor(valueObject);
     }
 
     public virtual void HandleDynamicResult(dynamic result)
@@ -57,9 +39,9 @@ public class BlockFramework : IBlockFramework
         if (result is not ExpandoObject expObj) return;
         foreach (var kvp in expObj)
         {
-            var variable = _control.GetVariable(kvp.Key, Constants.EVariableType.Output)
-                ?? _control.GetVariable(kvp.Key, Constants.EVariableType.InOut)
-                ?? _control.GetVariable(kvp.Key, Constants.EVariableType.Internal);
+            var variable = Control.GetVariable(kvp.Key, Constants.EVariableType.Output)
+                ?? Control.GetVariable(kvp.Key, Constants.EVariableType.InOut)
+                ?? Control.GetVariable(kvp.Key, Constants.EVariableType.Internal);
             IWriteBinding writeBinding = null;
             switch (variable.VariableType)
             {
@@ -71,17 +53,12 @@ public class BlockFramework : IBlockFramework
         }
     }
 
-    protected virtual IReadBinding In(string name)
-        => _inputBindings.GetOrAdd(name, (key) => new ReadBinding(key, valueObject: _control.GetInput(name)));
+    protected virtual IReadBinding In(string name) => new ReadBinding(name, valueObject: Control.GetInput(name));
 
-    protected virtual IWriteBinding Out(string name)
-        => _outputBindings.GetOrAdd(name, (key) => new WriteBinding(key, valueObject: _control.GetOutput(name)));
+    protected virtual IWriteBinding Out(string name) => new WriteBinding(name, valueObject: Control.GetOutput(name));
+    protected virtual IReadWriteBinding InOut(string name) => new ReadWriteBinding(name, valueObject: Control.GetInOut(name));
 
-    protected virtual IReadWriteBinding InOut(string name)
-        => _inOutBindings.GetOrAdd(name, (key) => new ReadWriteBinding(key, valueObject: _control.GetInOut(name)));
-
-    protected virtual IReadWriteBinding Internal(string name)
-        => _internalBindings.GetOrAdd(name, (key) => new InternalBinding(key, valueObject: _control.GetInternalData(name)));
+    protected virtual IReadWriteBinding Internal(string name) => new InternalBinding(name, valueObject: Control.GetInternalData(name));
 
     public IOutputEventPublisher CreateEventPublisher(HashSet<string> outputEvents) => new SimpleEventPublisher(outputEvents);
 
