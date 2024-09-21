@@ -385,11 +385,16 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
             IExecutionControl execControl;
             if (definition is BasicBlockDef basicBlockDef)
             {
-                var importBlocks = basicBlockDef.ImportBlockIds?
-                    .Select(bId => Definition.GetDefinition(bId))
-                    .OfType<BasicBlockDef>().ToArray();
-                var importBlocksRequest = new ImportBlocksRequest(importBlocks, moduleName: basicBlockDef.ModuleName);
-                execControl = CreateBasicControl(blockInstance, basicBlockDef, importBlocksRequest);
+                var importModules = basicBlockDef.ImportModuleRefs?
+                    .Select(mRef =>
+                    {
+                        var importBlocks = mRef.BlockIds?
+                            .Select(bId => Definition.GetDefinition(bId))
+                            .OfType<BasicBlockDef>().ToArray();
+                        var importRequest = new ImportModuleData(mRef.Id, importBlocks, mRef.ModuleName);
+                        return importRequest;
+                    }).ToArray();
+                execControl = CreateBasicControl(blockInstance, basicBlockDef, importModules);
             }
             else if (definition is CompositeBlockDef compositeBlockDef)
                 execControl = CreateCompositeControl(blockInstance, compositeBlockDef);
@@ -400,8 +405,8 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
             return execControl;
         });
 
-    protected virtual IBasicEC CreateBasicControl(BlockInstance blockInstance, BasicBlockDef basicBlockDef, ImportBlocksRequest importBlocksRequest)
-        => new BasicEC<TFunctionFramework>(blockInstance, definition: basicBlockDef, importBlocksRequest, _functionRunner, _blockFrameworkFactory, _functionFrameworkFactory);
+    protected virtual IBasicEC CreateBasicControl(BlockInstance blockInstance, BasicBlockDef basicBlockDef, IEnumerable<ImportModuleData> importModules)
+        => new BasicEC<TFunctionFramework>(blockInstance, definition: basicBlockDef, importModules, _functionRunner, _blockFrameworkFactory, _functionFrameworkFactory);
 
     protected virtual ICompositeEC CreateCompositeControl(BlockInstance blockInstance, CompositeBlockDef compositeBlockDef)
         => new CompositeEC<TFunctionFramework>(blockInstance, definition: compositeBlockDef, _blockRunner, _functionRunner, _blockFrameworkFactory, _functionFrameworkFactory, _taskRunner, _taskLimiter);

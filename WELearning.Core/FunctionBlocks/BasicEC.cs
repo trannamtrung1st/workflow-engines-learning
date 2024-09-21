@@ -19,7 +19,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
     public BasicEC(
         BlockInstance block,
         BasicBlockDef definition,
-        ImportBlocksRequest importBlocksRequest,
+        IEnumerable<ImportModuleData> importModules,
         IFunctionRunner functionRunner,
         IBlockFrameworkFactory blockFrameworkFactory,
         IFunctionFrameworkFactory<TFunctionFramework> functionFrameworkFactory) : base(block, definition, functionRunner, blockFrameworkFactory)
@@ -27,7 +27,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
         _blockFramework = _blockFrameworkFactory.Create(this);
         _functionFramework = functionFrameworkFactory.Create(_blockFramework);
         CurrentState = Definition.ExecutionControlChart?.InitialState;
-        _importModules = PrepareModules(importBlocksRequest);
+        _importModules = importModules?.Any() == true ? PrepareModules(importModules) : null;
     }
 
     public virtual Function RunningFunction { get; protected set; }
@@ -182,13 +182,8 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
             events.Add(ev);
     }
 
-    protected IEnumerable<ImportModule> PrepareModules(ImportBlocksRequest importBlocksRequest)
-    {
-        if (importBlocksRequest?.ImportBlocks == null) return null;
-        var functions = importBlocksRequest.ImportBlocks.SelectMany(b => b.GetModuleFunctions()).ToArray();
-        var module = new ImportModule(id: Definition.Id, moduleName: importBlocksRequest.ModuleName, functions);
-        return new[] { module };
-    }
+    protected IEnumerable<ImportModule> PrepareModules(IEnumerable<ImportModuleData> importModules)
+        => importModules.Select(r => r.ToImportModule()).ToArray();
 
     protected virtual (Dictionary<string, object> Inputs, Dictionary<string, object> Outputs) PrepareArguments(IBlockFramework blockFramework, IReadOnlyDictionary<string, object> reservedInputs)
     {

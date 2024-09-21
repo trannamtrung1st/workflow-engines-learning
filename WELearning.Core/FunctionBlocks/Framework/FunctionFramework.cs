@@ -25,7 +25,7 @@ public class FunctionFramework : IFunctionFramework
     public virtual string VariableName => "FB";
     public virtual Task DelayAsync(int ms) => Task.Delay(ms);
     public virtual void Delay(int ms) => DelayAsync(ms).Wait();
-    public virtual void Terminate(bool graceful = true, string message = null) => throw new BlockTerminatedException(graceful, message);
+    public virtual void Terminate(bool graceful = true, string message = null) => throw new ManuallyTerminatedException(graceful, message);
 
     private IReadOnlyDictionary<string, object> _reservedInputs;
     public virtual IReadOnlyDictionary<string, object> GetReservedInputs() => _reservedInputs ??= new Dictionary<string, object>()

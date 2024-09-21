@@ -41,7 +41,7 @@ public static class SumAttributesCFB
             }}
             AttrSum = Attr1.Value + Attr2.Value;
             ",
-            runtime: ERuntime.Javascript, imports: null, importBlockIds: null, signature: null, exported: false,
+            runtime: ERuntime.Javascript, imports: null, importModuleRefs: null, signature: null, exported: false,
             new Variable("Attr1", EDataType.Reference, EVariableType.Input, objectType: attrType),
             new Variable("Attr2", EDataType.Reference, EVariableType.Input, objectType: attrType),
             new Variable("AttrSum", EDataType.Reference, EVariableType.Output, objectType: attrType)
@@ -242,7 +242,7 @@ public static class SumAttributesCFB
 
 AttrPrevSum = AttrSum.Value;
 AttrSum = Attr1.Value + Attr2.Value;",
-            runtime: ERuntime.Javascript, imports: null, importBlockIds: null, signature: null, exported: false,
+            runtime: ERuntime.Javascript, imports: null, importModuleRefs: null, signature: null, exported: false,
             new Variable("Attr1", EDataType.Reference, EVariableType.Input, objectType: attrType),
             new Variable("Attr2", EDataType.Reference, EVariableType.Input, objectType: attrType),
             new Variable("AttrSum", EDataType.Reference, EVariableType.Output, objectType: attrType),

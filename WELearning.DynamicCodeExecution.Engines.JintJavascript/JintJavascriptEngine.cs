@@ -19,6 +19,8 @@ using WELearning.DynamicCodeExecution.Helpers;
 using WELearning.DynamicCodeExecution.Models;
 using TNT.Boilerplates.Concurrency.Abstracts;
 using Acornima;
+using Jint.Runtime.Interop;
+using System.Diagnostics.CodeAnalysis;
 
 namespace WELearning.DynamicCodeExecution.Engines;
 
@@ -27,7 +29,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
     public const string StatementSourceExternal = "external";
     public const string StatementSourceUser = "user";
     private const string ExportedFunctionName = JsEngineConstants.ExportedFunctionName;
-    private const string WrapFunction = JsEngineConstants.WrapFunction;
+    private const string MainFunction = JsEngineConstants.MainFunction;
     private const int DefaultMaxStatements = 3_000_000;
     private const int DefaultMaxLoopCount = 10_000;
     private const long DefaultCacheSizeLimitInBytes = 30_000_000;
@@ -76,6 +78,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                 cfg.DebuggerStatementHandling(DebuggerStatementHandling.Script);
                 cfg.DebugMode(debugMode: true);
                 cfg.MaxStatements(DefaultMaxStatements); // [NOTE] be careful with imported libraries
+                cfg.AddObjectConverter<ExceptionObjectConverter>();
                 cfg.ExperimentalFeatures = ExperimentalFeature.TaskInterop;
             });
 
@@ -198,14 +201,14 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             catch (PromiseRejectedException ex)
             {
                 throw new JintRuntimeException(
-                    ex, mainFunction: WrapFunction,
+                    ex, mainFunction: MainFunction,
                     currentNodeLocation: engineWrap.CurrentNodeLocation,
                     contentInfo: userContentInfo);
             }
             catch (JavaScriptException ex)
             {
                 throw new JintRuntimeException(
-                    ex, mainFunction: WrapFunction,
+                    ex, mainFunction: MainFunction,
                     currentNodeLocation: engineWrap.CurrentNodeLocation,
                     contentInfo: userContentInfo);
             }
@@ -547,6 +550,8 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         private readonly Dictionary<string, ObjectInstance> _moduleCache;
         private Dictionary<Acornima.Ast.Node, int> _nodesCount;
         private readonly SemaphoreSlim _lock;
+        private int? _mainStackCount;
+
         public EngineWrap(Engine engine, int maxLoopCount)
         {
             _moduleCache = [];
@@ -563,7 +568,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
         public Guid Id { get; }
         public ExecuteCodeRequest CurrentExecuteRequest { get; private set; }
         public UserContentInfo? CurrentContentInfo { get; private set; }
-        public Acornima.Position? CurrentNodePosition { get; private set; }
+        public Position? CurrentNodePosition { get; private set; }
         public (int Start, int End) CurrentNodeLocation { get; private set; }
         public int MaxLoopCount { get; }
         public bool IsMaxLoopCountReached { get; private set; }
@@ -589,9 +594,10 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
             if (e.CurrentNode != null)
             {
                 var range = e.CurrentNode.Range;
-                var isWrapFunction = e.CurrentCallFrame.FunctionName == WrapFunction;
-                if (isWrapFunction)
+
+                if (e.CallStack.Count > 0 && (_mainStackCount == null || e.CallStack.Count == _mainStackCount) && e.CallStack[0].FunctionName == MainFunction)
                 {
+                    _mainStackCount = e.CallStack.Count;
                     CurrentNodeLocation = (range.Start, range.End);
                     CurrentNodePosition = e.CurrentNode.Location.Start;
                 }
@@ -599,7 +605,7 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                 if (CurrentExecuteRequest?.Tracker != null)
                 {
                     var position = e.CurrentNode.Location.Start;
-                    var (Line, Column, StartIndex, EndIndex) = DiagnosticHelper.RecalculatePosition(
+                    var (Line, LineEnd, Column, ColumnEnd, StartIndex, EndIndex) = DiagnosticHelper.RecalculatePosition(
                         lineNumber: position.Line,
                         column: position.Column,
                         location: (range.Start, range.End),
@@ -607,7 +613,9 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                     CurrentExecuteRequest.Tracker.CurrentStatement = new CodeStatement
                     {
                         LineNumber = Line,
+                        LineNumberEnd = LineEnd,
                         Column = Column,
+                        ColumnEnd = ColumnEnd,
                         StartIndex = StartIndex,
                         EndIndex = EndIndex,
                         FunctionName = e.CurrentCallFrame.FunctionName,
@@ -703,6 +711,22 @@ public class JintJavascriptEngine : IRuntimeEngine, IDisposable
                 }
             }
             return false;
+        }
+    }
+
+    class ExceptionObjectConverter : IObjectConverter
+    {
+        public bool TryConvert(Engine engine, object value, [NotNullWhen(true)] out JsValue result)
+        {
+            result = null;
+            if (value is not Exception ex)
+                return false;
+
+            result = JsValue.FromObject(engine, new Dictionary<string, object>
+            {
+                ["message"] = ex.InnerException?.Message ?? ex.Message
+            });
+            return true;
         }
     }
 }

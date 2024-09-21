@@ -466,7 +466,7 @@ static class TestFunctionBlocks
         var dataStore = serviceProvider.GetService<DataStore>();
         const int DelayMs = 5000;
         ICompositeEC CreateCompositeControl(CompositeBlockDef blockDef) => new CompositeEC<AppFunctionFramework>(new(blockDef.Id), blockDef, blockRunner, functionRunner, blockFrameworkFactory, functionFrameworkFactory, taskRunner, taskLimiter);
-        IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFunctionFramework>(block: new(blockDef.Id), blockDef, importBlocksRequest: null, functionRunner, blockFrameworkFactory, functionFrameworkFactory);
+        IExecutionControl CreateBasicControl(BasicBlockDef blockDef) => new BasicEC<AppFunctionFramework>(block: new(blockDef.Id), blockDef, importModules: null, functionRunner, blockFrameworkFactory, functionFrameworkFactory);
 
         await blockRunner.Compile(new(BlockDefinition: PredefinedBFBs.AddJs, Tokens: tokensProvider()), optimizationScopeId: default);
 

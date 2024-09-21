@@ -19,19 +19,19 @@ public static class JavascriptHelper
 
         const string Inputs = JsEngineConstants.InputsArgument;
         const string Outputs = JsEngineConstants.OutputsArgument;
-        const string Wrap = JsEngineConstants.WrapFunction;
-        const string WrapResult = JsEngineConstants.WrapResultVariable;
+        const string Main = JsEngineConstants.MainFunction;
+        const string MainResult = JsEngineConstants.MainResultVariable;
 
         var topContent =
 @$"{topStatements}
 {exportStr}{asyncStr}function {functionName}({Inputs}, {Outputs}) {{
     let {{{argumentsStr}}} = {{...{Inputs}, ...{Outputs}}};
-    {asyncStr}function {Wrap}() {{
+    {asyncStr}function {Main}() {{
 ";
 
         var bottomContent =
 @$" }}
-    const {WrapResult} = {(async ? "await " : null)}{Wrap}();
+    const {MainResult} = {(async ? "await " : null)}{Main}();
     {returnStatements}
 }}
 {bottomStatements}";
@@ -46,15 +46,15 @@ public static class JavascriptHelper
         var lines = finalContent.BreakLines();
         var topLength = topContent.Length;
         var scriptLength = script.Length;
-        return (finalContent, lines, topLineCount + 1, topLineCount + scriptLineCount, topLength + 1, topLength + scriptLength);
+        return (finalContent, lines, topLineCount + 1, topLineCount + scriptLineCount, topLength + 1, topLength + 1 + scriptLength);
     }
 
     private static string GetPreprocessOutputContent(IEnumerable<string> flattenOutputs)
     {
-        const string WrapResult = JsEngineConstants.WrapResultVariable;
+        const string MainResult = JsEngineConstants.MainResultVariable;
         const string Out = JsEngineConstants.EngineOutVariable;
         var flattenOutputsStr = flattenOutputs?.Any() == true ?
-@$"if ({WrapResult} !== undefined) return {WrapResult};
+@$"if ({MainResult} !== undefined) return {MainResult};
 const {Out} = {{{string.Join(',', flattenOutputs)}}};
 Object.keys({Out}).forEach(key => {{
     if ({Out}[key] === undefined) {{

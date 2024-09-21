@@ -31,7 +31,11 @@ public static class ObjectAndFunctionsCFB
 const randomResult = Random(null, {{ Result: null }});
 Result = addResult.Result + randomResult.Result;",
             runtime: ERuntime.Javascript, imports: new[] { $"import {{ Add2Numbers, Random }} from '{FunctionDefaults.ModuleFunctions}'" },
-            importBlockIds: new[] { bAddDef.Id, bRandomDef.Id }, signature: null, exported: false,
+            importModuleRefs: [new(
+                Id: Guid.NewGuid().ToString(),
+                ModuleName: FunctionDefaults.ModuleFunctions,
+                BlockIds: [bAddDef.Id, bRandomDef.Id])],
+            signature: null, exported: false,
             new Variable("Input", dataType: EDataType.Object, variableType: EVariableType.Input),
             new Variable("Result", dataType: EDataType.Numeric, variableType: EVariableType.Output)
         );

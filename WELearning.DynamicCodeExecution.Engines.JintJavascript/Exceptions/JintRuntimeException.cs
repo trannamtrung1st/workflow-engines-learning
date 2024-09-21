@@ -14,11 +14,8 @@ public class JintRuntimeException : RuntimeException
         JavaScriptException jsException, string mainFunction,
         (int Start, int End) currentNodeLocation, UserContentInfo contentInfo)
     {
-        var error = jsException.Error;
-        var stack = error.Get("stack").AsString();
-        var description = error.Get("message").AsString();
-        if (string.IsNullOrEmpty(description))
-            description = error.ToString();
+        var stack = jsException.JavaScriptStackTrace;
+        var description = jsException.Message;
         SetUserExceptionDetails(
             underlyingException: jsException,
             source: SourceUser,
@@ -53,13 +50,9 @@ public class JintRuntimeException : RuntimeException
         _source = isUserSource ? SourceUser : SourceSystem;
         var (currentLine, currentColumn) = currentNodePosition;
         UnderlyingException = systemException;
-        var (Line, Column, StartIndex, EndIndex) = RecalculatePosition(
+        (LineNumber, LineNumberEnd, Column, ColumnEnd, StartIndex, EndIndex) = RecalculatePosition(
             currentLine, exColumn: currentColumn + 1, // [NOTE] Jint wrong calculation
             currentNodeLocation, contentInfo);
-        LineNumber = Line;
-        this.Column = Column;
-        this.StartIndex = StartIndex;
-        this.EndIndex = EndIndex;
         Description = systemException.Message;
         RawMessage = systemException.Message;
     }
@@ -72,16 +65,15 @@ public class JintRuntimeException : RuntimeException
     {
         _source = source;
         UnderlyingException = underlyingException;
-        var (Line, Column) = GetStackRootExceptionPosition(mainFunction, stack);
-        (Line, Column, this.StartIndex, this.EndIndex) = RecalculatePosition(
-            Line, Column, exLocation: currentNodeLocation, contentInfo);
-        LineNumber = Line;
-        this.Column = Column;
+        (LineNumber, Column) = GetStackRootExceptionPosition(mainFunction, stack);
+        (LineNumber, LineNumberEnd, Column, ColumnEnd, this.StartIndex, this.EndIndex) = RecalculatePosition(
+            LineNumber, Column, exLocation: currentNodeLocation, contentInfo);
         Description = description;
         RawMessage = underlyingException.Message;
     }
     private static (int Line, int Column) GetStackRootExceptionPosition(string mainFunction, string stack)
     {
+        if (stack == null) return (-1, -1);
         Regex exPositionRegex = new(@$"at {mainFunction}.+?([\d]+:[\d]+)", RegexOptions.RightToLeft);
         var match = exPositionRegex.Match(stack);
         var exPositionStr = match.Groups[1].Value;

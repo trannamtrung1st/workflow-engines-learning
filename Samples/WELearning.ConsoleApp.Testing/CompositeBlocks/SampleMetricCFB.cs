@@ -35,7 +35,11 @@ public static class SampleMetricCFB
             Snapshot = Value;
             Previous = prevSeries.Value;",
             runtime: ERuntime.Javascript, imports: new[] { $"import {{ LastSeriesBefore }} from '{FunctionDefaults.ModuleFunctions}'" },
-            importBlockIds: new[] { bLastSeriesBeforeDef.Id }, signature: null, exported: false,
+            importModuleRefs: [new(
+                Id: Guid.NewGuid().ToString(),
+                ModuleName: FunctionDefaults.ModuleFunctions,
+                BlockIds: [bLastSeriesBeforeDef.Id])],
+            signature: null, exported: false,
             new Variable("Metric", EDataType.Reference, EVariableType.Input, objectType: metricType),
             new Variable("Snapshot", EDataType.Double, EVariableType.Output),
             new Variable("Previous", EDataType.Double, EVariableType.Output)

@@ -17,7 +17,7 @@ public static class LastSeriesBeforeBFB
                 throw new Error('BeforeTime cannot be null!');
             const series = await Attribute.LastSeriesBefore(BeforeTime);
             Result = series;
-            ", runtime: ERuntime.Javascript, imports: null, importBlockIds: null,
+            ", runtime: ERuntime.Javascript, imports: null, importModuleRefs: null,
             signature: "LastSeriesBefore", exported: true,
             new Variable("Attribute", EDataType.Reference, EVariableType.Input, objectType: BindingNames.AttributeBinding),
             new Variable("BeforeTime", EDataType.DateTime, EVariableType.Input),

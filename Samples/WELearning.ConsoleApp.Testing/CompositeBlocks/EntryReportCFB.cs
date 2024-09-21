@@ -35,7 +35,11 @@ public static class EntryReportCFB
             const prependResult = PrependEntry({{ InputEntry: Entry, OtherName: OtherEntryName }}, {{ Result }})
             Result = prependResult.Result",
             runtime: ERuntime.Javascript, imports: new[] { $"import {{ PrependEntry }} from '{FunctionDefaults.ModuleFunctions}'" },
-            importBlockIds: new[] { bPrependDef.Id }, signature: null, exported: false,
+            importModuleRefs: [new(
+                Id: Guid.NewGuid().ToString(),
+                ModuleName: FunctionDefaults.ModuleFunctions,
+                BlockIds: [bPrependDef.Id])],
+            signature: null, exported: false,
             new Variable("Entry", EDataType.Reference, EVariableType.Input, objectType: entryType),
             new Variable("OtherEntryName", EDataType.String, EVariableType.Input),
             new Variable("Result", EDataType.String, EVariableType.Output)

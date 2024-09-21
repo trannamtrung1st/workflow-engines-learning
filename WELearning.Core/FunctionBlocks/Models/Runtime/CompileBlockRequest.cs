@@ -5,5 +5,5 @@ using WELearning.DynamicCodeExecution.Models;
 namespace WELearning.Core.FunctionBlocks.Models.Runtime;
 
 public record CompileBlockRequest(
-    BasicBlockDef BlockDefinition, RunTokens Tokens,
+    BasicBlockDef BlockDefinition, RunTokens Tokens, IEnumerable<ImportModule> ImportModules = null,
     IDictionary<string, IOptimizationScope> OptimizationScopes = null);

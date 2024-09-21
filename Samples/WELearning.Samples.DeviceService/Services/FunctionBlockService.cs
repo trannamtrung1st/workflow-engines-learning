@@ -21,8 +21,8 @@ public class FunctionBlockService : IFunctionBlockService
         var usingBfbDefs = await _dataStore.GetBfbDefinitions(usingBfbDefIds);
 
         var importBfbDefIds = usingBfbDefs
-            .Where(b => b.ImportBlockIds?.Any() == true)
-            .SelectMany(b => b.ImportBlockIds);
+            .Where(b => b.ImportModuleRefs?.Any() == true)
+            .SelectMany(b => b.ImportModuleRefs.SelectMany(m => m.BlockIds));
         var importBfbDefs = await _dataStore.GetBfbDefinitions(importBfbDefIds);
 
         return new BlockDefinitions

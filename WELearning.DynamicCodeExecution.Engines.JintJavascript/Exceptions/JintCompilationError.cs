@@ -10,13 +10,9 @@ public class JintCompilationError : CompilationError
     {
         _parserException = parserException;
         UnderlyingException = parserException;
-        (int Line, int Column, int StartIndex, int EndIndex) = RecalculatePosition(
+        (LineNumber, LineNumberEnd, Column, ColumnEnd, StartIndex, EndIndex) = RecalculatePosition(
             parserException.LineNumber, parserException.Column,
             exLocation: (parserException.Error.Index, -1), contentInfo);
-        LineNumber = Line;
-        this.Column = Column;
-        this.StartIndex = StartIndex;
-        this.EndIndex = EndIndex;
     }
 
     public override string Description => _parserException.Description;

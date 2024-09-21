@@ -25,7 +25,7 @@ public class BlockRunner : IBlockRunner
         {
             foreach (var function in bDef.Functions)
             {
-                var scope = await _functionRunner.Compile(function, inputs, outputs, modules: null, optimizationScopeId, tokens: request.Tokens);
+                var scope = await _functionRunner.Compile(function, inputs, outputs, modules: request.ImportModules, optimizationScopeId, tokens: request.Tokens);
                 if (scope != null)
                     optimizationScopes[scope.Id] = scope;
             }

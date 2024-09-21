@@ -114,12 +114,12 @@ public static class BlockHelper
     public static BasicBlockDef CreateBlockSimple(
         string id, string name, string content, ERuntime runtime = ERuntime.Javascript,
         IEnumerable<string> imports = null,
-        IEnumerable<string> importBlockIds = null,
+        IEnumerable<ImportModuleRef> importModuleRefs = null,
         string signature = null, bool exported = false,
         params Variable[] variables)
     {
         var bSimple = new BasicBlockDef(id: id, name: name);
-        bSimple.ImportBlockIds = importBlockIds;
+        bSimple.ImportModuleRefs = importModuleRefs;
         bSimple.Variables = variables;
         var inVars = variables.Where(v => v.CanInput()).Select(v => v.Name);
         var outVars = variables.Where(v => v.CanOutput()).Select(v => v.Name);

@@ -36,6 +36,7 @@ public class Function
     public string Name { get; set; }
     public string Content { get; set; }
     public bool Async { get; set; }
+    public bool HasImport => Imports?.Any() == true;
     public ERuntime Runtime { get; set; }
     public IEnumerable<string> Imports { get; set; }
     public IEnumerable<string> Assemblies { get; set; }

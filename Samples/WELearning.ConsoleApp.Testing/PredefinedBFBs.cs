@@ -753,7 +753,7 @@ let b = 5;"
         return BlockHelper.CreateBlockSimple(id: "PrependEntry", name: "Prepend entry with other",
             content: @"
             console.log(InputEntry.EntryKey);
-            Result = InputEntry.Prepend(OtherName);", runtime: ERuntime.Javascript, imports: null, importBlockIds: null,
+            Result = InputEntry.Prepend(OtherName);", runtime: ERuntime.Javascript, imports: null, importModuleRefs: null,
             signature: "PrependEntry", exported: true,
             new Variable("InputEntry", EDataType.Reference, EVariableType.Input, objectType: nameof(ReadEntryBinding)),
             new Variable("OtherName", EDataType.String, EVariableType.Input),
@@ -768,7 +768,7 @@ let b = 5;"
             const { Metric, Value, Timestamp } = series;
             console.log(Metric, '|', Value, '|', Timestamp);
             Result = series;
-            ", runtime: ERuntime.Javascript, imports: null, importBlockIds: null,
+            ", runtime: ERuntime.Javascript, imports: null, importModuleRefs: null,
             signature: "LastSeriesBefore", exported: true,
             new Variable("InputMetric", EDataType.Reference, EVariableType.Input, objectType: nameof(ReadMetricBinding)),
             new Variable("BeforeTime", EDataType.DateTime, EVariableType.Input),

@@ -12,6 +12,8 @@ public class BasicBlockDef : BaseBlockDef
 
     private bool _hasAsyncFunction;
     public bool HasAsyncFunction => _hasAsyncFunction;
+    private bool _hasImport;
+    public bool HasImport => _hasImport;
 
     private IEnumerable<Function> _functions;
     public IEnumerable<Function> Functions
@@ -19,13 +21,20 @@ public class BasicBlockDef : BaseBlockDef
         get => _functions; set
         {
             _functions = value;
-            _hasAsyncFunction = _functions?.Any(f => f.Async) == true;
+            if (_functions != null)
+            {
+                foreach (var func in _functions)
+                {
+                    if (func.Async)
+                        _hasAsyncFunction = true;
+                    if (func.HasImport)
+                        _hasImport = true;
+                }
+            }
         }
     }
 
-    public IEnumerable<string> ImportBlockIds { get; set; }
-    public string ModuleName { get; set; }
-
+    public IEnumerable<ImportModuleRef> ImportModuleRefs { get; set; }
     private IEnumerable<ModuleFunction> _moduleFunctions;
     public IEnumerable<ModuleFunction> GetModuleFunctions()
     {

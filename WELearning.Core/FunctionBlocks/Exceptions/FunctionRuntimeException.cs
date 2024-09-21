@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using WELearning.Core.FunctionBlocks.Extensions;
 using WELearning.Core.FunctionBlocks.Models.Design;
 using WELearning.DynamicCodeExecution.Exceptions;
 
@@ -14,9 +15,10 @@ public class FunctionRuntimeException : Exception
 
     public RuntimeException Exception { get; }
     public Function Function { get; }
+    public override string Message => Exception.Message;
 
     public void PrintError(string locator = "->", ILogger logger = null)
         => Exception.PrintError(Function.Content, locator, logger);
 
-    public bool IsGracefulTerminated() => Exception.UnderlyingException is BlockTerminatedException eTerminated && eTerminated.Graceful;
+    public bool IsGracefulTerminated() => Exception.IsGracefulTerminated();
 }
