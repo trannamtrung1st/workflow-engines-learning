@@ -22,7 +22,8 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
         IEnumerable<ImportModuleData> importModules,
         IFunctionRunner functionRunner,
         IBlockFrameworkFactory blockFrameworkFactory,
-        IFunctionFrameworkFactory<TFunctionFramework> functionFrameworkFactory) : base(block, definition, functionRunner, blockFrameworkFactory)
+        IFunctionFrameworkFactory<TFunctionFramework> functionFrameworkFactory,
+        bool printErrorLocation = false) : base(block, definition, functionRunner, blockFrameworkFactory, printErrorLocation)
     {
         _blockFramework = _blockFrameworkFactory.Create(this);
         _functionFramework = functionFrameworkFactory.Create(_blockFramework);

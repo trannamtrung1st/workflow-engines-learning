@@ -23,7 +23,8 @@ public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where
         BlockInstance block,
         TDefinition definition,
         IFunctionRunner functionRunner,
-        IBlockFrameworkFactory blockFrameworkFactory)
+        IBlockFrameworkFactory blockFrameworkFactory,
+        bool printErrorLocation = false)
     {
         _functionRunner = functionRunner;
         _blockFrameworkFactory = blockFrameworkFactory;
@@ -32,8 +33,10 @@ public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where
         _mutexLock = new(1, 1);
         Block = block;
         Definition = definition;
+        PrintError = printErrorLocation;
     }
 
+    protected virtual bool PrintError { get; }
     public RunBlockRequest CurrentRunRequest { get; protected set; }
     public BlockInstance Block { get; }
     public TDefinition Definition { get; }
@@ -224,10 +227,7 @@ public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where
 + Function: {2}
 + Description: {3}
 + Location (line, column, index): ({4}, {5}, {6})
-+ Source: {7}
-
-Original content (error located):
------------------";
++ Source: {7}";
         if (ex is FunctionCompilationError error)
         {
             var compErr = error.Error;
@@ -245,7 +245,8 @@ Original content (error located):
                 logger.LogError(message);
             else Console.Error.WriteLine(message);
 
-            error.PrintError(logger: logger);
+            if (PrintError)
+                error.PrintErrorLocation(logger: logger);
         }
         else if (ex is FunctionRuntimeException runtimeEx)
         {
@@ -264,7 +265,8 @@ Original content (error located):
                 logger.LogError(message);
             else Console.Error.WriteLine(message);
 
-            runtimeEx.PrintError(logger: logger);
+            if (PrintError)
+                runtimeEx.PrintErrorLocation(logger: logger);
         }
         else
         {

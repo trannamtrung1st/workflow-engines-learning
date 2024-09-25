@@ -17,8 +17,8 @@ public class FunctionRuntimeException : Exception
     public Function Function { get; }
     public override string Message => Exception.Message;
 
-    public void PrintError(string locator = "->", ILogger logger = null)
-        => Exception.PrintError(Function.Content, locator, logger);
+    public void PrintErrorLocation(string locator = "->", ILogger logger = null)
+        => Exception.PrintErrorLocation(Function.Content, locator, logger);
 
     public bool IsGracefulTerminated() => Exception.IsGracefulTerminated();
 }

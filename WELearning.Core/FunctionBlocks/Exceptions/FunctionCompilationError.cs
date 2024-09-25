@@ -16,6 +16,6 @@ public class FunctionCompilationError : Exception
     public Function Function { get; }
     public override string Message => Error.Message;
 
-    public void PrintError(string locator = "->", ILogger logger = null)
-        => Error.PrintError(Function.Content, locator, logger);
+    public void PrintErrorLocation(string locator = "->", ILogger logger = null)
+        => Error.PrintErrorLocation(Function.Content, locator, logger);
 }

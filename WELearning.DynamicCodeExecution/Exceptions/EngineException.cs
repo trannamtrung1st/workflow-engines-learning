@@ -23,7 +23,7 @@ public abstract class EngineException : Exception
 
     public override string ToString() => UnderlyingException?.ToString() ?? base.ToString();
 
-    public void PrintError(string content, string locator = "->", ILogger logger = null)
+    public void PrintErrorLocation(string content, string locator = "->", ILogger logger = null)
     {
         var startIdx = StartIndex < 0 ? 0 : StartIndex;
         startIdx = startIdx >= content.Length ? content.Length : startIdx;
@@ -34,6 +34,7 @@ public abstract class EngineException : Exception
         var right = content[endIdx..];
         if (logger == null)
         {
+            Console.WriteLine();
             Console.Write(left);
             Console.ForegroundColor = ConsoleColor.Red;
             Console.Write(locator + error);
@@ -43,7 +44,7 @@ public abstract class EngineException : Exception
         }
         else
         {
-            var message = $"{left}{locator}{error}{right}\n";
+            var message = $"\n{left}{locator}{error}{right}\n";
             logger.LogError(message);
         }
     }

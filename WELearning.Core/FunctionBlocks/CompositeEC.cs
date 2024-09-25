@@ -43,7 +43,8 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
         IBlockFrameworkFactory blockFrameworkFactory,
         IFunctionFrameworkFactory<TFunctionFramework> functionFrameworkFactory,
         ISyncAsyncTaskRunner taskRunner,
-        ISyncAsyncTaskLimiter taskLimiter) : base(block, definition, functionRunner, blockFrameworkFactory)
+        ISyncAsyncTaskLimiter taskLimiter,
+        bool printErrorLocation = false) : base(block, definition, functionRunner, blockFrameworkFactory, printErrorLocation)
     {
         _functionFrameworkFactory = functionFrameworkFactory;
         _blockRunner = blockRunner;
