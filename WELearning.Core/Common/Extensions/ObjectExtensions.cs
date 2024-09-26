@@ -44,10 +44,16 @@ public static class ObjectExtensions
     {
         if (raw is DateTime dValue)
             return dValue;
+
         var value = raw?.ToString();
         if (value is null)
             return null;
-        return DateTime.Parse(value, provider: CultureInfo.InvariantCulture);
+
+        var dateTime = DateTime.Parse(value, provider: CultureInfo.InvariantCulture);
+        if (dateTime.Kind == DateTimeKind.Unspecified)
+            dateTime = DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
+
+        return dateTime;
     }
 
     public static bool As(this object raw, EDataType dataType, out object result)
