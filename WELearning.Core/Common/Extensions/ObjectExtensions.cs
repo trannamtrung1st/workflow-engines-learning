@@ -49,7 +49,7 @@ public static class ObjectExtensions
         if (value is null)
             return null;
 
-        var dateTime = DateTime.Parse(value, provider: CultureInfo.InvariantCulture);
+        var dateTime = DateTime.Parse(value, provider: CultureInfo.InvariantCulture, styles: DateTimeStyles.RoundtripKind);
         if (dateTime.Kind == DateTimeKind.Unspecified)
             dateTime = DateTime.SpecifyKind(dateTime, DateTimeKind.Utc);
 
