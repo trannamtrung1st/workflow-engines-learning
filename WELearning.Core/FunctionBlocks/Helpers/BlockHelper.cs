@@ -11,9 +11,15 @@ public static class BlockHelper
 
     public static BasicBlockDef CreateInOutBlock(string id, string name, params Variable[] variables)
     {
+        var bInOut = new BasicBlockDef(id, name);
+        SetupInOutBlock(bInOut, variables);
+        return bInOut;
+    }
+
+    public static void SetupInOutBlock(BasicBlockDef bInOut, params Variable[] variables)
+    {
         if (variables.Any(v => v.VariableType != EVariableType.InOut))
             throw new ArgumentException("Invalid binding type!");
-        var bInOut = new BasicBlockDef(id, name);
         bInOut.Variables = variables;
         var eTrigger = new BlockEvent(isInput: true, name: "Trigger", variableNames: variables.Select(v => v.Name).ToArray());
         var eCompleted = new BlockEvent(isInput: false, name: "Completed", variableNames: variables.Select(v => v.Name).ToArray());
@@ -46,13 +52,17 @@ public static class BlockHelper
             execControl.InitialState = sInit.Name;
             bInOut.ExecutionControlChart = execControl;
         }
-
-        return bInOut;
     }
 
     public static BasicBlockDef CreatePassThroughBlock(params (Variable In, Variable Out)[] passThroughVars)
     {
         var bPassThrough = new BasicBlockDef(id: $"PassThrough-{Guid.NewGuid()}", name: "Pass through block");
+        SetupPassThroughBlock(bPassThrough, passThroughVars);
+        return bPassThrough;
+    }
+
+    public static void SetupPassThroughBlock(BasicBlockDef bPassThrough, params (Variable In, Variable Out)[] passThroughVars)
+    {
         var inVariables = new List<string>();
         var outVariables = new List<string>();
         var allVariables = new List<Variable>();
@@ -107,8 +117,6 @@ public static class BlockHelper
             execControl.InitialState = sInit.Name;
             bPassThrough.ExecutionControlChart = execControl;
         }
-
-        return bPassThrough;
     }
 
     public static BasicBlockDef CreateBlockSimple(
@@ -119,6 +127,17 @@ public static class BlockHelper
         params Variable[] variables)
     {
         var bSimple = new BasicBlockDef(id: id, name: name);
+        SetupBlockSimple(bSimple, content, runtime, imports, importModuleRefs, signature, exported, variables);
+        return bSimple;
+    }
+
+    public static void SetupBlockSimple(
+        BasicBlockDef bSimple, string content, ERuntime runtime = ERuntime.Javascript,
+        IEnumerable<string> imports = null,
+        IEnumerable<ImportModuleRef> importModuleRefs = null,
+        string signature = null, bool exported = false,
+        params Variable[] variables)
+    {
         bSimple.ImportModuleRefs = importModuleRefs;
         bSimple.Variables = variables;
         var inVars = variables.Where(v => v.CanInput()).Select(v => v.Name);
@@ -160,7 +179,5 @@ public static class BlockHelper
             execControl.InitialState = sIdle.Name;
             bSimple.ExecutionControlChart = execControl;
         }
-
-        return bSimple;
     }
 }
