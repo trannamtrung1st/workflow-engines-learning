@@ -6,7 +6,7 @@ public class CompositeBlockDef : BaseBlockDef
 {
     private Dictionary<string, BaseBlockDef> _definitionMap;
 
-    public CompositeBlockDef(string id, string name) : base(id, name)
+    public CompositeBlockDef(string id, string name, Dictionary<string, object> customData = null) : base(id, name, customData)
     {
     }
 
