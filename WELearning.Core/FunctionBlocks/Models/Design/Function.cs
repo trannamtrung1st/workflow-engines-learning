@@ -28,7 +28,7 @@ public class Function
         IsScriptOnly = isScriptOnly;
         Signature = signature;
         Exported = exported;
-        CustomData = customData ?? [];
+        CustomData = customData;
     }
 
     public string Id { get; set; }
@@ -41,7 +41,16 @@ public class Function
     public IEnumerable<string> Imports { get; set; }
     public IEnumerable<string> Assemblies { get; set; }
     public IEnumerable<string> Types { get; set; }
-    public Dictionary<string, object> CustomData { get; }
+
+    private Dictionary<string, object> _customData = [];
+    public Dictionary<string, object> CustomData
+    {
+        get => _customData; set
+        {
+            if (value is not null)
+                _customData = value;
+        }
+    }
 
     private Type[] _extensionTypes;
     private string[] _extensions;

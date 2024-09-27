@@ -4,15 +4,13 @@ public abstract class BaseBlockDef
 {
     public BaseBlockDef()
     {
-        CustomData = [];
     }
 
-    public BaseBlockDef(string id, string name, Dictionary<string, object> customData) : this()
+    public BaseBlockDef(string id, string name, Dictionary<string, object> customData)
     {
         Id = id;
         Name = name;
-        if (customData is not null)
-            CustomData = customData;
+        CustomData = customData;
     }
 
     public string Id { get; set; }
@@ -20,5 +18,13 @@ public abstract class BaseBlockDef
     public string DefaultTriggerEvent { get; set; }
     public IEnumerable<BlockEvent> Events { get; set; }
     public IEnumerable<Variable> Variables { get; set; }
-    public Dictionary<string, object> CustomData { get; }
+    private Dictionary<string, object> _customData = [];
+    public Dictionary<string, object> CustomData
+    {
+        get => _customData; set
+        {
+            if (value is not null)
+                _customData = value;
+        }
+    }
 }
