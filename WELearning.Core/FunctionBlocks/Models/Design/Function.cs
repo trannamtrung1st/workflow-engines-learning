@@ -13,7 +13,7 @@ public class Function
         IEnumerable<string> imports = null, IEnumerable<string> assemblies = null,
         IEnumerable<string> types = null, string[] extensions = null,
         bool? async = null, bool useRawContent = false, bool isScriptOnly = false,
-        string signature = null, bool exported = false, Dictionary<string, object> customData = null)
+        string signature = null, bool exported = false)
     {
         Id = id;
         Name = name;
@@ -28,7 +28,6 @@ public class Function
         IsScriptOnly = isScriptOnly;
         Signature = signature;
         Exported = exported;
-        CustomData = customData ?? [];
     }
 
     public string Id { get; set; }
@@ -41,7 +40,6 @@ public class Function
     public IEnumerable<string> Imports { get; set; }
     public IEnumerable<string> Assemblies { get; set; }
     public IEnumerable<string> Types { get; set; }
-    public Dictionary<string, object> CustomData { get; }
 
     private Type[] _extensionTypes;
     private string[] _extensions;
