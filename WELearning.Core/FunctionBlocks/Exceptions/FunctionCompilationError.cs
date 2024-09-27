@@ -4,7 +4,7 @@ using WELearning.DynamicCodeExecution.Exceptions;
 
 namespace WELearning.Core.FunctionBlocks.Exceptions;
 
-public class FunctionCompilationError : Exception
+public class FunctionCompilationError : BlockException
 {
     public FunctionCompilationError(CompilationError error, Function function)
     {

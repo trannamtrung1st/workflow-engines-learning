@@ -1,10 +1,11 @@
+using System.Collections.Concurrent;
 using WELearning.DynamicCodeExecution.Models;
 
 namespace WELearning.Core.FunctionBlocks.Models.Design;
 
 public class BasicBlockDef : BaseBlockDef
 {
-    public BasicBlockDef(string id, string name, Dictionary<string, object> customData = null) : base(id, name, customData)
+    public BasicBlockDef(string id, string name, ConcurrentDictionary<string, object> customData = null) : base(id, name, customData)
     {
     }
 

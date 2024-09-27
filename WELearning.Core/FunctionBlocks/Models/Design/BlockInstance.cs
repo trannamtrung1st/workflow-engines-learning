@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 namespace WELearning.Core.FunctionBlocks.Models.Design;
 
 public class BlockInstance
@@ -6,7 +8,7 @@ public class BlockInstance
     {
     }
 
-    public BlockInstance(string definitionId, string id = null, string displayName = null, Dictionary<string, object> customData = null) : this()
+    public BlockInstance(string definitionId, string id = null, string displayName = null, ConcurrentDictionary<string, object> customData = null) : this()
     {
         Id = id ?? definitionId;
         DisplayName = displayName ?? Id;
@@ -17,8 +19,8 @@ public class BlockInstance
     public string Id { get; set; }
     public string DisplayName { get; set; }
     public string DefinitionId { get; set; }
-    private Dictionary<string, object> _customData = [];
-    public Dictionary<string, object> CustomData
+    private ConcurrentDictionary<string, object> _customData = [];
+    public ConcurrentDictionary<string, object> CustomData
     {
         get => _customData; set
         {

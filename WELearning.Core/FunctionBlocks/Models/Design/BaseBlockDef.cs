@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 namespace WELearning.Core.FunctionBlocks.Models.Design;
 
 public abstract class BaseBlockDef
@@ -6,7 +8,7 @@ public abstract class BaseBlockDef
     {
     }
 
-    public BaseBlockDef(string id, string name, Dictionary<string, object> customData)
+    public BaseBlockDef(string id, string name, ConcurrentDictionary<string, object> customData)
     {
         Id = id;
         Name = name;
@@ -18,8 +20,8 @@ public abstract class BaseBlockDef
     public string DefaultTriggerEvent { get; set; }
     public IEnumerable<BlockEvent> Events { get; set; }
     public IEnumerable<Variable> Variables { get; set; }
-    private Dictionary<string, object> _customData = [];
-    public Dictionary<string, object> CustomData
+    private ConcurrentDictionary<string, object> _customData = [];
+    public ConcurrentDictionary<string, object> CustomData
     {
         get => _customData; set
         {

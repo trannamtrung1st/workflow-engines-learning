@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using WELearning.Core.FunctionBlocks.Models.Runtime;
 
 namespace WELearning.Core.FunctionBlocks.Models.Design;
@@ -6,7 +7,7 @@ public class CompositeBlockDef : BaseBlockDef
 {
     private Dictionary<string, BaseBlockDef> _definitionMap;
 
-    public CompositeBlockDef(string id, string name, Dictionary<string, object> customData = null) : base(id, name, customData)
+    public CompositeBlockDef(string id, string name, ConcurrentDictionary<string, object> customData = null) : base(id, name, customData)
     {
     }
 

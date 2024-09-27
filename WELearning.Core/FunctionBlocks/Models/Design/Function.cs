@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using WELearning.DynamicCodeExecution.Constants;
 using WELearning.DynamicCodeExecution.Helpers;
 
@@ -13,7 +14,7 @@ public class Function
         IEnumerable<string> imports = null, IEnumerable<string> assemblies = null,
         IEnumerable<string> types = null, string[] extensions = null,
         bool? async = null, bool useRawContent = false, bool isScriptOnly = false,
-        string signature = null, bool exported = false, Dictionary<string, object> customData = null)
+        string signature = null, bool exported = false, ConcurrentDictionary<string, object> customData = null)
     {
         Id = id;
         Name = name;
@@ -42,8 +43,8 @@ public class Function
     public IEnumerable<string> Assemblies { get; set; }
     public IEnumerable<string> Types { get; set; }
 
-    private Dictionary<string, object> _customData = [];
-    public Dictionary<string, object> CustomData
+    private ConcurrentDictionary<string, object> _customData = [];
+    public ConcurrentDictionary<string, object> CustomData
     {
         get => _customData; set
         {

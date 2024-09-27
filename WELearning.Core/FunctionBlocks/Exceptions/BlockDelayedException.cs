@@ -1,5 +1,5 @@
 namespace WELearning.Core.FunctionBlocks.Exceptions;
 
-public sealed class BlockDelayedException : Exception
+public sealed class BlockDelayedException : BlockException
 {
 }

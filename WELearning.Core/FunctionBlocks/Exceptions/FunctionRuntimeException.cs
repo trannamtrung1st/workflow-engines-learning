@@ -5,7 +5,7 @@ using WELearning.DynamicCodeExecution.Exceptions;
 
 namespace WELearning.Core.FunctionBlocks.Exceptions;
 
-public class FunctionRuntimeException : Exception
+public class FunctionRuntimeException : BlockException
 {
     public FunctionRuntimeException(RuntimeException exception, Function function)
     {
