@@ -38,7 +38,7 @@ public static class DiagnosticHelper
             originalLine = lineNumber - lineStart + 1;
             originalColumn = column;
 
-            var tempEnd = location.End;
+            var tempEnd = location.End == -1 ? location.Start : location.End;
             var rangeLineEnd = 1;
             int lineLen;
             while (rangeLineEnd <= lines.Length && tempEnd > (lineLen = lines[rangeLineEnd - 1].Length))
