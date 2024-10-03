@@ -34,20 +34,29 @@ public static class DiagnosticHelper
         else
         {
             startIndex = location.Start - indexStart;
-            endIndex = location.End == -1 ? -1 : location.End - indexStart;
             originalLine = lineNumber - lineStart + 1;
             originalColumn = column;
 
-            var tempEnd = location.End == -1 ? location.Start : location.End;
-            var rangeLineEnd = 1;
-            int lineLen;
-            while (rangeLineEnd <= lines.Length && tempEnd > (lineLen = lines[rangeLineEnd - 1].Length))
+            if (location.End == -1)
             {
-                rangeLineEnd++;
-                tempEnd -= lineLen + 1;
+                endIndex = -1;
+                originalLineEnd = originalLine;
+                originalColumnEnd = originalColumn;
             }
-            originalLineEnd = rangeLineEnd - lineStart + 1;
-            originalColumnEnd = tempEnd + 1;
+            else
+            {
+                endIndex = location.End - indexStart;
+                var tempEnd = location.End;
+                var rangeLineEnd = 1;
+                int lineLen;
+                while (rangeLineEnd <= lines.Length && tempEnd > (lineLen = lines[rangeLineEnd - 1].Length))
+                {
+                    rangeLineEnd++;
+                    tempEnd -= lineLen + 1;
+                }
+                originalLineEnd = rangeLineEnd - lineStart + 1;
+                originalColumnEnd = tempEnd + 1;
+            }
         }
 
         return (originalLine, originalLineEnd, originalColumn, originalColumnEnd, startIndex, endIndex);
