@@ -78,8 +78,8 @@ public static class ObjectExtensions
             EDataType.DateTime => raw.AsDateTime(),
             EDataType.Double => raw.AsDouble(),
             EDataType.Numeric => raw.AsDouble(),
-            EDataType.Object => raw,
             EDataType.String => raw.ToString(),
+            EDataType.Object or EDataType.Reference => raw,
             _ => throw new NotSupportedException($"Data type {dataType} is not supported for this value!"),
         };
     }
