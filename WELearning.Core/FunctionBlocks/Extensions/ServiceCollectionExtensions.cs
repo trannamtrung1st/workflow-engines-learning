@@ -27,6 +27,6 @@ public static partial class ServiceCollectionExtensions
         where TFactory : class, IFunctionFrameworkFactory<TFunctionFramework>
         where TFunctionFramework : IFunctionFramework
     {
-        return services.AddSingleton<IFunctionFrameworkFactory<TFunctionFramework>, TFactory>();
+        return services.AddScoped<IFunctionFrameworkFactory<TFunctionFramework>, TFactory>();
     }
 }
