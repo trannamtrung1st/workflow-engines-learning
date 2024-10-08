@@ -22,6 +22,7 @@ public interface IExecutionControl : IDisposable
 
     Variable GetVariable(string key, EVariableType type);
     IEnumerable<Variable> GetVariables();
+    void AddDynamicVariable(Variable variable);
     IReadOnlyDictionary<string, object> GetReservedInputs();
     IValueObject GetInput(string key);
     IValueObject GetOutput(string key);

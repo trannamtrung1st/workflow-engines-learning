@@ -10,7 +10,7 @@ namespace WELearning.Samples.FBWorker.FunctionBlock;
 public class DeviceBlockFramework : BlockFramework
 {
     private readonly IAssetService _assetService;
-    public DeviceBlockFramework(IExecutionControl control, IAssetService assetService) : base(control)
+    public DeviceBlockFramework(IExecutionControl control, IAssetService assetService, ILogger logger) : base(control, logger)
     {
         _assetService = assetService;
     }

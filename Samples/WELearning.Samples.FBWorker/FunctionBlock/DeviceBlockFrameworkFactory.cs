@@ -8,11 +8,14 @@ namespace WELearning.Samples.FBWorker.FunctionBlock;
 public class DeviceBlockFrameworkFactory : BlockFrameworkFactory
 {
     private readonly IAssetService _assetService;
-    public DeviceBlockFrameworkFactory(IAssetService assetService)
+    private readonly ILogger<IExecutionControl> _logger;
+
+    public DeviceBlockFrameworkFactory(IAssetService assetService, ILogger<IExecutionControl> logger) : base(logger)
     {
         _assetService = assetService;
+        _logger = logger;
     }
 
     public override IBlockFramework Create(IExecutionControl control)
-        => new DeviceBlockFramework(control, _assetService);
+        => new DeviceBlockFramework(control, _assetService, _logger);
 }
