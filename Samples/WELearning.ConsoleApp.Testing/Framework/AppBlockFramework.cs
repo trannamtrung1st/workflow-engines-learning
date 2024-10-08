@@ -1,17 +1,22 @@
+using Microsoft.Extensions.Logging;
 using WELearning.ConsoleApp.Testing.Framework.Bindings;
 using WELearning.ConsoleApp.Testing.ValueObjects;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.FunctionBlocks.Framework;
+using WELearning.Core.FunctionBlocks.Framework.Abstracts;
 
 namespace WELearning.ConsoleApp.Testing.Framework;
 
 public class AppBlockFramework : BlockFramework
 {
     private readonly DataStore _dataStore;
-    public AppBlockFramework(IExecutionControl control, DataStore dataStore) : base(control)
+    private readonly ILogger _logger;
+
+    public AppBlockFramework(IExecutionControl control, DataStore dataStore, ILogger logger) : base(control, logger)
     {
         _dataStore = dataStore;
+        _logger = logger;
     }
 
     public override object GetBindingFor(IValueObject valueObject)
@@ -36,4 +41,7 @@ public class AppBlockFramework : BlockFramework
         }
         return base.GetBindingFor(valueObject);
     }
+
+    private IFrameworkConsole _console;
+    public override IFrameworkConsole GetFrameworkConsole() => _console ??= new AppFrameworkConsole(_logger, control: Control);
 }

@@ -41,6 +41,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
     }
     BFBExecutionResult IBasicEC.Result => _result;
     public IFunctionFramework FunctionFramework => _functionFramework;
+    public IBlockFramework BlockFramework => _blockFramework;
 
     protected virtual async Task<BlockStateTransition> FindTransition(string triggerEvent, Func<Function, Task<bool>> Evaluate)
     {
@@ -103,7 +104,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
         var outputEvents = new HashSet<string>();
         var publisher = _blockFramework.CreateEventPublisher(outputEvents);
         var (inputs, outputs) = PrepareArguments(_blockFramework, reservedInputs);
-        var globalObject = new BlockGlobalObject<TFunctionFramework>(_functionFramework, publisher, reservedInputs);
+        var globalObject = new BlockGlobalObject<TFunctionFramework>(_blockFramework, _functionFramework, publisher, reservedInputs);
 
         async Task<bool> Evaluate(Function condition)
         {
@@ -190,7 +191,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
     {
         var inputs = new Dictionary<string, object>();
         var outputs = new Dictionary<string, object>();
-        var variables = Definition.Variables;
+        var variables = GetVariables();
 
         foreach (var variable in variables)
         {
@@ -209,7 +210,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
         }
 
         reservedInputs?.AssignTo(inputs);
-        _functionFramework.GetReservedInputs()?.AssignTo(inputs);
+        _blockFramework.GetReservedInputs()?.AssignTo(inputs);
         return (inputs, outputs);
     }
 }

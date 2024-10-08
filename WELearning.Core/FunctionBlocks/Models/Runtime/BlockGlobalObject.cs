@@ -10,13 +10,14 @@ public class BlockGlobalObject<TFunctionFramework> : IArguments where TFunctionF
     private readonly Dictionary<string, object> _arguments;
 
     public BlockGlobalObject(
-        TFunctionFramework framework,
+        IBlockFramework blockFramework,
+        TFunctionFramework functionFramework,
         IOutputEventPublisher publisher,
         IReadOnlyDictionary<string, object> reservedInputs)
     {
-        FB = framework;
+        FB = functionFramework;
         EVENTS = publisher;
-        CONSOLE = framework.GetFrameworkConsole();
+        CONSOLE = blockFramework.GetFrameworkConsole();
 
         _arguments = new()
         {
@@ -25,7 +26,7 @@ public class BlockGlobalObject<TFunctionFramework> : IArguments where TFunctionF
         };
 
         reservedInputs?.AssignTo(_arguments);
-        framework.GetReservedInputs()?.AssignTo(_arguments);
+        blockFramework.GetReservedInputs()?.AssignTo(_arguments);
     }
 
     public TFunctionFramework FB { get; }

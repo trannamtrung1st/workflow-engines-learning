@@ -249,7 +249,7 @@ public class CompositeEC<TFunctionFramework> : BaseEC<CompositeBlockDef>, ICompo
                 if (blockExecControl is IBasicEC basicEC)
                 {
                     arguments[basicEC.FunctionFramework.VariableName] = basicEC.FunctionFramework;
-                    basicEC.FunctionFramework.GetReservedInputs()?.AssignTo(arguments);
+                    basicEC.BlockFramework.GetReservedInputs()?.AssignTo(arguments);
                 }
                 reservedInputs?.AssignTo(arguments);
                 return arguments;

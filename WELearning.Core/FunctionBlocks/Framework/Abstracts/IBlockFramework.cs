@@ -8,6 +8,8 @@ public interface IBlockFramework
 {
     IExecutionControl Control { get; }
 
+    IReadOnlyDictionary<string, object> GetReservedInputs();
+    IFrameworkConsole GetFrameworkConsole();
     object GetBindingFor(IValueObject valueObject);
     object GetBindingFor(string name, EVariableType eVariableType);
     void HandleDynamicResult(dynamic result, Function function);

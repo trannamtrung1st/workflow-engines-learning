@@ -14,6 +14,7 @@ public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where
 {
     private readonly object _handleFailedLock = new();
     private readonly ManualResetEventSlim _idleWait;
+    private readonly List<Variable> _variables;
     protected readonly ConcurrentDictionary<Variable, IValueObject> _valueMap;
     protected readonly SemaphoreSlim _mutexLock;
     protected readonly IFunctionRunner _functionRunner;
@@ -31,6 +32,7 @@ public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where
         _valueMap = new();
         _idleWait = new(initialState: true);
         _mutexLock = new(1, 1);
+        _variables = new(definition.Variables);
         Block = block;
         Definition = definition;
         PrintError = printErrorLocation;
@@ -86,7 +88,7 @@ public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where
     public virtual Variable GetVariable(string key, EVariableType type)
     {
         var isInOrOut = type == EVariableType.Input || type == EVariableType.Output || type == EVariableType.InOut;
-        var variable = Definition.Variables.FirstOrDefault(v => v.Name == key
+        var variable = GetVariables().FirstOrDefault(v => v.Name == key
             && (
                 v.VariableType == type
                 || (v.VariableType == EVariableType.InOut && isInOrOut)
@@ -94,7 +96,15 @@ public abstract class BaseEC<TDefinition> : IExecutionControl, IDisposable where
         return variable;
     }
 
-    public virtual IEnumerable<Variable> GetVariables() => Definition.Variables;
+    public virtual IEnumerable<Variable> GetVariables() => _variables;
+
+    public virtual void AddDynamicVariable(Variable variable)
+    {
+        lock (_variables)
+        {
+            _variables.Add(variable);
+        }
+    }
 
     protected virtual void SetIdle()
     {

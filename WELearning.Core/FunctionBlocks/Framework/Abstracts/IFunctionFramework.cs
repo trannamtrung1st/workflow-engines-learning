@@ -6,8 +6,6 @@ public interface IFunctionFramework
 {
     string VariableName { get; }
 
-    IReadOnlyDictionary<string, object> GetReservedInputs();
-    IFrameworkConsole GetFrameworkConsole();
     IReadBinding In(string name);
     IWriteBinding Out(string name);
     IReadWriteBinding InOut(string name);

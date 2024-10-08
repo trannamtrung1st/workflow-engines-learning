@@ -10,5 +10,6 @@ public interface IBasicEC : IExecutionControl
     BasicBlockDef Definition { get; }
     string CurrentState { get; }
     new BFBExecutionResult Result { get; }
+    IBlockFramework BlockFramework { get; }
     IFunctionFramework FunctionFramework { get; }
 }

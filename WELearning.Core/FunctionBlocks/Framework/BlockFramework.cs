@@ -1,4 +1,5 @@
 using System.Dynamic;
+using Microsoft.Extensions.Logging;
 using WELearning.Core.FunctionBlocks.Abstracts;
 using WELearning.Core.FunctionBlocks.Constants;
 using WELearning.Core.FunctionBlocks.Framework.Abstracts;
@@ -6,14 +7,23 @@ using WELearning.Core.FunctionBlocks.Models.Design;
 
 namespace WELearning.Core.FunctionBlocks.Framework;
 
-public class BlockFramework : IBlockFramework
+public class BlockFramework(IExecutionControl control, ILogger logger) : IBlockFramework
 {
-    public BlockFramework(IExecutionControl control)
+    public static class ReservedInputs
     {
-        Control = control;
+        public const string Console = "console";
     }
 
-    public IExecutionControl Control { get; }
+    public IExecutionControl Control { get; } = control;
+
+    private IFrameworkConsole _console;
+    public virtual IFrameworkConsole GetFrameworkConsole() => _console ??= new FrameworkConsole(logger);
+
+    private IReadOnlyDictionary<string, object> _reservedInputs;
+    public virtual IReadOnlyDictionary<string, object> GetReservedInputs() => _reservedInputs ??= new Dictionary<string, object>()
+    {
+        [ReservedInputs.Console] = GetFrameworkConsole()
+    };
 
     public virtual object GetBindingFor(IValueObject valueObject)
     {
