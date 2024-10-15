@@ -13,6 +13,7 @@ public class RawValueObject : IValueObject, IDisposable
         _valueSet = new ManualResetEventSlim();
         Variable = variable;
         ValueChanged = false;
+        _value = variable.DefaultValue;
     }
 
     public RawValueObject(Variable variable, object value) : this(variable)
