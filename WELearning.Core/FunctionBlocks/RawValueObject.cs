@@ -13,7 +13,9 @@ public class RawValueObject : IValueObject, IDisposable
         _valueSet = new ManualResetEventSlim();
         Variable = variable;
         ValueChanged = false;
-        _value = TryCast(variable.DefaultValue);
+
+        if (Variable.CanInput() && variable.DefaultValue is not null)
+            Value = TryCast(variable.DefaultValue);
     }
 
     public RawValueObject(Variable variable, object value) : this(variable)
