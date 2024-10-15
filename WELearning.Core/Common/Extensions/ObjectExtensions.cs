@@ -10,7 +10,7 @@ public static class ObjectExtensions
         if (raw is double dValue)
             return dValue;
         var value = raw?.ToString();
-        if (value is null)
+        if (string.IsNullOrEmpty(value))
             return null;
         return double.Parse(value);
     }
@@ -20,7 +20,7 @@ public static class ObjectExtensions
         if (raw is int iValue)
             return iValue;
         var value = raw?.ToString();
-        if (value is null)
+        if (string.IsNullOrEmpty(value))
             return null;
         return int.Parse(value);
     }
@@ -30,7 +30,7 @@ public static class ObjectExtensions
         if (raw is bool bValue)
             return bValue;
         var value = raw?.ToString();
-        if (value is null)
+        if (string.IsNullOrEmpty(value))
             return null;
         return value switch
         {
@@ -46,7 +46,7 @@ public static class ObjectExtensions
             return dValue;
 
         var value = raw?.ToString();
-        if (value is null)
+        if (string.IsNullOrEmpty(value))
             return null;
 
         var dateTime = DateTime.Parse(value, provider: CultureInfo.InvariantCulture, styles: DateTimeStyles.RoundtripKind);
