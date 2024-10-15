@@ -69,5 +69,5 @@ public class InternalBinding : BlockBinding, IReadWriteBinding
     public virtual bool IsNumeric => _readBinding.IsNumeric;
     public virtual double AsDouble() => _readBinding.AsDouble();
     public virtual int AsInt() => _readBinding.AsInt();
-    public virtual void Write(object value) => _valueObject.TrySetAndConvert(value: BindingHelper.GetValue(value));
+    public virtual void Write(object value) => _valueObject.TryCastAndSet(value: BindingHelper.GetValue(value));
 }

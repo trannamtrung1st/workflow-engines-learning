@@ -13,12 +13,12 @@ public class RawValueObject : IValueObject, IDisposable
         _valueSet = new ManualResetEventSlim();
         Variable = variable;
         ValueChanged = false;
-        _value = variable.DefaultValue;
+        _value = TryCast(variable.DefaultValue);
     }
 
     public RawValueObject(Variable variable, object value) : this(variable)
     {
-        TrySetAndConvert(value);
+        TryCastAndSet(value);
     }
 
     public event EventHandler ValueSetEvent;
@@ -54,8 +54,7 @@ public class RawValueObject : IValueObject, IDisposable
     public virtual void TryCommit()
     {
         if (_tempValueSet)
-            TrySetAndConvert(TempValue);
-        else TrySetDefaultValue();
+            TryCastAndSet(TempValue);
     }
 
     protected virtual void SetCoreValue(object value) => _value = value;
@@ -78,10 +77,12 @@ public class RawValueObject : IValueObject, IDisposable
 
     public virtual bool IsRaw => true;
 
-    public virtual void TrySetAndConvert(object value)
+    public virtual void TryCastAndSet(object value) => Value = TryCast(value);
+
+    public virtual object TryCast(object value)
     {
-        try { Value = value.As(Variable.DataType); }
-        catch { Value = value; }
+        try { return value.As(Variable.DataType); }
+        catch { return value; }
     }
 
     public override string ToString() => Value?.ToString();
@@ -113,10 +114,4 @@ public class RawValueObject : IValueObject, IDisposable
     }
 
     public virtual object GetProperty(string name) => throw new NotSupportedException($"Property {name} is not supported!");
-
-    public virtual void TrySetDefaultValue()
-    {
-        if (!ValueSet && Variable.DefaultValue != null)
-            TrySetAndConvert(Variable.DefaultValue);
-    }
 }
