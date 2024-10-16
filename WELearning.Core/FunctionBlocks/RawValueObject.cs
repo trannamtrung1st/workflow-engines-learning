@@ -14,7 +14,7 @@ public class RawValueObject : IValueObject, IDisposable
         Variable = variable;
         ValueChanged = false;
 
-        if (Variable.CanInput() && variable.DefaultValue is not null)
+        if (variable.DefaultValue is not null && Variable.CanInput())
             Value = TryCast(variable.DefaultValue);
     }
 
