@@ -84,6 +84,7 @@ public class BasicEC<TFunctionFramework> : BaseEC<BasicBlockDef>, IBasicEC, IDis
         }
         catch (Exception ex)
         {
+            CurrentState = Definition.ExecutionControlChart?.InitialState;
             HandleException(ex, this);
             throw;
         }
